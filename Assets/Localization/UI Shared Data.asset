@@ -1,0 +1,200 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
+  m_Name: UI Shared Data
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.SharedTableData
+  m_TableCollectionName: UI
+  m_TableCollectionNameGuidString: 2cead9e8621407a41b3be262d75a7f8b
+  m_Entries:
+  - m_Id: 1543483392
+    m_Key: title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1598009344
+    m_Key: subtitle
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203648
+    m_Key: start
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203649
+    m_Key: daily
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203650
+    m_Key: collection
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203651
+    m_Key: settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203652
+    m_Key: tutorial_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203653
+    m_Key: tutorial_body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203654
+    m_Key: begin
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203655
+    m_Key: repair
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203656
+    m_Key: storage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203657
+    m_Key: vault
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203658
+    m_Key: hold
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203659
+    m_Key: rules
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203660
+    m_Key: fallback
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203661
+    m_Key: correct
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203662
+    m_Key: wrong
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203663
+    m_Key: complete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203664
+    m_Key: failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203665
+    m_Key: continue
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203666
+    m_Key: revive
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203667
+    m_Key: double
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203668
+    m_Key: ad_unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203669
+    m_Key: coins
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203670
+    m_Key: score
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203671
+    m_Key: back
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203672
+    m_Key: language
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203673
+    m_Key: privacy
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203674
+    m_Key: analytics_on
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203675
+    m_Key: analytics_off
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203676
+    m_Key: crash_on
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203677
+    m_Key: crash_off
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203678
+    m_Key: casebook_empty
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203679
+    m_Key: cosmetics
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203680
+    m_Key: owned
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203681
+    m_Key: insufficient
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203682
+    m_Key: unlock
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203683
+    m_Key: trait_cursed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203684
+    m_Key: trait_fragile
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203685
+    m_Key: trait_alive
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203686
+    m_Key: trait_temporal
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203687
+    m_Key: trait_wet
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1602203688
+    m_Key: trait_metallic
+    m_Metadata:
+      m_Items: []
+  m_Metadata:
+    m_Items: []
+  m_KeyGenerator:
+    rid: 4407197107155369984
+  references:
+    version: 2
+    RefIds:
+    - rid: 4407197107155369984
+      type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
+      data:
+        m_CustomEpoch: 1787211848473

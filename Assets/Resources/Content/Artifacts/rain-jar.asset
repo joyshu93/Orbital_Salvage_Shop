@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 271a2c80e4fb5ca4e9cccaeabfbf4599, type: 3}
+  m_Name: rain-jar
+  m_EditorClassIdentifier: CurioClerk.Runtime::CurioClerk.Content.ArtifactDefinition
+  id: rain-jar
+  symbol: J
+  traits: 24
+  nameEnglish: Jar of Tuesday Rain
+  nameKorean: "\uD654\uC694\uC77C \uBE57\uBB3C\uBCD1"
+  descriptionEnglish: The rain inside insists it is still Tuesday.
+  descriptionKorean: "\uBCD1 \uC18D\uC758 \uBE44\uB294 \uC544\uC9C1 \uD654\uC694\uC77C\uC774\uB77C\uACE0
+    \uC6B0\uAE34\uB2E4."

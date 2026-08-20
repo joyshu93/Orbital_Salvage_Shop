@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 271a2c80e4fb5ca4e9cccaeabfbf4599, type: 3}
+  m_Name: murmur-box
+  m_EditorClassIdentifier: CurioClerk.Runtime::CurioClerk.Content.ArtifactDefinition
+  id: murmur-box
+  symbol: X
+  traits: 37
+  nameEnglish: Murmur Box
+  nameKorean: "\uC6C5\uC5BC\uAC70\uB9BC \uC0C1\uC790"
+  descriptionEnglish: Compliments are accepted through the keyhole.
+  descriptionKorean: "\uC5F4\uC1E0\uAD6C\uBA4D\uC73C\uB85C \uCE6D\uCC2C\uC744 \uBC1B\uB294\uB2E4."

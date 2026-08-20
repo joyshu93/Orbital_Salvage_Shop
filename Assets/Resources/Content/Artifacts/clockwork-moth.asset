@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 271a2c80e4fb5ca4e9cccaeabfbf4599, type: 3}
+  m_Name: clockwork-moth
+  m_EditorClassIdentifier: CurioClerk.Runtime::CurioClerk.Content.ArtifactDefinition
+  id: clockwork-moth
+  symbol: M
+  traits: 36
+  nameEnglish: Clockwork Moth
+  nameKorean: "\uD0DC\uC5FD \uB098\uBC29"
+  descriptionEnglish: It remembers every lamp it has loved.
+  descriptionKorean: "\uC0AC\uB791\uD588\uB358 \uBAA8\uB4E0 \uC804\uB4F1\uC744 \uAE30\uC5B5\uD55C\uB2E4."

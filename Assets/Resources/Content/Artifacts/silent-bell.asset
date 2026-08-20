@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 271a2c80e4fb5ca4e9cccaeabfbf4599, type: 3}
+  m_Name: silent-bell
+  m_EditorClassIdentifier: CurioClerk.Runtime::CurioClerk.Content.ArtifactDefinition
+  id: silent-bell
+  symbol: B
+  traits: 33
+  nameEnglish: Bell Without a Tongue
+  nameKorean: "\uD600 \uC5C6\uB294 \uC885"
+  descriptionEnglish: It rings only in rooms that forgot you.
+  descriptionKorean: "\uB2F9\uC2E0\uC744 \uC78A\uC740 \uBC29\uC5D0\uC11C\uB9CC \uC6B8\uB9B0\uB2E4."

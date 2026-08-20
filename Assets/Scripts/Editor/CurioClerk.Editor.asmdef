@@ -1,0 +1,17 @@
+{
+  "name": "CurioClerk.Editor",
+  "rootNamespace": "CurioClerk.Editor",
+  "references": [
+    "CurioClerk.Core",
+    "CurioClerk.Runtime",
+    "Unity.Localization",
+    "Unity.Localization.Editor",
+    "Unity.RenderPipelines.Universal.2D.Runtime",
+    "Unity.RenderPipelines.Universal.Runtime",
+    "Unity.TextMeshPro"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": true
+}

@@ -1,0 +1,49 @@
+# Unity generated folders
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+.utmp/
+
+# IDE and operating-system files
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+.DS_Store
+Thumbs.db
+
+# Unity generated crash and build artifacts
+sysinfo.txt
+crashlytics-build.properties
+*.apk
+*.aab
+*.unitypackage
+Assets/AddressableAssetsData/*/*.bin
+Assets/AddressableAssetsData/*/*.bin.meta
+
+# Local secrets and service configuration
+Assets/StreamingAssets/google-services-desktop.json
+Assets/google-services.json
+GoogleService-Info.plist
+.env
+.env.*
+
+# Local Codex worktrees
+.worktrees/

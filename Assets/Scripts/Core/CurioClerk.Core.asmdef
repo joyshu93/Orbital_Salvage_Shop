@@ -1,0 +1,8 @@
+{
+  "name": "CurioClerk.Core",
+  "rootNamespace": "CurioClerk.Core",
+  "references": [],
+  "autoReferenced": true,
+  "noEngineReferences": true
+}
+

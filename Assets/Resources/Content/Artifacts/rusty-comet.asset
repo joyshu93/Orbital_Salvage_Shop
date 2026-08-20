@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 271a2c80e4fb5ca4e9cccaeabfbf4599, type: 3}
+  m_Name: rusty-comet
+  m_EditorClassIdentifier: CurioClerk.Runtime::CurioClerk.Content.ArtifactDefinition
+  id: rusty-comet
+  symbol: O
+  traits: 40
+  nameEnglish: Rusty Comet
+  nameKorean: "\uB179\uC2A8 \uD61C\uC131"
+  descriptionEnglish: Late by three centuries and terribly embarrassed.
+  descriptionKorean: "\uC138 \uC138\uAE30 \uB2A6\uC5B4\uC11C \uBAB9\uC2DC \uB09C\uCC98\uD574\uD55C\uB2E4."

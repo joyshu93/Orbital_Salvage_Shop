@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 271a2c80e4fb5ca4e9cccaeabfbf4599, type: 3}
+  m_Name: mossy-watch
+  m_EditorClassIdentifier: CurioClerk.Runtime::CurioClerk.Content.ArtifactDefinition
+  id: mossy-watch
+  symbol: W
+  traits: 44
+  nameEnglish: Mossy Pocket Watch
+  nameKorean: "\uC774\uB07C \uB080 \uD68C\uC911\uC2DC\uACC4"
+  descriptionEnglish: The moss grows one minute ahead.
+  descriptionKorean: "\uC774\uB07C\uAC00 \uC5B8\uC81C\uB098 1\uBD84 \uBA3C\uC800
+    \uC790\uB780\uB2E4."

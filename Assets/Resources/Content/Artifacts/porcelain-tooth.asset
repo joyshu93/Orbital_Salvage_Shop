@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 271a2c80e4fb5ca4e9cccaeabfbf4599, type: 3}
+  m_Name: porcelain-tooth
+  m_EditorClassIdentifier: CurioClerk.Runtime::CurioClerk.Content.ArtifactDefinition
+  id: porcelain-tooth
+  symbol: P
+  traits: 3
+  nameEnglish: Porcelain Tooth
+  nameKorean: "\uB3C4\uC790\uAE30 \uC774\uBE68"
+  descriptionEnglish: Too polite to bite, too rude to stop smiling.
+  descriptionKorean: "\uBB3C\uAE30\uC5D4 \uACF5\uC190\uD558\uACE0 \uC6C3\uC74C\uC744
+    \uBA48\uCD94\uAE30\uC5D4 \uBB34\uB840\uD558\uB2E4."

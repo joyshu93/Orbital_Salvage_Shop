@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 271a2c80e4fb5ca4e9cccaeabfbf4599, type: 3}
+  m_Name: ink-snowglobe
+  m_EditorClassIdentifier: CurioClerk.Runtime::CurioClerk.Content.ArtifactDefinition
+  id: ink-snowglobe
+  symbol: G
+  traits: 19
+  nameEnglish: Ink Snow Globe
+  nameKorean: "\uC789\uD06C \uC2A4\uB178\uAE00\uB85C\uBE0C"
+  descriptionEnglish: Shake gently. The forecast is confidential.
+  descriptionKorean: "\uC0B4\uC0B4 \uD754\uB4E4 \uAC83. \uC608\uBCF4\uB294 \uAE30\uBC00\uC774\uB2E4."

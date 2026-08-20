@@ -1,0 +1,13 @@
+{
+  "name": "CurioClerk.Runtime",
+  "rootNamespace": "CurioClerk",
+  "references": [
+    "CurioClerk.Core",
+    "Unity.InputSystem",
+    "Unity.Localization",
+    "Unity.TextMeshPro",
+    "UnityEngine.UI"
+  ],
+  "autoReferenced": true
+}
+

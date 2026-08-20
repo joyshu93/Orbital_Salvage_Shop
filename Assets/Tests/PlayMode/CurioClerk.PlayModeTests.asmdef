@@ -1,0 +1,10 @@
+{
+  "name": "CurioClerk.PlayModeTests",
+  "rootNamespace": "CurioClerk.Tests.PlayMode",
+  "references": [],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "autoReferenced": false
+}
+

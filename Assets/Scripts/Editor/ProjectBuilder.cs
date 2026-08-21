@@ -221,6 +221,11 @@ namespace CurioClerk.Editor
             const string assetPath = "Assets/Resources/Fonts/NotoSansKR-Dynamic.asset";
             EnsureTextMeshProResources();
             var tmpSettings = Resources.Load<TMP_Settings>("TMP Settings");
+            if (tmpSettings == null)
+            {
+                throw new InvalidOperationException("TMP Settings could not be loaded after ensuring TextMesh Pro resources.");
+            }
+
             var serializedSettings = new SerializedObject(tmpSettings);
             var defaultSpriteAsset = serializedSettings.FindProperty("m_defaultSpriteAsset");
             if (defaultSpriteAsset == null)

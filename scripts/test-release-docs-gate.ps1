@@ -128,7 +128,7 @@ Approved icon SHA-256: $iconHash
     [System.IO.File]::WriteAllText($artReview, $artReviewContent, $utf8NoBom)
 
     Replace-Literal $Root 'Docs/AIAssetProvenance.md' '| Human edits | No direct repaint, redraw, compositing, or documented shape/color correction. Unity import/resizing is automated processing only. |' '| Human edits | Reworked composition and silhouette, selected the final palette, and completed manual line / shape cleanup for launcher readability. |'
-    Replace-Literal $Root 'Docs/AIAssetProvenance.md' '| Release status | **Prototype only — not approved for RC.** Replace it or complete a documented human creative pass, similarity review, and explicit human approval. |' "| Before evidence | $beforeIconRelative |`n| After evidence | Assets/Art/Brand/AppIcon.png |`n| Release status | **Approved for release.** |"
+    Replace-Literal $Root 'Docs/AIAssetProvenance.md' '| Release status | **Prototype only — not approved for RC.** Replace it or complete a documented human creative pass, similarity review, and explicit human approval. |' "| Before evidence | $beforeIconRelative |`n| After evidence | Assets/Art/Brand/AppIcon.png |`n| Release status | **Approved for release** |"
 
     Replace-Literal $Root 'Docs/ReleaseEvidence/1.0.0/README.md' 'Evidence status: PENDING_DEVELOPER_EVIDENCE' 'Evidence status: DEVELOPER_CONFIRMED'
     Replace-Literal $Root 'Docs/ReleaseEvidence/1.0.0/README.md' 'RC decision: PENDING' 'RC decision: ACCEPTED'
@@ -215,10 +215,10 @@ Evidence date: 2026-09-01
 RC Git SHA: $rcSha
 Matrix status: PASSED
 Profile count: 3
-Galaxy A model: Galaxy A55
+Galaxy A model: Galaxy A55 5G
 Galaxy A Android major: 14
 Galaxy A aspect class: TALL_SLAB
-Galaxy S model: Galaxy S25
+Galaxy S model: Galaxy S24 Ultra
 Galaxy S Android major: 15
 Galaxy S aspect class: STANDARD_SLAB
 Galaxy Fold model: Galaxy Z Fold6
@@ -309,7 +309,7 @@ try {
     Replace-Literal $replacementIcon 'Docs/Store/AssetInventory.md' 'ART-BRAND-001' 'ART-BRAND-002'
     $provenancePath = Join-Path $replacementIcon 'Docs/AIAssetProvenance.md'
     $provenance = [System.IO.File]::ReadAllText($provenancePath, $strictUtf8)
-    [System.IO.File]::WriteAllText($provenancePath, "$provenance`n### ART-BRAND-002 — synthetic replacement`n`n| Repository path | Assets/Art/Brand/AppIcon.png |`n| SHA-256 | $replacementIconHash |`n| Human edits | Reworked composition and silhouette, selected the final palette, and completed manual line / shape cleanup. |`n| Before evidence | Assets/Art/Brand/AppIcon.before.png |`n| After evidence | Assets/Art/Brand/AppIcon.png |`n| Release status | **Approved for release.** |`n", $utf8NoBom)
+    [System.IO.File]::WriteAllText($provenancePath, "$provenance`n### ART-BRAND-002 — synthetic replacement`n`n| Repository path | Assets/Art/Brand/AppIcon.png |`n| SHA-256 | $replacementIconHash |`n| Human edits | Reworked composition and silhouette, selected the final palette, and completed manual line / shape cleanup. |`n| Before evidence | Assets/Art/Brand/AppIcon.before.png |`n| After evidence | Assets/Art/Brand/AppIcon.png |`n| Release status | **Approved for release** |`n", $utf8NoBom)
     Expect-Pass 'separately documented replacement icon asset ID' { Invoke-Gate $replacementIcon 'Submission' }
 
     $stateMutations = @(
@@ -404,10 +404,13 @@ try {
     Expect-Fail 'RTL aspect diversity' { Invoke-Gate $rtlAspectDiversity 'Submission' }
 
     foreach ($modelMutation in @(
-        @{ Name = 'RTL A-family iPhone'; Before = 'Galaxy A model: Galaxy A55'; After = 'Galaxy A model: iPhone 16' },
-        @{ Name = 'RTL S-family Pixel'; Before = 'Galaxy S model: Galaxy S25'; After = 'Galaxy S model: Pixel 9' },
+        @{ Name = 'RTL A-family iPhone'; Before = 'Galaxy A model: Galaxy A55 5G'; After = 'Galaxy A model: iPhone 16' },
+        @{ Name = 'RTL S-family Pixel'; Before = 'Galaxy S model: Galaxy S24 Ultra'; After = 'Galaxy S model: Pixel 9' },
         @{ Name = 'RTL Fold-family tablet'; Before = 'Galaxy Fold model: Galaxy Z Fold6'; After = 'Galaxy Fold model: Galaxy Tab S10' },
-        @{ Name = 'RTL duplicate-family models'; Before = 'Galaxy S model: Galaxy S25'; After = 'Galaxy S model: Galaxy A55' }
+        @{ Name = 'RTL duplicate-family models'; Before = 'Galaxy S model: Galaxy S24 Ultra'; After = 'Galaxy S model: Galaxy A55 5G' },
+        @{ Name = 'RTL fake A-family suffix'; Before = 'Galaxy A model: Galaxy A55 5G'; After = 'Galaxy A model: Galaxy ADefinitelyFake' },
+        @{ Name = 'RTL fake S-family suffix'; Before = 'Galaxy S model: Galaxy S24 Ultra'; After = 'Galaxy S model: Galaxy SBanana' },
+        @{ Name = 'RTL fake Fold suffix'; Before = 'Galaxy Fold model: Galaxy Z Fold6'; After = 'Galaxy Fold model: Galaxy Z FoldImaginary' }
     )) {
         $fixture = New-ConfirmedFixture
         Replace-Literal $fixture 'Docs/ReleaseEvidence/1.0.0/remote-test-lab.md' $modelMutation.Before $modelMutation.After
@@ -441,6 +444,22 @@ try {
     $provenanceHumanEdits = New-ConfirmedFixture
     Replace-Literal $provenanceHumanEdits 'Docs/AIAssetProvenance.md' '| Human edits | Reworked composition and silhouette, selected the final palette, and completed manual line / shape cleanup for launcher readability. |' '| Human edits | resized |'
     Expect-Fail 'art provenance human edits incomplete' { Invoke-Gate $provenanceHumanEdits 'Submission' }
+
+    $provenanceWrongBeforeWithNote = New-ConfirmedFixture
+    Replace-Literal $provenanceWrongBeforeWithNote 'Docs/AIAssetProvenance.md' '| Before evidence | Assets/Art/Brand/AppIcon.before.png |' "| Before evidence | Assets/Art/Brand/WrongBefore.png |`n| Evidence note | Assets/Art/Brand/AppIcon.before.png |"
+    Expect-Fail 'provenance wrong Before row cannot be rescued by note' { Invoke-Gate $provenanceWrongBeforeWithNote 'Submission' }
+
+    $provenanceDuplicateBefore = New-ConfirmedFixture
+    Replace-Literal $provenanceDuplicateBefore 'Docs/AIAssetProvenance.md' '| Before evidence | Assets/Art/Brand/AppIcon.before.png |' "| Before evidence | Assets/Art/Brand/AppIcon.before.png |`n| Before evidence | Assets/Art/Brand/AppIcon.before.png |"
+    Expect-Fail 'provenance duplicate Before rows' { Invoke-Gate $provenanceDuplicateBefore 'Submission' }
+
+    $provenanceWrongAfter = New-ConfirmedFixture
+    Replace-Literal $provenanceWrongAfter 'Docs/AIAssetProvenance.md' '| After evidence | Assets/Art/Brand/AppIcon.png |' '| After evidence | Assets/Art/Brand/WrongAfter.png |'
+    Expect-Fail 'provenance wrong After row' { Invoke-Gate $provenanceWrongAfter 'Submission' }
+
+    $provenanceWrongStatusWithNote = New-ConfirmedFixture
+    Replace-Literal $provenanceWrongStatusWithNote 'Docs/AIAssetProvenance.md' '| Release status | **Approved for release** |' "| Release status | Blocked |`n| Evidence note | Approved for release |"
+    Expect-Fail 'provenance wrong Release status row cannot be rescued by note' { Invoke-Gate $provenanceWrongStatusWithNote 'Submission' }
 
     foreach ($injection in @(
         @{ Name = 'machine path injection'; Text = 'Retained log: C:\Users\Fixture\test.log' },

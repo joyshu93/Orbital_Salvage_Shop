@@ -60,6 +60,18 @@ function Get-StructuredField([string]$Text, [string]$Name, [string]$DocumentName
     return $matches[0].Groups[1].Value.Trim().Trim('`')
 }
 
+function Get-MarkdownTableRowValue([string]$Text, [string]$Label, [string]$DocumentName) {
+    $pattern = "(?m)^\|\s*$([regex]::Escape($Label))\s*\|\s*(?<value>.*?)\s*\|\s*$"
+    $matches = [regex]::Matches($Text, $pattern)
+    if ($matches.Count -ne 1) {
+        throw "$DocumentName must contain exactly one '$Label' Markdown table row."
+    }
+    $value = $matches[0].Groups['value'].Value.Trim()
+    $bold = [regex]::Match($value, '\A\*\*(?<inner>.*?)\*\*\z')
+    if ($bold.Success) { $value = $bold.Groups['inner'].Value.Trim() }
+    return $value
+}
+
 function Get-Section([string]$Text, [string]$Heading, [string]$DocumentName) {
     $match = [regex]::Match($Text, "(?ms)^##\s+$([regex]::Escape($Heading))\s*\r?\n(?<body>.*?)(?=^##\s+|\z)")
     if (-not $match.Success) {
@@ -546,13 +558,17 @@ if ($Mode -eq 'Submission') {
     $provenanceBody = if ($provenanceSection.Success) { $provenanceSection.Groups['body'].Value } else { '' }
     if (-not $provenanceSection.Success -or
         $provenanceBody -notmatch [regex]::Escape($actualIconSha) -or
-        $provenanceBody -notmatch 'Assets/Art/Brand/AppIcon\.png' -or
-        $provenanceBody -notmatch '(?i)Approved for release' -or
-        $provenanceBody -notmatch [regex]::Escape($beforeEvidence) -or
-        $provenanceBody -notmatch [regex]::Escape($afterEvidence)) {
-        throw 'Approved provenance must contain the current icon path/hash/status and matching before/after evidence.'
+        $provenanceBody -notmatch 'Assets/Art/Brand/AppIcon\.png') {
+        throw 'Approved provenance must contain the current icon path and hash.'
     }
-    $provenanceHumanEdits = [regex]::Match($provenanceBody, '(?im)^\|\s*Human edits\s*\|(?<value>.*?)\|\s*$').Groups['value'].Value
+    $provenanceBefore = Get-MarkdownTableRowValue $provenanceBody 'Before evidence' 'AIAssetProvenance asset section'
+    $provenanceAfter = Get-MarkdownTableRowValue $provenanceBody 'After evidence' 'AIAssetProvenance asset section'
+    $provenanceReleaseStatus = Get-MarkdownTableRowValue $provenanceBody 'Release status' 'AIAssetProvenance asset section'
+    if ($provenanceBefore -ne $beforeEvidence -or $provenanceAfter -ne $afterEvidence) {
+        throw 'Approved provenance Before/After evidence rows must exactly match ArtReleaseReview.'
+    }
+    if ($provenanceReleaseStatus -ne 'Approved for release') { throw 'Approved provenance Release status row must be exactly Approved for release.' }
+    $provenanceHumanEdits = Get-MarkdownTableRowValue $provenanceBody 'Human edits' 'AIAssetProvenance asset section'
     if ($provenanceHumanEdits.Length -lt 80 -or
         $provenanceHumanEdits -notmatch '(?i)composition' -or
         $provenanceHumanEdits -notmatch '(?i)silhouette' -or
@@ -617,9 +633,9 @@ if ($Mode -eq 'Submission') {
     $aspectClasses = @()
     $rtlModels = @()
     $modelPatterns = @{
-        'Galaxy A' = '\AGalaxy A[A-Za-z0-9 +()._-]+\z'
-        'Galaxy S' = '\AGalaxy S[A-Za-z0-9 +()._-]+\z'
-        'Galaxy Fold' = '\A(?:Galaxy Z Fold|Galaxy Fold)[A-Za-z0-9 +()._-]+\z'
+        'Galaxy A' = '\AGalaxy A[0-9]{2}(?: 5G)?\z'
+        'Galaxy S' = '\AGalaxy S[0-9]{1,2}(?:\+| FE| Ultra)?\z'
+        'Galaxy Fold' = '\A(?:Galaxy Z Fold|Galaxy Fold)[2-9](?: 5G)?\z'
     }
     foreach ($profile in @('Galaxy A', 'Galaxy S', 'Galaxy Fold')) {
         $model = Get-StructuredField $remoteLab "$profile model" 'remote-test-lab.md'

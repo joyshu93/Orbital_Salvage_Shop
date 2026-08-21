@@ -1,7 +1,9 @@
 {
   "name": "CurioClerk.EditModeTests",
   "rootNamespace": "CurioClerk.Tests.EditMode",
-  "references": [],
+  "references": [
+    "Unity.TextMeshPro"
+  ],
   "includePlatforms": [
     "Editor"
   ],

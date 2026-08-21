@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using CurioClerk.Content;
+using TMPro;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
+using UnityEngine;
 
 namespace CurioClerk.Editor
 {
@@ -26,13 +28,14 @@ namespace CurioClerk.Editor
             ValidateCatalog(errors);
             ValidateAssets(errors);
             ValidateScenes(errors);
+            ValidateReleaseAssets(errors);
 
             if (errors.Count > 0)
             {
                 throw new BuildFailedException("Curio Clerk validation failed:\n- " + string.Join("\n- ", errors));
             }
 
-            UnityEngine.Debug.Log("Curio Clerk validation passed: 24 artifacts, 10 rules, 5 difficulties, 6 cosmetics, 2 scenes.");
+            Debug.Log("Curio Clerk validation passed: 24 artifacts, 10 rules, 5 difficulties, 6 cosmetics, 2 scenes.");
         }
 
         private static void ValidateCatalog(ICollection<string> errors)
@@ -99,6 +102,35 @@ namespace CurioClerk.Editor
             if (!scenes.SequenceEqual(new[] { "Assets/Scenes/Bootstrap.unity", "Assets/Scenes/Main.unity" }))
             {
                 errors.Add("Enabled build scenes must be Bootstrap then Main.");
+            }
+        }
+
+        private static void ValidateReleaseAssets(ICollection<string> errors)
+        {
+            var emojiPaths = AssetDatabase.GetAllAssetPaths()
+                .Where(path => path.IndexOf("EmojiOne", StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToArray();
+            if (emojiPaths.Length > 0)
+            {
+                errors.Add("Release assets must not contain EmojiOne files: " + string.Join(", ", emojiPaths));
+            }
+
+            var settings = Resources.Load<TMP_Settings>("TMP Settings");
+            if (settings == null)
+            {
+                errors.Add("TMP Settings asset is missing.");
+                return;
+            }
+
+            var serializedSettings = new SerializedObject(settings);
+            var defaultSpriteAsset = serializedSettings.FindProperty("m_defaultSpriteAsset");
+            if (defaultSpriteAsset == null)
+            {
+                errors.Add("TMP default sprite setting could not be inspected.");
+            }
+            else if (defaultSpriteAsset.objectReferenceValue != null)
+            {
+                errors.Add("TMP Settings must not reference a default sprite asset.");
             }
         }
 

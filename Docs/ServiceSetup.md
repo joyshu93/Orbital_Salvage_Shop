@@ -14,7 +14,7 @@ Samsung Galaxy Store v1 account, identity, financial verification, signing custo
 4. Create one rewarded unit. During development use Google's Android rewarded test unit, never a live unit.
 5. In AdMob Privacy & messaging, create the required UMP messages.
 6. On every launch, call consent `Update`, then `LoadAndShowConsentFormIfRequired`. Initialize/load ads only when `CanRequestAds()` is true. Expose `ShowPrivacyOptionsForm()` from Settings when required.
-7. Implement only the two placements `failed_revive` and `success_double`. One successful placement locks the other for that shift. Failed/closed ads do not remove base rewards.
+7. Implement only the two placements `shift_failed_revive` and `shift_complete_double`. One successful placement locks the other for that shift. Failed/closed ads do not remove base rewards.
 
 Official references:
 

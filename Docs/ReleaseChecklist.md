@@ -47,6 +47,7 @@ This checklist is the Samsung Galaxy Store-first release gate for v1. It does no
 
 ## Rollout
 
+- [ ] Apply percentage metrics only after at least 30 unique users are on the relevant release; for smaller samples, use raw counts only.
 - [ ] Roll out to 10%, wait at least 24 hours, and inspect crashes, reviews, and support requests.
 - [ ] Roll out to 50%, wait at least 24 hours, and inspect crashes, reviews, and support requests.
 - [ ] Roll out to 100% only while crash-free users remain at least 99.5%.

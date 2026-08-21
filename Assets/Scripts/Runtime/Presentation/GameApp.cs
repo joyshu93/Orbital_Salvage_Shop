@@ -60,6 +60,9 @@ namespace CurioClerk.Presentation
         private TMP_Text _hudText;
         private int _sortedCount;
         private bool _resultApplied;
+        private int _appliedResultCoins;
+        private bool _adConsentResolved;
+        private bool _canRequestAds;
 
         public AppScreen ActiveScreen { get; private set; }
 
@@ -80,10 +83,10 @@ namespace CurioClerk.Presentation
             _crashReporter = Infrastructure.ServiceFactory.CreateCrashReporter();
             _analytics.SetConsent(_save.analyticsConsent);
             _crashReporter.SetConsent(_save.crashReportingConsent);
-            _privacy.RequestConsent(_ => { });
             _seedProvider = new ShiftSeedProvider(new SystemClock());
             BuildShell();
             ShowMenu();
+            RequestAdConsent();
         }
 
         private void OnApplicationPause(bool paused)
@@ -108,6 +111,13 @@ namespace CurioClerk.Presentation
             CreateButton(page, "CollectionButton", _localizer.Get("collection"), new Vector2(0.15f, 0.20f), new Vector2(0.49f, 0.28f), Wine, Paper, ShowCollection);
             CreateButton(page, "SettingsButton", _localizer.Get("settings"), new Vector2(0.51f, 0.20f), new Vector2(0.85f, 0.28f), Wine, Paper, ShowSettings);
             CreateText(page, "Progress", $"{_localizer.Get("coins")}: {_save.coins}   •   {_save.completedShifts}/∞", 23, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.10f), new Vector2(0.85f, 0.17f));
+
+            var equipped = ContentCatalog.CreateCosmetics().FirstOrDefault(item => item.Id == _save.equippedCosmeticId);
+            if (equipped != null)
+            {
+                var charm = CreatePanel(page, "EquippedDeskCharm", Hex(equipped.AccentHex), new Vector2(0.74f, 0.88f), new Vector2(0.94f, 0.96f));
+                CreateText(charm, "EquippedDeskCharmLabel", "✦  " + CosmeticName(equipped), 18, Ink, TextAlignmentOptions.Center, Vector2.zero, Vector2.one, true);
+            }
         }
 
         public void ShowTutorial()
@@ -135,6 +145,7 @@ namespace CurioClerk.Presentation
             _seenThisShift.Clear();
             _sortedCount = 0;
             _resultApplied = false;
+            _appliedResultCoins = 0;
             _analytics.Track("shift_started", new Dictionary<string, string> { ["band"] = band.ToString() });
             BuildShiftScreen();
         }
@@ -148,10 +159,10 @@ namespace CurioClerk.Presentation
 
             var artifactId = _session.CurrentArtifact.Id;
             var outcome = _session.Sort(destination);
-            _seenThisShift.Add(artifactId);
             _sortedCount++;
             if (outcome.WasCorrect)
             {
+                _seenThisShift.Add(artifactId);
                 _statusText.text = _localizer.Get("correct");
                 _statusText.color = Sage;
             }
@@ -208,8 +219,11 @@ namespace CurioClerk.Presentation
                 var minY = index < 3 ? 0.15f : 0.08f;
                 var maxY = minY + 0.06f;
                 var owned = _save.unlockedCosmeticIds.Contains(item.Id);
-                var label = owned ? _localizer.Get("owned") : _localizer.Get("unlock", item.Cost);
-                CreateButton(page, "Cosmetic_" + item.Id, label, new Vector2(minX, minY), new Vector2(maxX, maxY), owned ? Sage : Wine, Paper, () => UnlockCosmetic(item));
+                var equipped = owned && _save.equippedCosmeticId == item.Id;
+                var status = equipped ? _localizer.Get("equipped") : owned ? _localizer.Get("equip") : _localizer.Get("unlock", item.Cost);
+                var label = CosmeticName(item) + "\n<size=18>" + status + "</size>";
+                var color = equipped ? Amber : owned ? Sage : Wine;
+                CreateButton(page, "Cosmetic_" + item.Id, label, new Vector2(minX, minY), new Vector2(maxX, maxY), color, equipped ? Ink : Paper, () => SelectCosmetic(item));
             }
 
             CreateButton(page, "CollectionBackButton", _localizer.Get("back"), new Vector2(0.34f, 0.015f), new Vector2(0.66f, 0.065f), Paper, Ink, ShowMenu);
@@ -226,8 +240,13 @@ namespace CurioClerk.Presentation
             CreateText(page, "PrivacyHeader", _localizer.Get("privacy"), 28, Paper, TextAlignmentOptions.Left, new Vector2(0.14f, 0.49f), new Vector2(0.86f, 0.55f), true);
             CreateButton(page, "AnalyticsConsentButton", _localizer.Get(_save.analyticsConsent ? "analytics_on" : "analytics_off"), new Vector2(0.14f, 0.39f), new Vector2(0.86f, 0.47f), _save.analyticsConsent ? Sage : Wine, Paper, ToggleAnalytics);
             CreateButton(page, "CrashConsentButton", _localizer.Get(_save.crashReportingConsent ? "crash_on" : "crash_off"), new Vector2(0.14f, 0.29f), new Vector2(0.86f, 0.37f), _save.crashReportingConsent ? Sage : Wine, Paper, ToggleCrashReports);
-            CreateText(page, "PrivacyNote", _localizer.Locale == "ko" ? "동의하지 않아도 모든 게임 기능을 이용할 수 있습니다. 광고 동의는 실제 AdMob UMP 연결 후 별도로 표시됩니다." : "All gameplay remains available without consent. Ad consent appears separately after the production UMP integration.", 23, Paper, TextAlignmentOptions.Top, new Vector2(0.14f, 0.14f), new Vector2(0.86f, 0.26f));
-            CreateButton(page, "SettingsBackButton", _localizer.Get("back"), new Vector2(0.30f, 0.05f), new Vector2(0.70f, 0.12f), Paper, Ink, ShowMenu);
+            if (_privacy.PrivacyOptionsRequired)
+            {
+                CreateButton(page, "AdPrivacyOptionsButton", _localizer.Get("privacy_options"), new Vector2(0.14f, 0.19f), new Vector2(0.86f, 0.27f), Wine, Paper, ShowAdPrivacyOptions);
+            }
+
+            CreateText(page, "PrivacyNote", _localizer.Locale == "ko" ? "동의하지 않아도 모든 게임 기능을 이용할 수 있습니다." : "All gameplay remains available without consent.", 22, Paper, TextAlignmentOptions.Top, new Vector2(0.14f, 0.11f), new Vector2(0.86f, 0.18f));
+            CreateButton(page, "SettingsBackButton", _localizer.Get("back"), new Vector2(0.30f, 0.03f), new Vector2(0.70f, 0.09f), Paper, Ink, ShowMenu);
         }
 
         private void OnStartPressed()
@@ -300,24 +319,30 @@ namespace CurioClerk.Presentation
 
         private void ShowResults()
         {
+            ApplyResultOnce();
             ActiveScreen = AppScreen.Results;
             var page = CreatePage("ResultsScreen");
             var completed = _session.State == ShiftState.Completed;
             CreateText(page, "ResultTitle", _localizer.Get(completed ? "complete" : "failed"), 58, completed ? Amber : DustyRose, TextAlignmentOptions.Center, new Vector2(0.08f, 0.69f), new Vector2(0.92f, 0.82f), true);
             CreateText(page, "ResultScore", $"{_localizer.Get("score")}  {_session.Score}\n{_localizer.Get("coins")}  {_session.Coins}\n✓ {_session.CorrectSorts}   ✕ {_session.Mistakes}", 33, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.45f), new Vector2(0.85f, 0.66f), true);
             var rewardLabel = completed ? _localizer.Get("double") : _localizer.Get("revive");
-            if (!_adService.IsRewardedReady || _session.RewardClaimed)
+            if (!CanShowRewarded || _session.RewardClaimed)
             {
                 rewardLabel = _localizer.Get("ad_unavailable");
             }
 
             var reward = CreateButton(page, "RewardedAdButton", rewardLabel, new Vector2(0.12f, 0.30f), new Vector2(0.88f, 0.40f), Wine, Paper, () => RequestReward(completed));
-            reward.interactable = _adService.IsRewardedReady && !_session.RewardClaimed;
+            reward.interactable = CanShowRewarded && !_session.RewardClaimed;
             CreateButton(page, "ResultsContinueButton", _localizer.Get("continue"), new Vector2(0.20f, 0.15f), new Vector2(0.80f, 0.25f), Amber, Ink, ReturnFromResults);
         }
 
         private void RequestReward(bool completed)
         {
+            if (!CanShowRewarded || _session == null || _session.RewardClaimed)
+            {
+                return;
+            }
+
             var placement = completed ? "shift_complete_double" : "shift_failed_revive";
             _adService.ShowRewarded(placement, success =>
             {
@@ -328,6 +353,7 @@ namespace CurioClerk.Presentation
 
                 if (completed && _session.TryDoubleCoins())
                 {
+                    PersistAdditionalRewardCoins();
                     ShowResults();
                 }
                 else if (!completed && _session.TryRevive())
@@ -352,6 +378,7 @@ namespace CurioClerk.Presentation
 
             _progression.ApplyShift(_save, _session.CreateResult(), _seenThisShift);
             _resultApplied = true;
+            _appliedResultCoins = _session.Coins;
             _analytics.Track("shift_completed", new Dictionary<string, string>
             {
                 ["score"] = _session.Score.ToString(),
@@ -361,14 +388,68 @@ namespace CurioClerk.Presentation
             Save();
         }
 
-        private void UnlockCosmetic(CosmeticContent cosmetic)
+        private void SelectCosmetic(CosmeticContent cosmetic)
         {
-            if (_progression.TryUnlockCosmetic(_save, cosmetic.Id, cosmetic.Cost))
+            var changed = _save.unlockedCosmeticIds.Contains(cosmetic.Id)
+                ? _progression.TryEquipCosmetic(_save, cosmetic.Id)
+                : _progression.TryUnlockCosmetic(_save, cosmetic.Id, cosmetic.Cost);
+            if (changed)
             {
                 Save();
                 ShowCollection();
             }
         }
+
+        private void RequestAdConsent()
+        {
+            _adConsentResolved = false;
+            _canRequestAds = false;
+            _privacy.RequestConsent(canRequestAds =>
+            {
+                _adConsentResolved = true;
+                _canRequestAds = canRequestAds && _privacy.CanRequestAds;
+                if (_screenRoot != null && ActiveScreen == AppScreen.Results)
+                {
+                    ShowResults();
+                }
+            });
+        }
+
+        private void ShowAdPrivacyOptions()
+        {
+            _privacy.ShowPrivacyOptions(canRequestAds =>
+            {
+                _adConsentResolved = true;
+                _canRequestAds = canRequestAds && _privacy.CanRequestAds;
+                ShowSettings();
+            });
+        }
+
+        private void PersistAdditionalRewardCoins()
+        {
+            if (!_resultApplied || _session.State != ShiftState.Completed)
+            {
+                return;
+            }
+
+            var additionalCoins = Math.Max(0, _session.Coins - _appliedResultCoins);
+            if (additionalCoins == 0)
+            {
+                return;
+            }
+
+            _save.coins += additionalCoins;
+            _appliedResultCoins = _session.Coins;
+            Save();
+        }
+
+        private bool CanShowRewarded =>
+            _adConsentResolved &&
+            _canRequestAds &&
+            _privacy != null &&
+            _privacy.CanRequestAds &&
+            _adService != null &&
+            _adService.IsRewardedReady;
 
         private void ToggleAnalytics()
         {
@@ -595,6 +676,8 @@ namespace CurioClerk.Presentation
         private string Name(ArtifactContent content) => _localizer.Locale == "ko" ? content.NameKorean : content.NameEnglish;
 
         private string Description(ArtifactContent content) => _localizer.Locale == "ko" ? content.DescriptionKorean : content.DescriptionEnglish;
+
+        private string CosmeticName(CosmeticContent content) => _localizer.Locale == "ko" ? content.NameKorean : content.NameEnglish;
 
         private static Color Hex(string value)
         {

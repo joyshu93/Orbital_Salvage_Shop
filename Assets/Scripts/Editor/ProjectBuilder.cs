@@ -388,19 +388,26 @@ namespace CurioClerk.Editor
 
         private static void CreateScenes()
         {
-            var bootstrap = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            new GameObject("Bootstrap", typeof(BootstrapLoader));
-            EditorSceneManager.SaveScene(bootstrap, SceneRoot + "/Bootstrap.unity");
-
-            var main = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            new GameObject("CurioClerkApp", typeof(GameApp));
-            EditorSceneManager.SaveScene(main, SceneRoot + "/Main.unity");
+            EnsureScene<BootstrapLoader>(SceneRoot + "/Bootstrap.unity", "Bootstrap");
+            EnsureScene<GameApp>(SceneRoot + "/Main.unity", "CurioClerkApp");
 
             EditorBuildSettings.scenes = new[]
             {
                 new EditorBuildSettingsScene(SceneRoot + "/Bootstrap.unity", true),
                 new EditorBuildSettingsScene(SceneRoot + "/Main.unity", true)
             };
+        }
+
+        private static void EnsureScene<T>(string path, string rootName) where T : Component
+        {
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(path) != null)
+            {
+                return;
+            }
+
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            new GameObject(rootName, typeof(T));
+            EditorSceneManager.SaveScene(scene, path);
         }
 
         private static T LoadOrCreate<T>(string path) where T : ScriptableObject

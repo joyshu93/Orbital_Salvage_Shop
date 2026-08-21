@@ -44,8 +44,27 @@ namespace CurioClerk.Tests.EditMode
             saveType.GetField("coins").SetValue(save, 150);
             Assert.That((bool)method.Invoke(service, new object[] { save, "brass-lamp", 100 }), Is.True);
             Assert.That(Field<int>(save, "coins"), Is.EqualTo(50));
+            Assert.That(Field<string>(save, "equippedCosmeticId"), Is.EqualTo("brass-lamp"));
             Assert.That((bool)method.Invoke(service, new object[] { save, "brass-lamp", 100 }), Is.False);
             Assert.That(Field<int>(save, "coins"), Is.EqualTo(50));
+        }
+
+        [Test]
+        public void CosmeticEquip_RequiresOwnershipAndChangesSelection()
+        {
+            var saveType = Require("CurioClerk.Core.Progression.PlayerSaveData");
+            var serviceType = Require("CurioClerk.Core.Progression.ProgressionService");
+            var save = Activator.CreateInstance(saveType);
+            var service = Activator.CreateInstance(serviceType);
+            var unlocked = (IList)saveType.GetField("unlockedCosmeticIds").GetValue(save);
+            unlocked.Add("brass-lamp");
+            unlocked.Add("moth-mobile");
+            var method = serviceType.GetMethod("TryEquipCosmetic");
+
+            Assert.That(method, Is.Not.Null, "Progression must expose a guarded cosmetic equip operation.");
+            Assert.That((bool)method.Invoke(service, new object[] { save, "moon-mug" }), Is.False);
+            Assert.That((bool)method.Invoke(service, new object[] { save, "moth-mobile" }), Is.True);
+            Assert.That(Field<string>(save, "equippedCosmeticId"), Is.EqualTo("moth-mobile"));
         }
 
         private static T Field<T>(object instance, string name)
@@ -62,4 +81,3 @@ namespace CurioClerk.Tests.EditMode
         }
     }
 }
-

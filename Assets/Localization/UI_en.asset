@@ -191,6 +191,18 @@ MonoBehaviour:
     m_Localized: METALLIC
     m_Metadata:
       m_Items: []
+  - m_Id: 268239426793472
+    m_Localized: Equip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 268239481319424
+    m_Localized: Equipped
+    m_Metadata:
+      m_Items: []
+  - m_Id: 268239481319425
+    m_Localized: Ad privacy options
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

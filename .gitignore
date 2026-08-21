@@ -37,6 +37,8 @@ crashlytics-build.properties
 *.unitypackage
 Assets/AddressableAssetsData/*/*.bin
 Assets/AddressableAssetsData/*/*.bin.meta
+Assets/AddressableAssetsData/link.xml
+Assets/AddressableAssetsData/link.xml.meta
 
 # Local secrets and service configuration
 Assets/StreamingAssets/google-services-desktop.json

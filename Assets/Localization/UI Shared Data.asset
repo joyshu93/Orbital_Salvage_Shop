@@ -187,6 +187,18 @@ MonoBehaviour:
     m_Key: trait_metallic
     m_Metadata:
       m_Items: []
+  - m_Id: 268239426793472
+    m_Key: equip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 268239481319424
+    m_Key: equipped
+    m_Metadata:
+      m_Items: []
+  - m_Id: 268239481319425
+    m_Key: privacy_options
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

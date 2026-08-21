@@ -66,13 +66,31 @@ namespace CurioClerk.Core.Progression
 
             save.coins -= cost;
             save.unlockedCosmeticIds.Add(cosmeticId);
-            if (string.IsNullOrEmpty(save.equippedCosmeticId))
+            save.equippedCosmeticId = cosmeticId;
+
+            return true;
+        }
+
+        public bool TryEquipCosmetic(PlayerSaveData save, string cosmeticId)
+        {
+            if (save == null)
             {
-                save.equippedCosmeticId = cosmeticId;
+                throw new ArgumentNullException(nameof(save));
             }
 
+            if (string.IsNullOrWhiteSpace(cosmeticId))
+            {
+                throw new ArgumentException("Cosmetic id is required.", nameof(cosmeticId));
+            }
+
+            save.Sanitize();
+            if (!save.unlockedCosmeticIds.Contains(cosmeticId))
+            {
+                return false;
+            }
+
+            save.equippedCosmeticId = cosmeticId;
             return true;
         }
     }
 }
-

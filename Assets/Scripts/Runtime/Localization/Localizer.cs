@@ -41,8 +41,11 @@ namespace CurioClerk.Localization
             ["casebook_empty"] = "Correctly sort curios to reveal their case files.",
             ["cosmetics"] = "DESK CHARMS",
             ["owned"] = "Owned",
+            ["equip"] = "Equip",
+            ["equipped"] = "Equipped",
             ["insufficient"] = "Not enough coins",
             ["unlock"] = "Unlock {0} coins",
+            ["privacy_options"] = "Ad privacy options",
             ["trait_cursed"] = "CURSED",
             ["trait_fragile"] = "FRAGILE",
             ["trait_alive"] = "ALIVE",
@@ -88,8 +91,11 @@ namespace CurioClerk.Localization
             ["casebook_empty"] = "기물을 올바르게 분류하면 기록이 공개됩니다.",
             ["cosmetics"] = "책상 장식",
             ["owned"] = "보유 중",
+            ["equip"] = "장착",
+            ["equipped"] = "장착 중",
             ["insufficient"] = "코인이 부족합니다",
             ["unlock"] = "{0} 코인으로 해금",
+            ["privacy_options"] = "광고 개인정보 설정",
             ["trait_cursed"] = "저주받음",
             ["trait_fragile"] = "깨지기 쉬움",
             ["trait_alive"] = "살아 있음",
@@ -121,4 +127,3 @@ namespace CurioClerk.Localization
             => locale == "ko" ? Korean : English;
     }
 }
-

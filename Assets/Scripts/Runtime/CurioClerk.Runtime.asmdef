@@ -10,6 +10,10 @@
   ],
   "overrideReferences": true,
   "precompiledReferences": [
+    "Firebase.App.dll",
+    "Firebase.TaskExtension.dll",
+    "Firebase.Analytics.dll",
+    "Firebase.Crashlytics.dll",
     "GoogleMobileAds.dll",
     "GoogleMobileAds.Ump.dll"
   ],

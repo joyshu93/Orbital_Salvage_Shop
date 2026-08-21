@@ -20,7 +20,14 @@ namespace CurioClerk.Infrastructure
 #endif
         }
 
-        public static IAnalyticsService CreateAnalyticsService() => new ConsentAwareAnalyticsService();
+        public static IAnalyticsService CreateAnalyticsService()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            return new FirebaseAnalyticsService();
+#else
+            return new ConsentAwareAnalyticsService();
+#endif
+        }
 
         public static IPrivacyService CreatePrivacyService()
         {
@@ -31,6 +38,13 @@ namespace CurioClerk.Infrastructure
 #endif
         }
 
-        public static ICrashReporter CreateCrashReporter() => new ConsentAwareCrashReporter();
+        public static ICrashReporter CreateCrashReporter()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            return new FirebaseCrashReporter();
+#else
+            return new ConsentAwareCrashReporter();
+#endif
+        }
     }
 }

@@ -6,6 +6,7 @@ $gate = Join-Path $PSScriptRoot 'check-release-docs.ps1'
 $tempBase = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
 $fixtures = [System.Collections.Generic.List[string]]::new()
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+$strictUtf8 = New-Object System.Text.UTF8Encoding($false, $true)
 
 function Invoke-Gate([string]$Root, [string]$Mode) {
     & $gate -ProjectRoot $Root -Mode $Mode *> $null
@@ -45,7 +46,7 @@ function New-Fixture {
 
 function Replace-Literal([string]$Root, [string]$RelativePath, [string]$Before, [string]$After) {
     $path = Join-Path $Root $RelativePath
-    $text = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+    $text = [System.IO.File]::ReadAllText($path, $strictUtf8)
     if (-not $text.Contains($Before)) {
         throw "Fixture replacement source not found in ${RelativePath}: $Before"
     }
@@ -54,7 +55,7 @@ function Replace-Literal([string]$Root, [string]$RelativePath, [string]$Before, 
 
 function Replace-Pattern([string]$Root, [string]$RelativePath, [string]$Pattern, [string]$After) {
     $path = Join-Path $Root $RelativePath
-    $text = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+    $text = [System.IO.File]::ReadAllText($path, $strictUtf8)
     $updated = [regex]::Replace($text, $Pattern, $After)
     if ($updated -eq $text) {
         throw "Fixture pattern did not match in ${RelativePath}: $Pattern"
@@ -90,6 +91,8 @@ function Set-ConfirmedFixture([string]$Root) {
     Replace-Pattern $Root 'Docs/Store/AssetInventory.md' '(?m)^\| Phone screenshots \|.*$' '| Phone screenshots | Fixture-approved screenshots | Ready for submission | `Docs/AIAssetProvenance.md`; `Docs/ThirdPartyNotices.md`; `Docs/ArtReleaseReview.md` | Human approved. |'
     $artReview = Join-Path $Root 'Docs/ArtReleaseReview.md'
     $iconHash = (Get-FileHash -LiteralPath (Join-Path $Root 'Assets/Art/Brand/AppIcon.png') -Algorithm SHA256).Hash
+    $beforeIconRelative = 'Assets/Art/Brand/AppIcon.before.png'
+    [System.IO.File]::WriteAllBytes((Join-Path $Root $beforeIconRelative), [byte[]](137, 80, 78, 71, 13, 10, 26, 10, 70, 73, 88, 84, 85, 82, 69))
     $artReviewContent = @"
 # Fixture art release review
 
@@ -110,7 +113,7 @@ Composition changes: Rebalanced the moon, tag, and cabinet so the focal point re
 Silhouette changes: Redrew the outer cabinet contour and widened the tag gap for a distinct small-size silhouette.
 Palette changes: Chose a restrained amber, plum, and cream palette and manually tuned contrast for the store tile.
 Line / shape cleanup: Rebuilt uneven contours, removed stray marks, and normalized corner radii by hand.
-Before evidence: Git commit 1111111111111111111111111111111111111111
+Before evidence: $beforeIconRelative
 After evidence: Assets/Art/Brand/AppIcon.png
 Similarity search method: Developer performed reverse-image and Galaxy Store keyword searches for confusingly similar icons.
 Similarity review result: PASSED
@@ -123,6 +126,9 @@ Protected-character review: PASSED
 Approved icon SHA-256: $iconHash
 "@
     [System.IO.File]::WriteAllText($artReview, $artReviewContent, $utf8NoBom)
+
+    Replace-Literal $Root 'Docs/AIAssetProvenance.md' '| Human edits | No direct repaint, redraw, compositing, or documented shape/color correction. Unity import/resizing is automated processing only. |' '| Human edits | Reworked composition and silhouette, selected the final palette, and completed manual line / shape cleanup for launcher readability. |'
+    Replace-Literal $Root 'Docs/AIAssetProvenance.md' '| Release status | **Prototype only — not approved for RC.** Replace it or complete a documented human creative pass, similarity review, and explicit human approval. |' "| Before evidence | $beforeIconRelative |`n| After evidence | Assets/Art/Brand/AppIcon.png |`n| Release status | **Approved for release.** |"
 
     Replace-Literal $Root 'Docs/ReleaseEvidence/1.0.0/README.md' 'Evidence status: PENDING_DEVELOPER_EVIDENCE' 'Evidence status: DEVELOPER_CONFIRMED'
     Replace-Literal $Root 'Docs/ReleaseEvidence/1.0.0/README.md' 'RC decision: PENDING' 'RC decision: ACCEPTED'
@@ -209,13 +215,13 @@ Evidence date: 2026-09-01
 RC Git SHA: $rcSha
 Matrix status: PASSED
 Profile count: 3
-Galaxy A model: Fixture Galaxy A55
+Galaxy A model: Galaxy A55
 Galaxy A Android major: 14
 Galaxy A aspect class: TALL_SLAB
-Galaxy S model: Fixture Galaxy S25
+Galaxy S model: Galaxy S25
 Galaxy S Android major: 15
 Galaxy S aspect class: STANDARD_SLAB
-Galaxy Fold model: Fixture Galaxy Z Fold6
+Galaxy Fold model: Galaxy Z Fold6
 Galaxy Fold Android major: 15
 Galaxy Fold aspect class: FOLDABLE
 Galaxy A install: PASSED
@@ -302,8 +308,8 @@ try {
     Replace-Literal $replacementIcon 'Docs/ArtReleaseReview.md' '| ART-BRAND-001 | Assets/Art/Brand/AppIcon.png |' '| ART-BRAND-002 | Assets/Art/Brand/AppIcon.png |'
     Replace-Literal $replacementIcon 'Docs/Store/AssetInventory.md' 'ART-BRAND-001' 'ART-BRAND-002'
     $provenancePath = Join-Path $replacementIcon 'Docs/AIAssetProvenance.md'
-    $provenance = [System.IO.File]::ReadAllText($provenancePath, [System.Text.Encoding]::UTF8)
-    [System.IO.File]::WriteAllText($provenancePath, "$provenance`n### ART-BRAND-002 — synthetic replacement`n`n| Repository path | `Assets/Art/Brand/AppIcon.png` |`n| SHA-256 | $replacementIconHash |`n", $utf8NoBom)
+    $provenance = [System.IO.File]::ReadAllText($provenancePath, $strictUtf8)
+    [System.IO.File]::WriteAllText($provenancePath, "$provenance`n### ART-BRAND-002 — synthetic replacement`n`n| Repository path | Assets/Art/Brand/AppIcon.png |`n| SHA-256 | $replacementIconHash |`n| Human edits | Reworked composition and silhouette, selected the final palette, and completed manual line / shape cleanup. |`n| Before evidence | Assets/Art/Brand/AppIcon.before.png |`n| After evidence | Assets/Art/Brand/AppIcon.png |`n| Release status | **Approved for release.** |`n", $utf8NoBom)
     Expect-Pass 'separately documented replacement icon asset ID' { Invoke-Gate $replacementIcon 'Submission' }
 
     $stateMutations = @(
@@ -360,7 +366,7 @@ try {
         @{ Name = 'art row release decision'; File = 'Docs/ArtReleaseReview.md'; Before = '| ART-BRAND-001 | Assets/Art/Brand/AppIcon.png | Approved for release |'; After = '| ART-BRAND-001 | Assets/Art/Brand/AppIcon.png | Blocked |' },
         @{ Name = 'art developer attestation'; File = 'Docs/ArtReleaseReview.md'; Before = 'Developer attestation: I directly made and reviewed the creative changes documented below and approve this application icon for release.'; After = 'Developer attestation: looks good' },
         @{ Name = 'art composition substance'; File = 'Docs/ArtReleaseReview.md'; Before = 'Composition changes: Rebalanced the moon, tag, and cabinet so the focal point remains legible at launcher size.'; After = 'Composition changes: changed it' },
-        @{ Name = 'art before evidence'; File = 'Docs/ArtReleaseReview.md'; Before = 'Before evidence: Git commit 1111111111111111111111111111111111111111'; After = 'Before evidence: none' },
+        @{ Name = 'art before evidence'; File = 'Docs/ArtReleaseReview.md'; Before = 'Before evidence: Assets/Art/Brand/AppIcon.before.png'; After = 'Before evidence: none' },
         @{ Name = 'art similarity method'; File = 'Docs/ArtReleaseReview.md'; Before = 'Similarity search method: Developer performed reverse-image and Galaxy Store keyword searches for confusingly similar icons.'; After = 'Similarity search method: checked' },
         @{ Name = 'art trademark result'; File = 'Docs/ArtReleaseReview.md'; Before = 'Trademark review: PASSED'; After = 'Trademark review: FAILED' },
         @{ Name = 'automated EditMode counts'; File = 'Docs/ReleaseEvidence/1.0.0/automated-tests.md'; Before = 'EditMode passed: 24'; After = 'EditMode passed: 23' },
@@ -373,7 +379,7 @@ try {
         @{ Name = 'owned-device reward anomaly'; File = 'Docs/ReleaseEvidence/1.0.0/owned-device.md'; Before = 'Reward anomalies: 0'; After = 'Reward anomalies: 1' },
         @{ Name = 'owned-device explicit check'; File = 'Docs/ReleaseEvidence/1.0.0/owned-device.md'; Before = 'Ad no-fill: PASSED'; After = 'Ad no-fill: FAILED' },
         @{ Name = 'owned-device build version'; File = 'Docs/ReleaseEvidence/1.0.0/owned-device.md'; Before = 'Build version code: 10000'; After = 'Build version code: 9999' },
-        @{ Name = 'RTL profile coverage'; File = 'Docs/ReleaseEvidence/1.0.0/remote-test-lab.md'; Before = 'Galaxy Fold model: Fixture Galaxy Z Fold6'; After = 'Galaxy Fold model: PENDING' },
+        @{ Name = 'RTL profile coverage'; File = 'Docs/ReleaseEvidence/1.0.0/remote-test-lab.md'; Before = 'Galaxy Fold model: Galaxy Z Fold6'; After = 'Galaxy Fold model: PENDING' },
         @{ Name = 'RTL Android-major diversity'; File = 'Docs/ReleaseEvidence/1.0.0/remote-test-lab.md'; Before = 'Galaxy A Android major: 14'; After = 'Galaxy A Android major: 15' },
         @{ Name = 'RTL explicit check'; File = 'Docs/ReleaseEvidence/1.0.0/remote-test-lab.md'; Before = 'Galaxy Fold safe area: PASSED'; After = 'Galaxy Fold safe area: FAILED' },
         @{ Name = 'inconsistent evidence RC SHA'; File = 'Docs/ReleaseEvidence/1.0.0/remote-test-lab.md'; Before = 'RC Git SHA: 0123456789abcdef0123456789abcdef01234567'; After = 'RC Git SHA: 1111111111111111111111111111111111111111' },
@@ -397,6 +403,45 @@ try {
     Replace-Literal $rtlAspectDiversity 'Docs/ReleaseEvidence/1.0.0/remote-test-lab.md' 'Galaxy S aspect class: STANDARD_SLAB' 'Galaxy S aspect class: FOLDABLE'
     Expect-Fail 'RTL aspect diversity' { Invoke-Gate $rtlAspectDiversity 'Submission' }
 
+    foreach ($modelMutation in @(
+        @{ Name = 'RTL A-family iPhone'; Before = 'Galaxy A model: Galaxy A55'; After = 'Galaxy A model: iPhone 16' },
+        @{ Name = 'RTL S-family Pixel'; Before = 'Galaxy S model: Galaxy S25'; After = 'Galaxy S model: Pixel 9' },
+        @{ Name = 'RTL Fold-family tablet'; Before = 'Galaxy Fold model: Galaxy Z Fold6'; After = 'Galaxy Fold model: Galaxy Tab S10' },
+        @{ Name = 'RTL duplicate-family models'; Before = 'Galaxy S model: Galaxy S25'; After = 'Galaxy S model: Galaxy A55' }
+    )) {
+        $fixture = New-ConfirmedFixture
+        Replace-Literal $fixture 'Docs/ReleaseEvidence/1.0.0/remote-test-lab.md' $modelMutation.Before $modelMutation.After
+        Expect-Fail $modelMutation.Name { Invoke-Gate $fixture 'Submission' }
+    }
+
+    $sameBeforeReference = New-ConfirmedFixture
+    Replace-Literal $sameBeforeReference 'Docs/ArtReleaseReview.md' 'Before evidence: Assets/Art/Brand/AppIcon.before.png' 'Before evidence: Assets/Art/Brand/AppIcon.png'
+    Expect-Fail 'art before and after same current path' { Invoke-Gate $sameBeforeReference 'Submission' }
+
+    $missingBeforeReference = New-ConfirmedFixture
+    Replace-Literal $missingBeforeReference 'Docs/ArtReleaseReview.md' 'Before evidence: Assets/Art/Brand/AppIcon.before.png' 'Before evidence: Assets/Art/Brand/DoesNotExist.png'
+    Expect-Fail 'art nonexistent before path' { Invoke-Gate $missingBeforeReference 'Submission' }
+
+    $wrongAfterReference = New-ConfirmedFixture
+    Replace-Literal $wrongAfterReference 'Docs/ArtReleaseReview.md' 'After evidence: Assets/Art/Brand/AppIcon.png' 'After evidence: Assets/Art/Brand/OtherAfter.png'
+    Expect-Fail 'art after evidence is not current icon' { Invoke-Gate $wrongAfterReference 'Submission' }
+
+    $sameContentBefore = New-ConfirmedFixture
+    [System.IO.File]::Copy((Join-Path $sameContentBefore 'Assets/Art/Brand/AppIcon.png'), (Join-Path $sameContentBefore 'Assets/Art/Brand/AppIcon.before.png'), $true)
+    Expect-Fail 'art before file has current icon content' { Invoke-Gate $sameContentBefore 'Submission' }
+
+    $badBeforeCommit = New-ConfirmedFixture
+    Replace-Literal $badBeforeCommit 'Docs/ArtReleaseReview.md' 'Before evidence: Assets/Art/Brand/AppIcon.before.png' 'Before evidence: Git commit 1111111111111111111111111111111111111111'
+    Expect-Fail 'art nonexistent Git before commit' { Invoke-Gate $badBeforeCommit 'Submission' }
+
+    $provenanceBeforeMismatch = New-ConfirmedFixture
+    Replace-Literal $provenanceBeforeMismatch 'Docs/AIAssetProvenance.md' '| Before evidence | Assets/Art/Brand/AppIcon.before.png |' '| Before evidence | Assets/Art/Brand/OtherBefore.png |'
+    Expect-Fail 'art provenance before evidence mismatch' { Invoke-Gate $provenanceBeforeMismatch 'Submission' }
+
+    $provenanceHumanEdits = New-ConfirmedFixture
+    Replace-Literal $provenanceHumanEdits 'Docs/AIAssetProvenance.md' '| Human edits | Reworked composition and silhouette, selected the final palette, and completed manual line / shape cleanup for launcher readability. |' '| Human edits | resized |'
+    Expect-Fail 'art provenance human edits incomplete' { Invoke-Gate $provenanceHumanEdits 'Submission' }
+
     foreach ($injection in @(
         @{ Name = 'machine path injection'; Text = 'Retained log: C:\Users\Fixture\test.log' },
         @{ Name = 'forward absolute path injection'; Text = 'Retained log: /opt/fixture/test.log' },
@@ -404,6 +449,7 @@ try {
         @{ Name = 'credential injection'; Text = 'Access token: ghp_abcdefghijklmnopqrstuvwxyz123456' },
         @{ Name = 'real AdMob ID injection'; Text = 'Ad unit: ca-app-pub-1234567890123456/1234567890' },
         @{ Name = 'identity record injection'; Text = 'Government ID: fixture-record' },
+        @{ Name = 'driver-license record injection'; Text = 'Driver license: fixture-record' },
         @{ Name = 'pending evidence injection'; Text = 'Extra verification: PENDING' }
     )) {
         $fixture = New-ConfirmedFixture
@@ -431,9 +477,17 @@ try {
     [System.IO.File]::WriteAllBytes((Join-Path $binaryMarkdown 'Docs/ReleaseEvidence/1.0.0/future-note.md'), [byte[]](0, 1, 2, 3))
     Expect-Fail 'binary content disguised as Markdown' { Invoke-Gate $binaryMarkdown 'Submission' }
 
+    $invalidUtf8Markdown = New-ConfirmedFixture
+    [System.IO.File]::WriteAllBytes((Join-Path $invalidUtf8Markdown 'Docs/ReleaseEvidence/1.0.0/future-note.md'), [byte[]](0xC3, 0x28))
+    Expect-Fail 'invalid UTF-8 Markdown evidence' { Invoke-Gate $invalidUtf8Markdown 'Submission' }
+
     $negativePolarity = New-ConfirmedFixture
     Replace-Literal $negativePolarity 'Docs/Store/GalaxyStoreListing.en.md' 'English and Korean are supported.' "English and Korean are supported.`n`nYou do not need to create an account. There is no guaranteed ad availability. No IAP, cloud save, or remote telemetry is provided."
     Expect-Pass 'negative account/ad wording' { Invoke-Gate $negativePolarity 'Submission' }
+
+    $negativeKoreanPolarity = New-ConfirmedFixture
+    Replace-Literal $negativeKoreanPolarity 'Docs/Store/GalaxyStoreListing.ko.md' '영어와 한국어를 지원합니다.' "영어와 한국어를 지원합니다.`n`n계정을 만들 필요가 없습니다.`n광고가 항상 제공되는 것은 아닙니다.`n코인이나 인앱 구매를 판매하지 않습니다.`n클라우드 저장을 제공하지 않습니다.`n게임플레이 또는 충돌 데이터를 수집하거나 업로드하지 않습니다."
+    Expect-Pass 'negative Korean account/ad/IAP/cloud/telemetry wording' { Invoke-Gate $negativeKoreanPolarity 'Submission' }
 
     foreach ($claim in @(
         'Create an account to save progress.',
@@ -455,6 +509,38 @@ try {
         Replace-Literal $affirmative 'Docs/Store/GalaxyStoreListing.en.md' 'English and Korean are supported.' "English and Korean are supported.`n`n$claim"
         Expect-Fail "affirmative contradiction: $claim" { Invoke-Gate $affirmative 'Submission' }
     }
+
+    foreach ($claim in @(
+        '계정을 생성할 수 있습니다.',
+        '로그인할 수 있습니다.',
+        '광고는 항상 이용할 수 있습니다.',
+        '코인을 구매할 수 있습니다.',
+        '인앱 구매를 이용할 수 있습니다.',
+        '클라우드 저장을 사용할 수 있습니다.',
+        '진행 상황을 클라우드에 동기화합니다.',
+        '게임플레이 데이터를 서버로 업로드합니다.',
+        '충돌 보고서를 수집합니다.'
+    )) {
+        $affirmativeKo = New-ConfirmedFixture
+        Replace-Literal $affirmativeKo 'Docs/Store/GalaxyStoreListing.ko.md' '영어와 한국어를 지원합니다.' "영어와 한국어를 지원합니다.`n`n$claim"
+        Expect-Fail "Korean affirmative contradiction: $claim" { Invoke-Gate $affirmativeKo 'Submission' }
+    }
+
+    $englishTitleClaim = New-ConfirmedFixture
+    Replace-Pattern $englishTitleClaim 'Docs/Store/GalaxyStoreListing.en.md' '(?ms)(^## Title\s+Curio Clerk: Night Shift)(\s+## Short description)' "`$1`nYou may create an account.`n`n`$2"
+    Expect-Fail 'English title contradiction' { Invoke-Gate $englishTitleClaim 'Submission' }
+
+    $englishShortClaim = New-ConfirmedFixture
+    Replace-Literal $englishShortClaim 'Docs/Store/GalaxyStoreListing.en.md' 'Sort strange lost curios by the night-shift rules.' 'Ads are always available.'
+    Expect-Fail 'English short-description contradiction' { Invoke-Gate $englishShortClaim 'Submission' }
+
+    $koreanShortClaim = New-ConfirmedFixture
+    Replace-Literal $koreanShortClaim 'Docs/Store/GalaxyStoreListing.ko.md' '야간 근무 규칙에 따라 기묘한 분실물을 분류하세요.' '클라우드 저장을 사용할 수 있습니다.'
+    Expect-Fail 'Korean short-description contradiction' { Invoke-Gate $koreanShortClaim 'Submission' }
+
+    $declarationClaim = New-ConfirmedFixture
+    Replace-Literal $declarationClaim 'Docs/Store/GalaxyStoreListing.en.md' 'Offline play: Available for all base gameplay.' "Offline play: Available for all base gameplay.`nCloud saves are available."
+    Expect-Fail 'release-declaration contradiction' { Invoke-Gate $declarationClaim 'Submission' }
 
     Write-Host 'Release-document gate mutation suite passed.'
 } finally {

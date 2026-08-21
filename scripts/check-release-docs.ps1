@@ -6,6 +6,7 @@
 )
 
 $ErrorActionPreference = 'Stop'
+$strictUtf8 = New-Object System.Text.UTF8Encoding($false, $true)
 $root = if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
     [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 } else {
@@ -28,12 +29,20 @@ $required = @(
     'Docs/ReleaseEvidence/1.0.0/README.md'
 )
 
+function Read-StrictUtf8File([string]$Path, [string]$DocumentName) {
+    try {
+        return [System.IO.File]::ReadAllText($Path, $strictUtf8)
+    } catch [System.Text.DecoderFallbackException] {
+        throw "$DocumentName is not valid UTF-8 text."
+    }
+}
+
 function Read-ReleaseDocument([string]$RelativePath) {
     $path = Join-Path $root $RelativePath
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "Missing release document: $RelativePath"
     }
-    return [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+    return Read-StrictUtf8File $path $RelativePath
 }
 
 function Assert-Contains([string]$Text, [string]$Pattern, [string]$Message) {
@@ -115,7 +124,7 @@ function Assert-SanitizedEvidence([string]$Text, [string]$DocumentName) {
         '(?i)\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b',
         '(?im)^\s*(?:access[_ -]?token|refresh[_ -]?token|password|credential|client[_ -]?secret|secret|api[_ -]?key)\s*[:=]\s*(?!REDACTED\b)\S+',
         '(?i)ca-app-pub-\d+[/~]\d+',
-        '(?im)^\s*(?:government ID|passport(?: number)?|bank account|routing number|credit card|tax ID|identity document|financial record)\s*:',
+        '(?im)^\s*(?:government ID|driver(?:''s)? licen[cs]e(?: number)?|passport(?: number)?|national ID|resident registration(?: number)?|social security(?: number)?|tax ID|bank account(?: number)?|bank statement|routing number|credit card(?: number)?|birth certificate|insurance ID|identity document|financial record)\s*[:=]\s*(?!\[?REDACTED\]?\s*$)\S.*$',
         '(?m)(?:\[[A-Z][A-Z0-9_]+\]|\b(?:PENDING|TODO|TBD|PLACEHOLDER|NOT RUN)\b|^\s*-\s*\[\s\])'
     )
     foreach ($pattern in $forbiddenPatterns) {
@@ -138,7 +147,7 @@ function Read-SubmissionEvidence([string]$RelativePath) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "Submission evidence is missing: $RelativePath"
     }
-    $text = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+    $text = Read-StrictUtf8File $path $RelativePath
     Assert-SanitizedEvidence $text $RelativePath
     return $text
 }
@@ -213,7 +222,7 @@ $fullDescriptionKo = Get-Section $listingKo '자세한 설명' 'Korean listing'
 Assert-Contains $fullDescriptionEn '(?is)warm occult.*rule-sorting.*12-curio.*Repair.*Storage.*Vault.*Hold.*casebook.*desk charms.*offline.*optional rewarded ads' 'English full description omits a required product fact.'
 Assert-Contains $fullDescriptionKo '(?s)따뜻한 오컬트.*규칙.*12개.*수리실.*보관실.*금고.*보류.*도감.*책상 장식.*오프라인.*선택형 보상형 광고' 'Korean full description omits a required product fact.'
 
-$affirmativeStoreCopy = $fullDescriptionEn + "`n" + $fullDescriptionKo
+$affirmativeStoreCopy = $listingEn + "`n" + $listingKo
 foreach ($unsupportedClaim in @(
     '(?im)^\s*(?:An?\s+)?award[- ]winning\b',
     '(?im)^\s*(?:#?1|number one)\b.*(?:game|puzzle|rank)',
@@ -240,6 +249,18 @@ foreach ($contradictoryClaim in @(
 )) {
     if ($affirmativeStoreCopy -match $contradictoryClaim) {
         throw "Store copy contradicts the v1 service boundary: $contradictoryClaim"
+    }
+}
+foreach ($koreanContradictoryClaim in @(
+    '(?m)^\s*(?:계정(?:을|이)?\s*(?:생성|만들|등록)할\s*수\s*있습니다|(?:계정\s*)?(?:생성|등록|로그인)(?:이|은)?\s*가능합니다|로그인할\s*수\s*있습니다)',
+    '(?m)^\s*광고(?:는|가)?\s*(?:항상|언제나)\s*(?:(?:이용|사용|시청)할\s*수\s*있습니다|제공됩니다)',
+    '(?m)^\s*(?:(?:코인|아이템|장식)(?:을|를)?\s*(?:구매할|살)\s*수\s*있습니다|인앱\s*구매(?:를)?\s*(?:이용|사용)할\s*수\s*있습니다)',
+    '(?m)^\s*클라우드\s*(?:저장|세이브)(?:은|이|을|를)?\s*(?:(?:사용|이용)할\s*수\s*있습니다|제공됩니다)',
+    '(?m)^\s*(?:진행\s*상황|진행도)(?:을|를)?\s*클라우드에\s*동기화합니다',
+    '(?m)^\s*(?:게임플레이\s*데이터|게임\s*이벤트|충돌\s*(?:데이터|보고서)|크래시\s*(?:데이터|보고서))(?:를|을)?(?:\s*서버로)?\s*(?:업로드|전송|수집)합니다'
+)) {
+    if ($affirmativeStoreCopy -match $koreanContradictoryClaim) {
+        throw "Store copy contradicts the v1 service boundary: $koreanContradictoryClaim"
     }
 }
 
@@ -453,11 +474,11 @@ if ($Mode -eq 'Submission') {
             throw "Release evidence must contain sanitized Markdown only: $path"
         }
         $relative = $path.Substring($root.Length).TrimStart([char[]]@('\', '/')).Replace('\', '/')
-        $text = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+        $text = Read-StrictUtf8File $path $relative
         Assert-SanitizedEvidence $text $relative
         $recursiveEvidence[$relative] = $text
     }
-    $artReview = [System.IO.File]::ReadAllText($artReviewPath, [System.Text.Encoding]::UTF8)
+    $artReview = Read-StrictUtf8File $artReviewPath $artReviewRelative
     Assert-SanitizedEvidence $artReview $artReviewRelative
 
     # Task 4 human art approval is bound to the exact submitted icon and provenance record.
@@ -485,23 +506,59 @@ if ($Mode -eq 'Submission') {
     }
     $beforeEvidence = Get-StructuredField $artReview 'Before evidence' 'ArtReleaseReview.md'
     $afterEvidence = Get-StructuredField $artReview 'After evidence' 'ArtReleaseReview.md'
-    if ($beforeEvidence -notmatch '\A(?:Git commit [0-9a-fA-F]{40}|(?:Docs|Assets)/[A-Za-z0-9._/-]+)\z') { throw 'Before evidence must be a repository-relative file or full Git commit.' }
-    if ($afterEvidence -notmatch '\A(?:Git commit [0-9a-fA-F]{40}|(?:Docs|Assets)/[A-Za-z0-9._/-]+)\z') { throw 'After evidence must be a repository-relative file or full Git commit.' }
+    $repositoryRelativePattern = '(?!\.git(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)+'
+    if ($beforeEvidence -notmatch "\A(?:Git commit [0-9a-fA-F]{40}|$repositoryRelativePattern)\z") { throw 'Before evidence must be a repository-relative file or full Git commit.' }
+    if ($afterEvidence -notmatch "\A$repositoryRelativePattern\z") { throw 'After evidence must be a repository-relative file.' }
+    if ($beforeEvidence -eq $afterEvidence -or $beforeEvidence -match '(?:^|/)\.\.(?:/|$)' -or $afterEvidence -match '(?:^|/)\.\.(?:/|$)') {
+        throw 'Art before/after evidence must be distinct, safe references.'
+    }
+    if ($afterEvidence -ne 'Assets/Art/Brand/AppIcon.png') { throw 'After evidence must bind the current Assets/Art/Brand/AppIcon.png.' }
+
+    $iconPath = Join-Path $root 'Assets/Art/Brand/AppIcon.png'
+    if (-not (Test-Path -LiteralPath $iconPath -PathType Leaf)) { throw 'Approved application icon file is missing.' }
+    $actualIconSha = (Get-FileHash -LiteralPath $iconPath -Algorithm SHA256).Hash
+    if ($beforeEvidence -match '\AGit commit (?<sha>[0-9a-fA-F]{40})\z') {
+        $beforeCommitSha = $Matches['sha']
+        $commitArgs = @('-C', $root, 'rev-parse', '--verify', "${beforeCommitSha}^{commit}")
+        $commitObject = & git @commitArgs 2>$null
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace(($commitObject -join ''))) { throw 'Before-evidence Git commit does not exist.' }
+        $historicalArgs = @('-C', $root, 'rev-parse', '--verify', "${beforeCommitSha}:Assets/Art/Brand/AppIcon.png")
+        $historicalBlob = & git @historicalArgs 2>$null
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace(($historicalBlob -join ''))) { throw 'Before-evidence Git commit has no AppIcon blob.' }
+        $currentArgs = @('-C', $root, 'hash-object', '--', $iconPath)
+        $currentBlob = & git @currentArgs 2>$null
+        if ($LASTEXITCODE -ne 0 -or (($historicalBlob -join '').Trim() -eq ($currentBlob -join '').Trim())) { throw 'Before-evidence Git AppIcon must differ from the current icon.' }
+    } else {
+        $beforePath = Join-Path $root $beforeEvidence
+        if (-not (Test-Path -LiteralPath $beforePath -PathType Leaf)) { throw 'Before-evidence repository file does not exist.' }
+        $beforeSha = (Get-FileHash -LiteralPath $beforePath -Algorithm SHA256).Hash
+        if ($beforeSha -eq $actualIconSha) { throw 'Before-evidence file must differ from the current icon.' }
+    }
     $similarityMethod = Get-StructuredField $artReview 'Similarity search method' 'ArtReleaseReview.md'
     if ($similarityMethod.Length -lt 55 -or $similarityMethod -notmatch '(?i)(?:reverse.image|search).*(?:store|keyword|similar)') { throw 'Similarity search method must describe a substantive search.' }
     foreach ($resultField in @('Similarity review result', 'Trademark review', 'Rights review', 'Watermark review', 'Signature review', 'Named-artist review', 'Protected-character review')) {
         if ((Get-StructuredField $artReview $resultField 'ArtReleaseReview.md') -ne 'PASSED') { throw "Art review field '$resultField' must be PASSED." }
     }
-    $iconPath = Join-Path $root 'Assets/Art/Brand/AppIcon.png'
-    $actualIconSha = (Get-FileHash -LiteralPath $iconPath -Algorithm SHA256).Hash
     $approvedIconSha = Get-StructuredField $artReview 'Approved icon SHA-256' 'ArtReleaseReview.md'
     if ($approvedIconSha -notmatch '\A[0-9a-fA-F]{64}\z' -or $approvedIconSha -ne $actualIconSha) { throw 'Approved icon SHA-256 does not match Assets/Art/Brand/AppIcon.png.' }
     $provenance = $documents['Docs/AIAssetProvenance.md']
     $provenanceSection = [regex]::Match($provenance, "(?ms)^###\s+$([regex]::Escape($approvedAssetId))\b.*?\r?\n(?<body>.*?)(?=^###\s+|\z)")
+    $provenanceBody = if ($provenanceSection.Success) { $provenanceSection.Groups['body'].Value } else { '' }
     if (-not $provenanceSection.Success -or
-        $provenanceSection.Groups['body'].Value -notmatch [regex]::Escape($actualIconSha) -or
-        $provenanceSection.Groups['body'].Value -notmatch 'Assets/Art/Brand/AppIcon\.png') {
-        throw 'Approved asset ID, icon path, and current SHA-256 must appear together in AIAssetProvenance.md.'
+        $provenanceBody -notmatch [regex]::Escape($actualIconSha) -or
+        $provenanceBody -notmatch 'Assets/Art/Brand/AppIcon\.png' -or
+        $provenanceBody -notmatch '(?i)Approved for release' -or
+        $provenanceBody -notmatch [regex]::Escape($beforeEvidence) -or
+        $provenanceBody -notmatch [regex]::Escape($afterEvidence)) {
+        throw 'Approved provenance must contain the current icon path/hash/status and matching before/after evidence.'
+    }
+    $provenanceHumanEdits = [regex]::Match($provenanceBody, '(?im)^\|\s*Human edits\s*\|(?<value>.*?)\|\s*$').Groups['value'].Value
+    if ($provenanceHumanEdits.Length -lt 80 -or
+        $provenanceHumanEdits -notmatch '(?i)composition' -or
+        $provenanceHumanEdits -notmatch '(?i)silhouette' -or
+        $provenanceHumanEdits -notmatch '(?i)palette' -or
+        $provenanceHumanEdits -notmatch '(?i)line\s*/?\s*shape') {
+        throw 'Approved provenance Human edits must substantively cover composition, silhouette, palette, and line/shape cleanup.'
     }
 
     $automated = $recursiveEvidence["$evidenceRootRelative/automated-tests.md"]
@@ -558,8 +615,16 @@ if ($Mode -eq 'Submission') {
     if ((Get-StructuredField $remoteLab 'Matrix status' 'remote-test-lab.md') -ne 'PASSED' -or (Get-RequiredIntegerField $remoteLab 'Profile count' 'remote-test-lab.md') -lt 3) { throw 'Remote Test Lab matrix requires at least three passed profiles.' }
     $androidMajors = @()
     $aspectClasses = @()
+    $rtlModels = @()
+    $modelPatterns = @{
+        'Galaxy A' = '\AGalaxy A[A-Za-z0-9 +()._-]+\z'
+        'Galaxy S' = '\AGalaxy S[A-Za-z0-9 +()._-]+\z'
+        'Galaxy Fold' = '\A(?:Galaxy Z Fold|Galaxy Fold)[A-Za-z0-9 +()._-]+\z'
+    }
     foreach ($profile in @('Galaxy A', 'Galaxy S', 'Galaxy Fold')) {
-        if ((Get-StructuredField $remoteLab "$profile model" 'remote-test-lab.md').Length -lt 8) { throw "$profile model is incomplete." }
+        $model = Get-StructuredField $remoteLab "$profile model" 'remote-test-lab.md'
+        if ($model -notmatch $modelPatterns[$profile]) { throw "$profile model must identify the required Samsung Galaxy family." }
+        $rtlModels += $model
         $major = Get-RequiredIntegerField $remoteLab "$profile Android major" 'remote-test-lab.md'
         if ($major -lt 10) { throw "$profile Android major is invalid." }
         $androidMajors += $major
@@ -570,6 +635,7 @@ if ($Mode -eq 'Submission') {
             if ((Get-StructuredField $remoteLab "$profile $check" 'remote-test-lab.md') -ne 'PASSED') { throw "$profile check must be PASSED: $check." }
         }
     }
+    if (@($rtlModels | Sort-Object -Unique).Count -ne 3) { throw 'Remote Test Lab model values must be distinct.' }
     if (@($androidMajors | Sort-Object -Unique).Count -lt 2 -or @($aspectClasses | Sort-Object -Unique).Count -lt 2) { throw 'Remote Test Lab must span at least two Android majors and two aspect classes.' }
 
     $serviceExact = @{

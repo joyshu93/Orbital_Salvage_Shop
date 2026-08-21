@@ -1,6 +1,6 @@
-# AdMob, UMP, Firebase, and privacy setup
+# AdMob, UMP, and v1 privacy setup
 
-Service credentials are intentionally excluded from Git. The game currently uses consent-aware local/no-op adapters, so unavailable SDKs never block play or base rewards.
+Service credentials are intentionally excluded from Git. Version 1 ships Google Mobile Ads and UMP for optional rewarded ads, but it ships no Firebase App, Analytics, Crashlytics, or other remote gameplay-telemetry transport.
 
 ## Store release boundary
 
@@ -22,20 +22,15 @@ Official references:
 - https://developers.google.com/admob/unity/privacy
 - https://support.google.com/admob/answer/7313578
 
-## Firebase Analytics and Crashlytics
+## Version 1 no-remote-telemetry boundary
 
-1. Create a Firebase Android app with the same package ID.
-2. Firebase App, Analytics, and Crashlytics are pinned as official local UPM tarballs at version 13.15.0, with EDM4U pinned at 1.2.188. Their exact source URLs and SHA-256 values are recorded in `Docs/ThirdPartyNotices.md`. Do not import the corresponding `.unitypackage` files or copy SDK folders under `Assets`.
-3. Put `google-services.json` in `Assets` locally. It is ignored by Git; never commit it or any service credential.
-4. `Assets/Plugins/Android/AndroidManifest.xml` disables Analytics and Crashlytics collection before Firebase runtime initialization. Enable each only after its in-game consent toggle is on; withdrawal must disable future collection.
-5. Send no artifact description, free-form text, exact local date, advertising identifier, email, or other PII as custom parameters.
-6. Force one test non-fatal/crash in an internal build, verify it in Firebase, then remove the trigger.
-7. Upload the public IL2CPP symbols produced beside the AAB with `firebase crashlytics:symbols:upload --app=<FIREBASE_APP_ID> <SYMBOLS_PATH>`.
+The 2026-08-21 v1 decision excludes Firebase and remote gameplay/crash telemetry from the shipped player:
 
-Official references:
-
-- https://firebase.google.com/docs/unity/setup
-- https://firebase.google.com/docs/crashlytics/unity/get-started
+- `Packages/manifest.json`, the runtime asmdef, runtime source, vendored packages, and Android plugins must contain no Firebase shipping dependency.
+- `ServiceFactory` always supplies the local `ConsentAwareAnalyticsService` and `ConsentAwareCrashReporter`; these retain only their local enabled flag and do not transmit, log, cache, or persist event/report payloads.
+- `AnalyticsEvents` and `GameTelemetry` remain pure allowlist and bucketing logic for local behavior and tests. They do not create a transport.
+- Run `scripts/check-no-remote-telemetry.ps1` for every release candidate. A Firebase package, assembly reference, adapter, tgz, SDK symbol, or manifest entry is a release-blocking failure.
+- Defensive `google-services.json` ignore rules remain so credentials cannot be accidentally committed, but a local file must not be added to a v1 build.
 
 ## Human package-resolution checkpoint
 
@@ -44,10 +39,12 @@ Official references:
 1. Open the project in Unity `6000.3.21f1`.
 2. Wait for Package Manager and External Dependency Manager to finish.
 3. Confirm the Console has no compilation or Android dependency-resolution error.
-4. Confirm the resolved graph contains Google Mobile Ads 11.3.0, Firebase App/Analytics/Crashlytics 13.15.0, and EDM4U 1.2.188.
+4. Confirm the resolved graph contains Google Mobile Ads 11.3.0 and EDM4U 1.2.188, with no `com.google.firebase.*` package.
 5. Confirm there is no Asset-package copy under `Assets/Firebase` or `Assets/ExternalDependencyManager`, close Unity, and retain the Unity-generated `Packages/packages-lock.json` change.
 
-## Required analytics events
+## Local coarse event vocabulary
+
+The pure local schema retains these names for deterministic tests and future product analysis design; version 1 does not transmit them:
 
 - `tutorial_started`, `tutorial_completed`
 - `shift_started` with difficulty band only
@@ -55,5 +52,3 @@ Official references:
 - `shift_completed` with band and duration bucket
 - `reward_offer_shown`, `reward_result` with placement and result
 - `cosmetic_unlocked` with cosmetic ID
-
-Do not start paid acquisition until organic D1 is at least 25% and D7 at least 8% in the first meaningful cohort.

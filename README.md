@@ -29,7 +29,7 @@ The current project workflow does not enable Unity MCP or other Authorized Agent
 .\scripts\build-android.ps1
 ```
 
-The production SDK adapters deliberately remain disabled until AdMob/Firebase projects and consent messaging exist. Gameplay falls back safely when those SDKs are absent.
+Version 1 uses AdMob/UMP only for opt-in rewarded ads and ships no Firebase or remote gameplay/crash telemetry transport. Gameplay remains fully available when ads are declined or unavailable.
 
 ## Release route
 

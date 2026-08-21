@@ -4,11 +4,25 @@
 
 **Goal:** Turn the existing Curio Clerk vertical slice into a consent-aware, rights-cleared Samsung Galaxy Store 1.0.0 release, then publish a verified 1.0.1 maintenance update and retain credible solo-development career evidence.
 
-**Architecture:** Keep deterministic gameplay in `CurioClerk.Core` and put Google/Firebase SDK calls behind the existing runtime interfaces. Centralize immutable Android release values in one Editor configuration class, generate sensitive build-only service configuration from process environment values, and make every release decision traceable through repository checks and human-retained evidence. Unity remains human-operated; agents edit files and diagnose output supplied by the developer.
+**Architecture:** Keep deterministic gameplay in `CurioClerk.Core`, isolate AdMob/UMP behind runtime interfaces, and ship local non-transport analytics/crash boundaries. Centralize immutable Android release values in one Editor configuration class, generate sensitive build-only ad configuration from process environment values, and make every release decision traceable through repository checks and human-retained evidence. Unity remains human-operated; agents edit files and diagnose output supplied by the developer.
 
-**Tech Stack:** Unity `6000.3.21f1`, C#, uGUI/TMP, Unity Test Framework, Android AAB/IL2CPP/ARM64, Google Mobile Ads Unity `11.3.0`, UMP, Firebase Unity `13.15.0` Analytics/Crashlytics, bundletool `1.18.3`, PowerShell, Git LFS.
+**Tech Stack:** Unity `6000.3.21f1`, C#, uGUI/TMP, Unity Test Framework, Android AAB/IL2CPP/ARM64, Google Mobile Ads Unity `11.3.0`, UMP, bundletool `1.18.3`, PowerShell, Git LFS. Firebase and remote gameplay/crash telemetry are excluded from v1.
 
 **Spec:** `Docs/superpowers/specs/2026-08-21-galaxy-store-first-release-design.md`
+
+## Superseding v1 no-remote-telemetry decision — 2026-08-21
+
+This section is authoritative and supersedes every conflicting Firebase instruction retained below as historical implementation context.
+
+- **Task 5:** keep GMA 11.3.0 and EDM4U 1.2.188 only. Firebase dependencies, tgz archives, manifest metadata, notices, and resolution checks are void for v1.
+- **Task 7:** the Firebase adapter implementation is replaced atomically by local non-transport `ConsentAwareAnalyticsService` and `ConsentAwareCrashReporter` on every platform. Keep only the pure event allowlist/bucketing logic and exclusion tests/gate.
+- **Task 8:** gameplay event objects may support local tests, but the shipped service is a no-op transport. Do not add Firebase wiring or describe Analytics/Crashlytics toggles as transmitting data; privacy UI covers AdMob/UMP only.
+- **Task 9:** build configuration may contain AdMob values only. Do not add Firebase configuration, credentials, Crashlytics symbol upload, or remote-telemetry build steps. General IL2CPP symbols may still be retained for developer/store diagnostics.
+- **Task 10:** reviewer notes and Data Safety must describe actual AdMob/UMP behavior and explicitly exclude Firebase/remote gameplay telemetry; do not declare Firebase analytics or diagnostics.
+- **Task 11:** replace Firebase opt-in, test-event, upload, and symbolication checks with `scripts/check-no-remote-telemetry.ps1` plus verification that local services do not transmit or persist payloads.
+- **Final gate:** run `scripts/check-no-remote-telemetry.ps1` in addition to the other release gates. Any Firebase package, assembly, adapter, archive, manifest entry, declaration, or shipping SDK symbol blocks release.
+
+Reintroducing remote telemetry requires a new approved privacy design and synchronized code, tests, notices, policy, and store declarations. Historical Firebase snippets below must not be executed for v1.
 
 ## Global Constraints
 
@@ -16,8 +30,8 @@
 - Keep Unity `6000.3.21f1`, package ID `com.joyshu93.curioclerknightshift`, API 29 minimum, API 36 target, ARM64, IL2CPP, AAB, portrait, and 60 fps.
 - The game must remain fully playable offline without an account, telemetry consent, or an available advertisement.
 - Allow only optional rewarded ads: `shift_failed_revive` and `shift_complete_double`; at most one successful reward per shift.
-- Keep Analytics and Crashlytics collection disabled until the corresponding in-game opt-in is active; withdrawal stops future collection.
-- Do not commit Samsung/Firebase credentials, signing files, passwords, identity documents, bank documents, live service-account files, or tester personal data.
+- Ship no remote gameplay Analytics or Crashlytics transport; local boundaries do not transmit or persist payloads.
+- Do not commit Samsung/service credentials, signing files, passwords, identity documents, bank documents, live service-account files, or tester personal data.
 - Use only English and Korean player-facing copy and update both languages in the same change.
 - Do not use Unity MCP or launch/control Unity from an agent. The developer runs Unity generation, tests, builds, and device checks.
 - Release-path cash target is KRW 0. No paid assets, testers, reviews, user acquisition, Google Play account, or Steam submission for version 1.
@@ -30,11 +44,11 @@
 | Release truth | `Assets/Scripts/Editor/ReleaseConfiguration.cs`, `Assets/Scripts/Editor/ProjectBuilder.cs` | Own version, package, Android settings, build metadata, and release validation. |
 | Service configuration | `Assets/Scripts/Runtime/Infrastructure/ServiceConfiguration.cs`, ignored generated asset under `Assets/Resources` | Carry the rewarded unit ID into a build without storing it in Git. |
 | Ads and consent | `Assets/Scripts/Runtime/Infrastructure/Ads/*`, `Assets/Scripts/Runtime/Infrastructure/Privacy/*` | Wrap Google rewarded ads and UMP; resolve each callback once. |
-| Firebase | `Assets/Scripts/Runtime/Infrastructure/Firebase/*`, `Analytics/*`, `Diagnostics/*` | Initialize dependencies once and enforce opt-in Analytics/Crashlytics. |
-| Telemetry schema | `Assets/Scripts/Runtime/Infrastructure/Analytics/GameTelemetry.cs`, `AnalyticsEvents.cs` | Emit only allowlisted coarse events and parameters. |
+| No remote telemetry | `scripts/check-no-remote-telemetry.ps1`, local `Analytics/*`, `Diagnostics/*` | Exclude Firebase/remote transports and retain pure local schema/bucketing only. |
+| Telemetry schema | `Assets/Scripts/Runtime/Infrastructure/Analytics/GameTelemetry.cs`, `AnalyticsEvents.cs` | Define local allowlisted coarse events and parameters without transmission. |
 | Presentation | `Assets/Scripts/Runtime/Presentation/GameApp.cs`, `Assets/Scripts/Runtime/Localization/Localizer.cs` | Connect gameplay, privacy controls, reward results, and bilingual status copy. |
 | Tests | `Assets/Tests/EditMode/*`, `Assets/Tests/PlayMode/GameAppPlayModeTests.cs` | Lock release configuration, rights gates, service state machines, telemetry, and UI flow. |
-| Android | `Assets/Plugins/Android/AndroidManifest.xml`, `scripts/build-android.ps1`, `scripts/inspect-aab.ps1` | Disable default collection, build the AAB, validate manifest/ABI, and retain hashes. |
+| Android | `scripts/build-android.ps1`, `scripts/inspect-aab.ps1` | Build the AAB, validate manifest/ABI, and retain hashes. |
 | Store and operations | `Docs/Store/*`, `Docs/ReleaseEvidence/*`, `Docs/Operations/*` | Hold listing copy, declarations, device evidence, rollout log, metrics, postmortem, and portfolio case study. |
 
 ---
@@ -416,6 +430,8 @@ git commit -m "art: approve release application icon"
 
 ### Task 5: Pin Google Mobile Ads and Firebase packages reproducibly
 
+> **V1 amendment (2026-08-21):** Execute only the GMA 11.3.0 and EDM4U 1.2.188 portions. All Firebase files, dependencies, manifest steps, and checks in this historical task are superseded and forbidden by the no-remote-telemetry decision above.
+
 **Files:**
 - Create: `GooglePackages/com.google.external-dependency-manager-1.2.188.tgz`
 - Create: `GooglePackages/com.google.firebase.app-13.15.0.tgz`
@@ -638,6 +654,8 @@ git commit -m "feat: integrate consent-aware rewarded ads"
 
 ### Task 7: Implement Firebase opt-in services and the allowlisted telemetry schema
 
+> **V1 amendment (2026-08-21):** This historical Firebase implementation was removed. The replacement is the executable exclusion gate, local no-transport services on every platform, and pure `AnalyticsEvents`/`GameTelemetry` logic only.
+
 **Files:**
 - Create: `Assets/Scripts/Runtime/Infrastructure/Firebase/FirebaseRuntime.cs`
 - Create: `Assets/Scripts/Runtime/Infrastructure/Firebase.meta`
@@ -723,6 +741,8 @@ git commit -m "feat: add opt-in Firebase telemetry"
 ```
 
 ### Task 8: Connect gameplay events, ad results, and privacy UI
+
+> **V1 amendment (2026-08-21):** Do not wire a remote analytics/crash transport. Shipping event calls terminate in the local no-op service; use recording fakes only in tests. Player privacy UI and reviewer copy cover AdMob/UMP, not Firebase collection toggles.
 
 **Files:**
 - Create: `Assets/Scripts/Runtime/AssemblyInfo.cs`
@@ -859,6 +879,8 @@ git commit -m "feat: connect consent rewards and telemetry"
 
 ### Task 9: Make release builds reproducible and inspectable
 
+> **V1 amendment (2026-08-21):** Service configuration is AdMob-only. Add no Firebase values or Crashlytics upload steps. General IL2CPP symbols remain a build/debug artifact, not a Firebase integration requirement.
+
 **Files:**
 - Create: `Assets/Scripts/Runtime/Infrastructure/ServiceConfiguration.cs`
 - Create: corresponding `.meta` file
@@ -942,6 +964,8 @@ git commit -m "build: validate signed Galaxy Store bundles"
 
 ### Task 10: Create store copy, declarations, review notes, and release checks
 
+> **V1 amendment (2026-08-21):** Data Safety, privacy copy, and review notes describe actual AdMob/UMP behavior and the absence of Firebase/remote gameplay telemetry. Do not instruct reviewers to toggle Analytics/Crashlytics.
+
 **Files:**
 - Create: `Docs/Store/GalaxyStoreListing.ko.md`
 - Create: `Docs/Store/GalaxyStoreListing.en.md`
@@ -980,12 +1004,12 @@ Both listings must state: warm occult rule-sorting puzzle, portrait one-hand pla
 3. Finish or fail a shift.
 4. Observe that base progression works without an ad.
 5. If a test ad is available in the certification build, exercise revive or double coins once and verify the other option is locked.
-6. Open Settings, change language, toggle Analytics/Crashlytics, and open UMP privacy options when required.
+6. Open Settings, change language, and open UMP privacy options when required.
 7. Force-stop/relaunch to confirm local save recovery.
 
 - [ ] **Step 5: Reconcile Data Safety and rights inventories**
 
-`DataSafety.md` must list actual AdMob/UMP and Firebase device identifier, advertising, analytics, diagnostics, consent, and approximate network-derived location behavior exactly as configured. `AssetInventory.md` maps every uploaded icon, screenshot, and video to `Docs/AIAssetProvenance.md` and `Docs/ArtReleaseReview.md`. `RatingAnswers.md` records the developer’s final questionnaire answers without copying identity information.
+`DataSafety.md` must list actual AdMob/UMP device identifier, advertising, diagnostics, consent, and approximate network-derived location behavior exactly as configured, and must not declare absent Firebase gameplay analytics/crash collection. `AssetInventory.md` maps every uploaded icon, screenshot, and video to `Docs/AIAssetProvenance.md` and `Docs/ArtReleaseReview.md`. `RatingAnswers.md` records the developer’s final questionnaire answers without copying identity information.
 
 - [ ] **Step 6: Run the gate and commit the store package**
 
@@ -998,6 +1022,8 @@ git commit -m "docs: prepare Galaxy Store submission package"
 Expected: documentation gate passes.
 
 ### Task 11: Execute the no-tester technical validation matrix
+
+> **V1 amendment (2026-08-21):** Remote-telemetry validation is the repository exclusion gate plus local no-transport service checks. Do not send a Crashlytics event, upload symbols to Firebase, or require Firebase dashboard evidence.
 
 **Files:**
 - Create: `Docs/ReleaseEvidence/1.0.0/automated-tests.md`
@@ -1031,10 +1057,10 @@ With the developer’s own consent choices and test devices:
 - verify no ad request precedes `CanRequestAds()`;
 - verify an unavailable ad leaves base progression intact;
 - verify one earned reward and zero duplicate grants;
-- verify Analytics and Crashlytics are silent before opt-in and after withdrawal;
-- send one non-fatal Crashlytics test event from an internal build;
-- upload public symbols and confirm the event is symbolicated;
-- remove the test trigger before rebuilding RC.
+- run `scripts/check-no-remote-telemetry.ps1` against the RC source;
+- verify the resolved package/player graph contains no Firebase or other remote gameplay/crash telemetry transport;
+- verify local analytics/crash services do not transmit, log, cache, or persist payloads;
+- retain general public symbols only for developer/store diagnostics, with no Firebase upload.
 
 - [ ] **Step 5: Make and sign the RC decision**
 
@@ -1162,7 +1188,7 @@ git commit -m "release: prepare Curio Clerk 1.0.1"
 
 - [ ] **Step 1: Write the one-page project case study**
 
-Include product, role, scope, Unity/C#/Android stack, deterministic rule engine, resilient JSON save, EN/KO localization, optional rewarded ads, consent architecture, Firebase crash reporting, test counts, Galaxy certification, staged rollout, and the 1.0.1 update. State the exact solo responsibilities and AI-assistance/provenance controls. Do not claim commercial success without numbers.
+Include product, role, scope, Unity/C#/Android stack, deterministic rule engine, resilient JSON save, EN/KO localization, optional rewarded ads, consent architecture, the v1 no-remote-telemetry boundary, test counts, Galaxy certification, staged rollout, and the 1.0.1 update. State the exact solo responsibilities and AI-assistance/provenance controls. Do not claim commercial success without numbers.
 
 - [ ] **Step 2: Write the architecture document**
 
@@ -1205,6 +1231,7 @@ git commit -m "docs: publish Curio Clerk release case study"
 The release program is complete only after fresh evidence confirms all of the following:
 
 ```powershell
+.\scripts\check-no-remote-telemetry.ps1
 .\scripts\check-release-docs.ps1 -Mode Submission
 .\scripts\test-unity.ps1
 .\scripts\build-android.ps1

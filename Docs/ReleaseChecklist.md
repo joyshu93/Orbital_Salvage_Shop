@@ -26,9 +26,9 @@ This checklist is the Samsung Galaxy Store-first release gate for v1. It does no
 - [ ] API 29 minimum, API 36 target, ARM64-only, IL2CPP, portrait, and package ID are verified.
 - [ ] UMP launch flow and privacy-options re-entry are tested where the final SDK configuration requires them.
 - [ ] AdMob live IDs replace test IDs only in the signed release configuration.
-- [ ] Analytics and Crashlytics remain off before consent and stop after withdrawal.
-- [ ] Crashlytics test event and IL2CPP symbolication are verified if Crashlytics is enabled for release.
-- [ ] The public privacy policy matches actual AdMob/Firebase collection and the final SDK configuration.
+- [ ] `scripts/check-no-remote-telemetry.ps1` passes and the resolved player graph contains no Firebase package, assembly, adapter, archive, manifest entry, or other remote telemetry transport.
+- [ ] Local analytics/crash service boundaries transmit, log, cache, and persist no event or report payloads.
+- [ ] The public privacy policy matches actual AdMob/UMP behavior and the absence of Firebase/remote gameplay telemetry in the final SDK configuration.
 
 ## Owned-device and Remote Test Lab matrix
 

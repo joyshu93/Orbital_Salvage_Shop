@@ -4,6 +4,12 @@ Date: 2026-08-21
 Product: **Curio Clerk: Night Shift / 기묘한 분실물 야간반**
 Decision status: approved direction, pending implementation-plan review
 
+## Superseding v1 telemetry decision — 2026-08-21
+
+Version 1 ships **no Firebase App, Analytics, Crashlytics, or other remote gameplay/crash telemetry transport**. This decision supersedes every Firebase setup, package, consent-toggle, crash-event, symbol-upload, data-declaration, metrics, and portfolio instruction elsewhere in this design for v1. AdMob and UMP remain solely for opt-in rewarded ads and must still be disclosed according to their actual behavior.
+
+The shipped service factory uses synchronous local non-transport analytics/crash boundaries. Pure event allowlists and coarse buckets may remain for local code/tests, but they do not authorize collection. `scripts/check-no-remote-telemetry.ps1` is a release gate. Any future remote telemetry requires a new approved privacy design and matching implementation, notices, store declarations, and tests.
+
 ## Context
 
 The project is developed by one person. The developer has no Google Play Console account and will not recruit external testers. The primary objective is to complete a genuine commercial-store release with minimal cash spending and turn the full release/operation process into credible Unity career evidence.
@@ -40,7 +46,7 @@ The human developer owns all identity- and money-bearing actions:
 1. Create or verify a Samsung account with the correct South Korea region before Seller Portal registration; the region cannot be changed in Seller Portal afterward.
 2. Register with Seller Portal and apply for commercial seller status. Free and paid distribution both require that status.
 3. Supply government identity, financial, tax, address, support-email, and privacy-policy information directly to Samsung or Google as required.
-4. Create AdMob and Firebase projects, retain credentials privately, and provide only non-secret IDs needed for repository configuration.
+4. Create the AdMob project, retain credentials privately, and provide only non-secret IDs needed for repository configuration. Do not create or configure Firebase for v1.
 5. Create and back up the Android signing material outside the repository.
 6. Run Unity Editor, Unity tests, asset generation, and release builds under the project's no-MCP workflow.
 7. Review and submit the final Seller Portal declarations.
@@ -56,7 +62,7 @@ Version 1 remains a free, offline-capable game with rewarded ads only.
 - No banner, interstitial, app-open ad, energy system, loot box, paid currency, or IAP.
 - Unavailable, rejected, failed, or unapproved ads must never block play or remove the base reward.
 - Use the Google Mobile Ads Unity plugin and UMP only after their exact versions and licenses are recorded.
-- Keep Analytics and Crashlytics collection off until the applicable in-game consent is granted; withdrawal must stop future collection.
+- Ship no remote Analytics or Crashlytics transport; local service boundaries must not transmit or persist payloads.
 - Link the public Galaxy Store listing to AdMob after publication for app-readiness review. Until approval or during no-fill, the game remains fully usable and simply hides reward offers.
 
 AdMob currently recognizes Samsung Galaxy Store as a supported third-party Android store. The store package name must exactly match the AdMob app record.
@@ -94,7 +100,7 @@ Do not imply endorsement by Samsung, Google, OpenAI, Unity, an artist, a franchi
 ## Release flow
 
 1. **Account gate:** complete Samsung account, Seller Portal, and commercial seller verification before spending time on final store art.
-2. **Technical RC:** close gameplay/save/privacy defects, integrate pinned service SDKs, and produce a human-validated AAB and symbols.
+2. **Technical RC:** close gameplay/save/privacy defects, integrate only the pinned AdMob/UMP service path, pass the no-remote-telemetry gate, and produce a human-validated AAB and symbols.
 3. **Content freeze:** finish EN/KO copy, art, audio, provenance, notices, rating answers, support page, privacy policy, and Data Safety.
 4. **Certification:** upload the AAB, select supported devices, add review notes, and respond to Samsung findings with reproducible fixes.
 5. **Korea rollout:** 10% → 50% → 100% when health gates allow.
@@ -107,10 +113,10 @@ The release is useful for employment only when the developer's contribution can 
 
 - a public Galaxy Store product link and release/version history;
 - a 30–60 second gameplay video with no concept-only footage;
-- a one-page project page naming Unity, C#, Android, architecture, tests, persistence, localization, privacy, ads, analytics, crash reporting, and the exact solo responsibilities;
+- a one-page project page naming Unity, C#, Android, architecture, tests, persistence, localization, privacy, ads, the no-remote-telemetry boundary, and the exact solo responsibilities;
 - an architecture diagram and selected sanitized code/tests, without service secrets;
 - a certification case study describing one rejection or pre-submit defect, its evidence, fix, and verification when such a case exists;
-- post-release metrics reported honestly: installs, crash-free users, tutorial completion, shift completion, retention, and reward-ad results; percentage metrics are reported only after at least 30 unique users have launched the relevant release, while smaller samples are shown as raw counts and explicitly labelled too small for a pass/fail conclusion;
+- post-release metrics reported honestly only from sources actually available in v1, such as store installs, store diagnostics/reviews, support reports, and AdMob reward results; do not claim tutorial, shift, or retention telemetry that the player does not send;
 - a concise postmortem covering scope decisions, failures, policy work, AI provenance, and what changed in 1.0.1.
 
 Do not claim commercial success without numbers. The accurate resume claim after completion is: **Designed, implemented, certified, released, and maintained a solo Unity Android game on Samsung Galaxy Store.**

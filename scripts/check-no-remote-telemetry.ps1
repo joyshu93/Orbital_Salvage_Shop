@@ -1,5 +1,7 @@
 param(
-    [string]$ProjectRoot
+    [string]$ProjectRoot,
+    [ValidateSet('Repository', 'Release')]
+    [string]$Mode = 'Repository'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -50,19 +52,31 @@ function Remove-CSharpCommentsAndLiterals {
     return [System.Text.RegularExpressions.Regex]::Replace($Content, $nonCodePattern, ' ')
 }
 
+$requiredDependencies = [ordered]@{
+    'com.google.ads.mobile' = '11.3.0'
+    'com.google.external-dependency-manager' = 'file:../GooglePackages/com.google.external-dependency-manager-1.2.188.tgz'
+}
+$forbiddenDependencyNamePattern = '(?i)(firebase|analytics|crashlytics|telemetry|sentry|appcenter|bugsnag|datadog|newrelic|amplitude|mixpanel|gameanalytics)'
+
 $manifest = Read-JsonFile 'Packages/manifest.json'
-if ($null -ne $manifest -and $null -ne $manifest.dependencies) {
-    $dependencies = $manifest.dependencies.PSObject.Properties
+$dependencies = $null
+if ($null -ne $manifest) {
+    $dependenciesProperty = $manifest.PSObject.Properties['dependencies']
+    if ($null -eq $dependenciesProperty -or $dependenciesProperty.Value -isnot [pscustomobject]) {
+        Add-Failure 'Packages/manifest.json must contain a valid dependencies object.'
+    }
+    else {
+        $dependencies = $dependenciesProperty.Value.PSObject.Properties
+    }
+}
+
+if ($null -ne $dependencies) {
     foreach ($dependency in $dependencies) {
-        if ($dependency.Name -like 'com.google.firebase.*') {
-            Add-Failure "Firebase package dependency remains in Packages/manifest.json: $($dependency.Name)"
+        if ($dependency.Name -match $forbiddenDependencyNamePattern) {
+            Add-Failure "Forbidden remote telemetry package dependency remains in Packages/manifest.json: $($dependency.Name)"
         }
     }
 
-    $requiredDependencies = @{
-        'com.google.ads.mobile' = '11.3.0'
-        'com.google.external-dependency-manager' = 'file:../GooglePackages/com.google.external-dependency-manager-1.2.188.tgz'
-    }
     foreach ($required in $requiredDependencies.GetEnumerator()) {
         $property = $dependencies | Where-Object Name -eq $required.Key | Select-Object -First 1
         if ($null -eq $property -or $property.Value -ne $required.Value) {
@@ -72,11 +86,41 @@ if ($null -ne $manifest -and $null -ne $manifest.dependencies) {
 }
 
 $packageLock = Read-JsonFile 'Packages/packages-lock.json'
-if ($null -ne $packageLock -and $null -ne $packageLock.dependencies) {
-    foreach ($dependency in $packageLock.dependencies.PSObject.Properties) {
-        if ($dependency.Name -like 'com.google.firebase.*') {
-            Add-Failure "Firebase package dependency remains in Packages/packages-lock.json: $($dependency.Name)"
+$lockDependencies = $null
+if ($null -ne $packageLock) {
+    $lockDependenciesProperty = $packageLock.PSObject.Properties['dependencies']
+    if ($null -eq $lockDependenciesProperty -or $lockDependenciesProperty.Value -isnot [pscustomobject]) {
+        Add-Failure 'Packages/packages-lock.json must contain a valid dependencies object.'
+    }
+    else {
+        $lockDependencies = $lockDependenciesProperty.Value.PSObject.Properties
+        foreach ($dependency in $lockDependencies) {
+            if ($dependency.Name -match $forbiddenDependencyNamePattern) {
+                Add-Failure "Forbidden remote telemetry package dependency remains in Packages/packages-lock.json: $($dependency.Name)"
+            }
         }
+    }
+}
+
+$unresolvedRequiredLockEntries = [System.Collections.Generic.List[string]]::new()
+foreach ($required in $requiredDependencies.GetEnumerator()) {
+    $resolved = $null
+    if ($null -ne $lockDependencies) {
+        $resolved = $lockDependencies | Where-Object Name -eq $required.Key | Select-Object -First 1
+    }
+
+    if ($null -eq $resolved -or $resolved.Value.version -ne $required.Value) {
+        $unresolvedRequiredLockEntries.Add($required.Key)
+    }
+}
+
+if ($unresolvedRequiredLockEntries.Count -gt 0) {
+    $entryList = $unresolvedRequiredLockEntries -join ', '
+    if ($Mode -eq 'Release') {
+        Add-Failure "Release mode requires resolved packages-lock entries for: $entryList."
+    }
+    else {
+        Write-Host "Repository mode: packages-lock is not yet resolved for required entries: $entryList. Release mode will fail until Unity resolves them."
     }
 }
 
@@ -131,6 +175,23 @@ $telemetryRuntimeRoots = @(
     'Assets/Scripts/Runtime/Infrastructure/Diagnostics'
 )
 
+# These patterns apply specifically to the approved Analytics/Diagnostics sources.
+# They match executable persistence/logging APIs, not harmless interface declarations
+# such as ICrashReporter.Log(string).
+$forbiddenPayloadPersistenceMarkers = @(
+    [pscustomobject]@{ Name = 'System.IO'; Pattern = '\bSystem\.IO(?:\.|\s*;)' },
+    [pscustomobject]@{ Name = 'File/Directory API'; Pattern = '\b(?:File|Directory)\s*\.' },
+    [pscustomobject]@{ Name = 'file/stream/writer API'; Pattern = '\b(?:FileInfo|DirectoryInfo|IsolatedStorageFile|FileStream|MemoryStream|BufferedStream|StreamWriter|StreamReader|BinaryWriter|BinaryReader|TextWriter|TextReader)\b' },
+    [pscustomobject]@{ Name = 'persistentDataPath'; Pattern = '\b(?:UnityEngine\s*\.\s*)?Application\s*\.\s*persistentDataPath\b' },
+    [pscustomobject]@{ Name = 'PlayerPrefs'; Pattern = '\bPlayerPrefs\s*\.' },
+    [pscustomobject]@{ Name = 'JsonUtility storage serialization'; Pattern = '\bJsonUtility\s*\.\s*(?:ToJson|FromJson|FromJsonOverwrite)\s*\(' },
+    [pscustomobject]@{ Name = 'JSON serializer'; Pattern = '\b(?:JsonConvert|JsonSerializer)\s*\.\s*(?:Serialize|SerializeObject|Deserialize|DeserializeObject)\s*\(' },
+    [pscustomobject]@{ Name = 'Debug logging'; Pattern = '\b(?:UnityEngine\s*\.\s*)?Debug\s*\.\s*(?:Log|LogWarning|LogError|LogException|LogFormat|LogAssertion)\s*\(' },
+    [pscustomobject]@{ Name = 'Console logging'; Pattern = '\b(?:System\s*\.\s*)?Console(?:\s*\.\s*(?:Out|Error))?\s*\.\s*Write(?:Line)?\s*\(' },
+    [pscustomobject]@{ Name = 'trace logging'; Pattern = '\b(?:Trace|System\s*\.\s*Diagnostics\s*\.\s*Debug)\s*\.\s*(?:Write|WriteLine|TraceInformation|TraceWarning|TraceError)\s*\(' },
+    [pscustomobject]@{ Name = 'logger call'; Pattern = '\.\s*(?:Log|LogWarning|LogError|LogException)\s*\(' }
+)
+
 foreach ($allowedPath in $allowedTelemetryRuntimeFiles) {
     if (-not (Test-Path -LiteralPath (Join-Path $projectRootPath $allowedPath) -PathType Leaf)) {
         Add-Failure "Approved v1 Analytics/Diagnostics runtime file is missing: $allowedPath"
@@ -148,6 +209,15 @@ foreach ($relativeRoot in $telemetryRuntimeRoots) {
         $relative = Get-NormalizedRelativePath $file.FullName
         if ($relative -notin $allowedTelemetryRuntimeFiles) {
             Add-Failure "Unreviewed Analytics/Diagnostics runtime file: $relative"
+        }
+
+        if ($file.Extension -eq '.cs') {
+            $codeOnly = Remove-CSharpCommentsAndLiterals (Get-Content -LiteralPath $file.FullName -Raw)
+            foreach ($marker in $forbiddenPayloadPersistenceMarkers) {
+                if ($codeOnly -match $marker.Pattern) {
+                    Add-Failure "Persistence/logging marker '$($marker.Name)' in approved Analytics/Diagnostics runtime source: $relative"
+                }
+            }
         }
     }
 }

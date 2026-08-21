@@ -500,7 +500,7 @@ Expected: GMA resolves at `11.3.0`, EDM4U resolves at `1.2.188`, and the resolve
 - [ ] **Step 5: Run repository dependency checks**
 
 ```powershell
-.\scripts\check-no-remote-telemetry.ps1
+.\scripts\check-no-remote-telemetry.ps1 -Mode Release
 Get-Content .\Packages\manifest.json | ConvertFrom-Json | Out-Null
 Get-Content .\Packages\packages-lock.json | ConvertFrom-Json | Out-Null
 git status --short
@@ -665,11 +665,12 @@ Run the production gate against the mutated fixture and require it to fail with 
 
 - [ ] **Step 2: Implement the no-remote release gate**
 
-The gate must parse `Packages/manifest.json`, `Packages/packages-lock.json`, and `CurioClerk.Runtime.asmdef`; preserve exact GMA/UMP/EDM dependencies; and reject Firebase packages, precompiled references, adapters, archives, and collection metadata.
+The gate has `Repository` (default) and `Release` modes. Both parse `Packages/manifest.json`, `Packages/packages-lock.json`, and `CurioClerk.Runtime.asmdef`; preserve exact GMA/UMP/EDM dependencies; and reject Firebase/telemetry packages, precompiled references, adapters, archives, and collection metadata. Repository mode reports that the required lock entries still await human Unity resolution. Release mode fails until the resolved lock contains the exact required GMA and EDM entries.
 
 It must also:
 
 - recursively enforce an explicit v1 allowlist for runtime Analytics and Diagnostics files;
+- content-scan every approved Analytics/Diagnostics source for executable file/stream/storage/serialization/debug/console/logger calls that could persist or log a payload;
 - scan first-party runtime C# after removing comments and literals for documented direct network and common telemetry/crash SDK markers, leaving the GMA/UMP adapter path intact;
 - require `ServiceFactory` to construct only the approved local analytics and crash implementations with no target-conditional branch;
 - recursively inspect every first-party `AndroidManifest.xml` below `Assets`.
@@ -836,7 +837,7 @@ No filesystem username, service ID, keystore path, or password may appear.
 
 - [ ] **Step 4: Harden the PowerShell build wrapper**
 
-`scripts/build-android.ps1` must run `scripts/check-no-remote-telemetry.ps1` and fail before Unity starts if the telemetry boundary fails or any of the six environment values are absent. It must not print secret values. It accepts AdMob configuration only and has no remote-telemetry configuration or upload step. After build, require the AAB, symbols zip, and JSON manifest; compare the manifest SHA-256 with `Get-FileHash`.
+`scripts/build-android.ps1` must run `scripts/check-no-remote-telemetry.ps1 -Mode Release` and fail before Unity starts if the telemetry boundary fails or any of the six environment values are absent. It must not print secret values. It accepts AdMob configuration only and has no remote-telemetry configuration or upload step. After build, require the AAB, general IL2CPP debugging archive, and JSON manifest; compare the manifest SHA-256 with `Get-FileHash`.
 
 - [ ] **Step 5: Pin bundletool and implement AAB inspection**
 
@@ -854,7 +855,7 @@ The script must assert package ID, version name/code, min SDK 29, target SDK 36,
 Human-run commands after exporting the six environment values in the current terminal:
 
 ```powershell
-.\scripts\check-no-remote-telemetry.ps1
+.\scripts\check-no-remote-telemetry.ps1 -Mode Release
 .\scripts\test-unity.ps1
 .\scripts\build-android.ps1
 .\scripts\inspect-aab.ps1 -AabPath .\Builds\Android\CurioClerk.aab -BundletoolPath .\tools\bundletool\bundletool-all-1.18.3.jar
@@ -919,7 +920,7 @@ Both listings must state: warm occult rule-sorting puzzle, portrait one-hand pla
 - [ ] **Step 6: Run the gate and commit the store package**
 
 ```powershell
-.\scripts\check-no-remote-telemetry.ps1
+.\scripts\check-no-remote-telemetry.ps1 -Mode Release
 .\scripts\check-release-docs.ps1 -Mode Submission
 git add Docs/Store Docs/ReleaseEvidence/1.0.0/README.md Docs/ReleaseChecklist.md scripts/check-release-docs.ps1
 git commit -m "docs: prepare Galaxy Store submission package"
@@ -938,7 +939,7 @@ Expected: documentation gate passes.
 - Modify: `Docs/ReleaseChecklist.md`
 
 **Interfaces:**
-- Consumes: signed RC AAB, symbols, inspection output, one owned Samsung phone, and at least three available Samsung Remote Test Lab profiles.
+- Consumes: signed RC AAB, inspection output, one owned Samsung phone, and at least three available Samsung Remote Test Lab profiles.
 - Produces: dated evidence for RC acceptance; no pre-release retention/usability claim.
 
 - [ ] **Step 1: Record automated-test evidence**
@@ -947,24 +948,24 @@ The developer runs `.\scripts\test-unity.ps1` and records date, Git SHA, Unity v
 
 - [ ] **Step 2: Complete the owned-device matrix**
 
-On one owned Samsung device, record model, Android/API level, screen resolution/aspect, install source, AAB-derived build version, and pass/fail for: first launch, tutorial, three shifts, drag/buttons/Hold, offline mode, pause/resume, force-stop recovery, corrupt-save recovery, EN/KO change, consent grant/withdrawal, privacy options, ad earned/dismissed/no-fill/failure/duplicate callback, and relaunch.
+On one owned Samsung device, record model, Android/API level, screen resolution/aspect, install source, AAB-derived build version, and pass/fail for: first launch, tutorial, three shifts, drag/buttons/Hold, offline mode, pause/resume, force-stop recovery, corrupt-save recovery, EN/KO change, UMP grant/deny/privacy-options changes, ad earned/dismissed/no-fill/failure/duplicate callback, and relaunch.
 
 - [ ] **Step 3: Complete three Remote Test Lab profiles**
 
 Choose one available Galaxy A-series slab, one Galaxy S-series slab, and one Galaxy Fold profile spanning at least two Android major versions and two aspect classes. Run install/launch/tutorial/one-shift/language/safe-area/pause-resume checks. Record the exact models chosen, lab date, OS, and results; do not imply these are independent human usability tests.
 
-- [ ] **Step 4: Validate live service behavior**
+- [ ] **Step 4: Validate only the shipped AdMob/UMP service path and no-remote boundary**
 
-With the developer’s own consent choices and test devices:
+With the developer's own UMP choices and test devices:
 
+- run `scripts/check-no-remote-telemetry.ps1 -Mode Release` against the exact RC source after human Unity package resolution;
 - verify UMP update occurs every launch;
 - verify no ad request precedes `CanRequestAds()`;
 - verify an unavailable ad leaves base progression intact;
 - verify one earned reward and zero duplicate grants;
-- run `scripts/check-no-remote-telemetry.ps1` against the RC source;
-- verify the resolved package/player graph contains no Firebase or other remote gameplay/crash telemetry transport;
-- verify local analytics/crash services do not transmit, log, cache, or persist payloads;
-- retain general public symbols only for developer/store diagnostics, with no Firebase upload.
+- inspect app-attributed traffic, confirm that no gameplay-event or crash-report endpoint/payload appears, and classify any observed third-party SDK service traffic as AdMob/UMP only;
+- verify the resolved package/player graph contains no remote gameplay/crash telemetry transport;
+- verify local analytics/crash services do not transmit, log, cache, or persist payloads.
 
 - [ ] **Step 5: Make and sign the RC decision**
 
@@ -1135,7 +1136,7 @@ git commit -m "docs: publish Curio Clerk release case study"
 The release program is complete only after fresh evidence confirms all of the following:
 
 ```powershell
-.\scripts\check-no-remote-telemetry.ps1
+.\scripts\check-no-remote-telemetry.ps1 -Mode Release
 .\scripts\check-release-docs.ps1 -Mode Submission
 .\scripts\test-unity.ps1
 .\scripts\build-android.ps1
@@ -1149,7 +1150,8 @@ git status --short
 - Samsung Galaxy Store South Korea publicly serves 1.0.0 and then 1.0.1.
 - 1.0.1 publication is within 14 calendar days after 1.0.0 reached 100% rollout.
 - P0/P1 defects are zero and no reward loss/duplication is known.
-- Rights, store declarations, privacy policy, and shipped SDK behavior agree.
+- The Release-mode no-remote gate passes against the human-resolved package graph.
+- Rights, privacy policy, and store declarations match actual AdMob/UMP behavior and do not declare absent gameplay/crash telemetry.
 - Metrics below 30 unique users are raw counts; at 30 or more, crash-free users are at least 99%.
 - The gameplay video, technical case study, and postmortem are reviewable independently of the store app.
 

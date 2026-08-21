@@ -17,7 +17,9 @@ function Write-FixtureFile {
 }
 
 function Invoke-Gate {
-    $output = @(& $pwshPath -NoProfile -File $gatePath -ProjectRoot $fixtureRoot 2>&1)
+    param([string]$Mode = 'Repository')
+
+    $output = @(& $pwshPath -NoProfile -File $gatePath -ProjectRoot $fixtureRoot -Mode $Mode 2>&1)
     return [pscustomobject]@{
         ExitCode = $LASTEXITCODE
         Output = $output -join "`n"
@@ -86,6 +88,90 @@ internal static class MarkerDocumentationFixture
     $baseline = Invoke-Gate
     if ($baseline.ExitCode -ne 0) {
         throw "Baseline fixture should pass the gate, but failed:`n$($baseline.Output)"
+    }
+
+    $manifestPath = Join-Path $fixtureRoot 'Packages/manifest.json'
+    $originalManifestBytes = [System.IO.File]::ReadAllBytes($manifestPath)
+    try {
+        Write-FixtureFile 'Packages/manifest.json' '{ "scopedRegistries": [] }'
+        $missingDependencyObject = Invoke-Gate
+        if ($missingDependencyObject.ExitCode -eq 0 -or
+            -not $missingDependencyObject.Output.Contains('Packages/manifest.json must contain a valid dependencies object.')) {
+            throw "Missing manifest dependencies object was not rejected explicitly:`n$($missingDependencyObject.Output)"
+        }
+
+        Write-FixtureFile 'Packages/manifest.json' @'
+{
+  "dependencies": {
+    "com.google.external-dependency-manager": "file:../GooglePackages/com.google.external-dependency-manager-1.2.188.tgz"
+  }
+}
+'@
+        $missingRequiredDependency = Invoke-Gate
+        if ($missingRequiredDependency.ExitCode -eq 0 -or
+            -not $missingRequiredDependency.Output.Contains('Required v1 dependency is missing or changed: com.google.ads.mobile must be 11.3.0')) {
+            throw "Missing required GMA dependency was not rejected explicitly:`n$($missingRequiredDependency.Output)"
+        }
+    }
+    finally {
+        [System.IO.File]::WriteAllBytes($manifestPath, $originalManifestBytes)
+    }
+
+    $unresolvedRelease = Invoke-Gate -Mode 'Release'
+    if ($unresolvedRelease.ExitCode -eq 0 -or
+        -not $unresolvedRelease.Output.Contains('Release mode requires resolved packages-lock entries for: com.google.ads.mobile, com.google.external-dependency-manager.')) {
+        throw "Release mode did not reject the unresolved packages-lock graph explicitly:`n$($unresolvedRelease.Output)"
+    }
+
+    $packageLockPath = Join-Path $fixtureRoot 'Packages/packages-lock.json'
+    $originalPackageLockBytes = [System.IO.File]::ReadAllBytes($packageLockPath)
+    try {
+        Write-FixtureFile 'Packages/packages-lock.json' @'
+{
+  "dependencies": {
+    "com.google.ads.mobile": {
+      "version": "11.3.0"
+    },
+    "com.google.external-dependency-manager": {
+      "version": "file:../GooglePackages/com.google.external-dependency-manager-1.2.188.tgz"
+    }
+  }
+}
+'@
+        $resolvedRelease = Invoke-Gate -Mode 'Release'
+        if ($resolvedRelease.ExitCode -ne 0) {
+            throw "Release mode rejected an exact resolved GMA/EDM graph:`n$($resolvedRelease.Output)"
+        }
+    }
+    finally {
+        [System.IO.File]::WriteAllBytes($packageLockPath, $originalPackageLockBytes)
+    }
+
+    $localAnalyticsPath = Join-Path $fixtureRoot 'Assets/Scripts/Runtime/Infrastructure/Analytics/ConsentAwareAnalyticsService.cs'
+    $originalLocalAnalyticsBytes = [System.IO.File]::ReadAllBytes($localAnalyticsPath)
+    try {
+        Write-FixtureFile 'Assets/Scripts/Runtime/Infrastructure/Analytics/ConsentAwareAnalyticsService.cs' @'
+using System.IO;
+internal sealed class ConsentAwareAnalyticsService
+{
+    public void Track(string payload)
+    {
+        File.AppendAllText("telemetry.log", payload);
+    }
+}
+'@
+        $persistenceMutation = Invoke-Gate
+        if ($persistenceMutation.ExitCode -eq 0 -or
+            -not $persistenceMutation.Output.Contains("Persistence/logging marker 'System.IO' in approved Analytics/Diagnostics runtime source")) {
+            throw "Approved local service persistence mutation was not rejected explicitly:`n$($persistenceMutation.Output)"
+        }
+    }
+    finally {
+        [System.IO.File]::WriteAllBytes($localAnalyticsPath, $originalLocalAnalyticsBytes)
+    }
+    $restoredLocalAnalyticsBytes = [System.IO.File]::ReadAllBytes($localAnalyticsPath)
+    if ([Convert]::ToBase64String($restoredLocalAnalyticsBytes) -ne [Convert]::ToBase64String($originalLocalAnalyticsBytes)) {
+        throw 'Approved local service fixture was not restored byte-for-byte after the persistence mutation.'
     }
 
     Write-FixtureFile 'Assets/Scripts/Runtime/Infrastructure/Analytics/AndroidTelemetryService.cs' @'

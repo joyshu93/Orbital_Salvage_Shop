@@ -44,6 +44,10 @@ Assets/AddressableAssetsData/link.xml.meta
 Assets/StreamingAssets/google-services-desktop.json
 Assets/google-services.json
 GoogleService-Info.plist
+Assets/Resources/ServiceConfiguration.asset
+Assets/Resources/ServiceConfiguration.asset.meta
+Assets/GoogleMobileAds/Resources/GoogleMobileAdsSettings.asset
+Assets/GoogleMobileAds/Resources/GoogleMobileAdsSettings.asset.meta
 .env
 .env.*
 

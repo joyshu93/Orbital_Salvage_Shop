@@ -9,8 +9,8 @@ Samsung Galaxy Store v1 account, identity, financial verification, signing custo
 ## AdMob and UMP
 
 1. Register the Android app in AdMob with package `com.joyshu93.curioclerknightshift`.
-2. Install the official Google Mobile Ads Unity plugin. The validated planning baseline is v11.3.0; use one installation method only (OpenUPM or the official `.unitypackage`).
-3. Enter the Android AdMob app ID under `Assets > Google Mobile Ads > Settings`.
+2. The official Google Mobile Ads Unity plugin is pinned as `com.google.ads.mobile` 11.3.0 through the Google OpenUPM registry in `Packages/manifest.json`. Do not also import the official `.unitypackage` or copy plugin files under `Assets`.
+3. After the human package-resolution checkpoint below, enter the Android AdMob app ID under `Assets > Google Mobile Ads > Settings`. The generated local settings asset is ignored by Git.
 4. Create one rewarded unit. During development use Google's Android rewarded test unit, never a live unit.
 5. In AdMob Privacy & messaging, create the required UMP messages.
 6. On every launch, call consent `Update`, then `LoadAndShowConsentFormIfRequired`. Initialize/load ads only when `CanRequestAds()` is true. Expose `ShowPrivacyOptionsForm()` from Settings when required.
@@ -25,18 +25,27 @@ Official references:
 ## Firebase Analytics and Crashlytics
 
 1. Create a Firebase Android app with the same package ID.
-2. Download the current official Unity SDK. Planning baseline: Firebase Unity SDK 13.14.0.
-3. Import `FirebaseAnalytics.unitypackage` and `FirebaseCrashlytics.unitypackage` from `dotnet4`.
-4. Put `google-services.json` in `Assets` locally. It is ignored by Git.
-5. Disable Analytics and Crashlytics collection by default. Enable each only after its in-game consent toggle is on; withdrawal must disable future collection.
-6. Send no artifact description, free-form text, exact local date, advertising identifier, email, or other PII as custom parameters.
-7. Force one test non-fatal/crash in an internal build, verify it in Firebase, then remove the trigger.
-8. Upload the public IL2CPP symbols produced beside the AAB with `firebase crashlytics:symbols:upload --app=<FIREBASE_APP_ID> <SYMBOLS_PATH>`.
+2. Firebase App, Analytics, and Crashlytics are pinned as official local UPM tarballs at version 13.15.0, with EDM4U pinned at 1.2.188. Their exact source URLs and SHA-256 values are recorded in `Docs/ThirdPartyNotices.md`. Do not import the corresponding `.unitypackage` files or copy SDK folders under `Assets`.
+3. Put `google-services.json` in `Assets` locally. It is ignored by Git; never commit it or any service credential.
+4. `Assets/Plugins/Android/AndroidManifest.xml` disables Analytics and Crashlytics collection before Firebase runtime initialization. Enable each only after its in-game consent toggle is on; withdrawal must disable future collection.
+5. Send no artifact description, free-form text, exact local date, advertising identifier, email, or other PII as custom parameters.
+6. Force one test non-fatal/crash in an internal build, verify it in Firebase, then remove the trigger.
+7. Upload the public IL2CPP symbols produced beside the AAB with `firebase crashlytics:symbols:upload --app=<FIREBASE_APP_ID> <SYMBOLS_PATH>`.
 
 Official references:
 
 - https://firebase.google.com/docs/unity/setup
 - https://firebase.google.com/docs/crashlytics/unity/get-started
+
+## Human package-resolution checkpoint
+
+`Packages/packages-lock.json` must be produced by Unity, not edited by hand to impersonate resolution:
+
+1. Open the project in Unity `6000.3.21f1`.
+2. Wait for Package Manager and External Dependency Manager to finish.
+3. Confirm the Console has no compilation or Android dependency-resolution error.
+4. Confirm the resolved graph contains Google Mobile Ads 11.3.0, Firebase App/Analytics/Crashlytics 13.15.0, and EDM4U 1.2.188.
+5. Confirm there is no Asset-package copy under `Assets/Firebase` or `Assets/ExternalDependencyManager`, close Unity, and retain the Unity-generated `Packages/packages-lock.json` change.
 
 ## Required analytics events
 

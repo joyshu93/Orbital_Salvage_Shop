@@ -9,7 +9,7 @@ Samsung Galaxy Store v1 account, identity, financial verification, signing custo
 ## AdMob and UMP
 
 1. Register the Android app in AdMob with package `com.joyshu93.curioclerknightshift`.
-2. The official Google Mobile Ads Unity plugin is pinned as `com.google.ads.mobile` 11.3.0 through the Google OpenUPM registry in `Packages/manifest.json`. Do not also import the official `.unitypackage` or copy plugin files under `Assets`.
+2. The official Google-authored Google Mobile Ads Unity plugin is pinned as `com.google.ads.mobile` 11.3.0 and distributed through the community OpenUPM registry configured in `Packages/manifest.json`; OpenUPM is not a Google-operated registry. Do not also import the official `.unitypackage` or copy plugin files under `Assets`.
 3. After the human package-resolution checkpoint below, enter the Android AdMob app ID under `Assets > Google Mobile Ads > Settings`. The generated local settings asset is ignored by Git.
 4. Create one rewarded unit. During development use Google's Android rewarded test unit, never a live unit.
 5. In AdMob Privacy & messaging, create the required UMP messages.

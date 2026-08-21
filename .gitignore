@@ -43,6 +43,7 @@ Assets/AddressableAssetsData/link.xml.meta
 # Local secrets and service configuration
 Assets/StreamingAssets/google-services-desktop.json
 Assets/google-services.json
+Assets/google-services.json.meta
 GoogleService-Info.plist
 Assets/Resources/ServiceConfiguration.asset
 Assets/Resources/ServiceConfiguration.asset.meta

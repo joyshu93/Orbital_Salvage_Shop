@@ -892,21 +892,21 @@ git commit -m "build: validate signed Galaxy Store bundles"
 - Consumes: actual SDK behavior, privacy policy, AI/third-party ledgers, package ID, and approved EN/KO product copy.
 - Produces: one internally consistent Seller Portal submission package and an evidence folder containing no personal documents.
 
-- [ ] **Step 1: Expand the release-doc gate before creating store files**
+- [x] **Step 1: Expand the release-doc gate before creating store files**
 
 Require every file listed above and make Submission mode fail when any contains unresolved bracketed identity/date tokens, claims an account/backend/IAP, omits rewarded-ad disclosure, claims collection of the absent remote gameplay/crash telemetry, or describes AdMob/UMP data types that disagree with `Docs/PrivacyPolicy.md`. The repository no-remote gate remains a separate required release check.
 
-- [ ] **Step 2: Run the gate and verify failure**
+- [x] **Step 2: Run the gate and verify failure**
 
 Run `.\scripts\check-release-docs.ps1 -Mode Submission`.
 
 Expected: FAIL because the six store documents and evidence README do not exist.
 
-- [ ] **Step 3: Write synchronized Korean and English listing copy**
+- [x] **Step 3: Write synchronized Korean and English listing copy**
 
 Both listings must state: warm occult rule-sorting puzzle, portrait one-hand play, 12-item shifts, Repair/Storage/Vault, Hold, casebook, desk charms, offline gameplay, optional rewarded ads, no account, and no IAP. Do not claim awards, rankings, revenue, multiplayer, cloud save, or features absent from the build.
 
-- [ ] **Step 4: Write exact reviewer instructions**
+- [x] **Step 4: Write exact reviewer instructions**
 
 `ReviewNotes.md` must explain this path:
 
@@ -918,7 +918,7 @@ Both listings must state: warm occult rule-sorting puzzle, portrait one-hand pla
 6. Open Settings, change language, and open UMP privacy options when required.
 7. Force-stop/relaunch to confirm local save recovery.
 
-- [ ] **Step 5: Reconcile Data Safety and rights inventories**
+- [x] **Step 5: Reconcile Data Safety and rights inventories**
 
 `DataSafety.md` must list actual AdMob/UMP device identifier, advertising, diagnostics, consent, and approximate network-derived location behavior exactly as configured, and must not declare absent Firebase gameplay analytics/crash collection. `AssetInventory.md` maps every uploaded icon, screenshot, and video to `Docs/AIAssetProvenance.md` and `Docs/ArtReleaseReview.md`. `RatingAnswers.md` records the developer’s final questionnaire answers without copying identity information.
 

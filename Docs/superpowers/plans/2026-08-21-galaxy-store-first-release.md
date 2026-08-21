@@ -912,7 +912,7 @@ Both listings must state: warm occult rule-sorting puzzle, portrait one-hand pla
 2. Complete the tutorial.
 3. Finish or fail a shift.
 4. Observe that base progression works without an ad.
-5. If a test ad is available in the certification build, exercise revive or double coins once and verify the other option is locked.
+5. If a rewarded ad is available from the certification build's release configuration, exercise revive or double coins once and verify the other option is locked. If no ad is available, verify that base progression remains usable and no reward is removed.
 6. Open Settings, change language, and open UMP privacy options when required.
 7. Force-stop/relaunch to confirm local save recovery.
 

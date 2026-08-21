@@ -12,7 +12,7 @@
 
 ## Superseding v1 no-remote-telemetry decision — 2026-08-21
 
-This section is authoritative and supersedes every conflicting Firebase instruction retained below as historical implementation context.
+This section is authoritative and the executable tasks below have been rewritten to match it.
 
 - **Task 5:** keep GMA 11.3.0 and EDM4U 1.2.188 only. Firebase dependencies, tgz archives, manifest metadata, notices, and resolution checks are void for v1.
 - **Task 7:** the Firebase adapter implementation is replaced atomically by local non-transport `ConsentAwareAnalyticsService` and `ConsentAwareCrashReporter` on every platform. Keep only the pure event allowlist/bucketing logic and exclusion tests/gate.
@@ -22,7 +22,7 @@ This section is authoritative and supersedes every conflicting Firebase instruct
 - **Task 11:** replace Firebase opt-in, test-event, upload, and symbolication checks with `scripts/check-no-remote-telemetry.ps1` plus verification that local services do not transmit or persist payloads.
 - **Final gate:** run `scripts/check-no-remote-telemetry.ps1` in addition to the other release gates. Any Firebase package, assembly, adapter, archive, manifest entry, declaration, or shipping SDK symbol blocks release.
 
-Reintroducing remote telemetry requires a new approved privacy design and synchronized code, tests, notices, policy, and store declarations. Historical Firebase snippets below must not be executed for v1.
+Reintroducing remote telemetry requires a new approved privacy design and synchronized code, tests, notices, policy, and store declarations.
 
 ## Global Constraints
 
@@ -428,31 +428,24 @@ git commit -m "art: approve release application icon"
 
 ## Phase B — Consent-Aware Services
 
-### Task 5: Pin Google Mobile Ads and Firebase packages reproducibly
-
-> **V1 amendment (2026-08-21):** Execute only the GMA 11.3.0 and EDM4U 1.2.188 portions. All Firebase files, dependencies, manifest steps, and checks in this historical task are superseded and forbidden by the no-remote-telemetry decision above.
+### Task 5: Pin Google Mobile Ads and EDM4U reproducibly
 
 **Files:**
 - Create: `GooglePackages/com.google.external-dependency-manager-1.2.188.tgz`
-- Create: `GooglePackages/com.google.firebase.app-13.15.0.tgz`
-- Create: `GooglePackages/com.google.firebase.analytics-13.15.0.tgz`
-- Create: `GooglePackages/com.google.firebase.crashlytics-13.15.0.tgz`
 - Modify: `.gitattributes`
 - Modify: `.gitignore`
 - Modify: `Packages/manifest.json`
 - Modify after human Unity resolution: `Packages/packages-lock.json`
-- Create: `Assets/Plugins/Android/AndroidManifest.xml`
-- Create: `Assets/Plugins/Android/AndroidManifest.xml.meta`
 - Modify: `Docs/ThirdPartyNotices.md`
 - Modify: `Docs/ServiceSetup.md`
 
 **Interfaces:**
-- Consumes: official GMA package `com.google.ads.mobile` `11.3.0`, Firebase UPM tarballs `13.15.0`, and EDM4U `1.2.188` from Google’s Unity archive.
-- Produces: one UPM-based dependency graph; default Analytics and Crashlytics collection disabled in the Android manifest.
+- Consumes: official Google Mobile Ads Unity package `com.google.ads.mobile` `11.3.0` and EDM4U `1.2.188`.
+- Produces: one UPM-based GMA/UMP dependency graph with no Firebase package, archive, Android manifest metadata, or runtime assembly.
 
-- [ ] **Step 1: Record the dependency graph before download**
+- [ ] **Step 1: Define the dependency boundary**
 
-Add this to `Packages/manifest.json` without removing existing Unity packages:
+Keep the existing Unity dependencies and add only:
 
 ```json
 "scopedRegistries": [
@@ -464,40 +457,25 @@ Add this to `Packages/manifest.json` without removing existing Unity packages:
 ],
 "dependencies": {
   "com.google.ads.mobile": "11.3.0",
-  "com.google.external-dependency-manager": "file:../GooglePackages/com.google.external-dependency-manager-1.2.188.tgz",
-  "com.google.firebase.app": "file:../GooglePackages/com.google.firebase.app-13.15.0.tgz",
-  "com.google.firebase.analytics": "file:../GooglePackages/com.google.firebase.analytics-13.15.0.tgz",
-  "com.google.firebase.crashlytics": "file:../GooglePackages/com.google.firebase.crashlytics-13.15.0.tgz"
+  "com.google.external-dependency-manager": "file:../GooglePackages/com.google.external-dependency-manager-1.2.188.tgz"
 }
 ```
 
-Preserve every existing dependency entry. Do not mix these UPM packages with `.unitypackage` imports.
+Do not add a Firebase dependency or mix these UPM packages with `.unitypackage` imports.
 
-- [ ] **Step 2: Download only the exact official tarballs and retain hashes**
+- [ ] **Step 2: Pin the exact EDM4U archive**
 
-The developer or Codex downloads the four named tarballs from Google’s Unity archive. Before adding them, calculate and record SHA-256 values in `Docs/ThirdPartyNotices.md`:
+Download the official EDM4U `1.2.188` archive, confirm its internal package name/version, and record its SHA-256 in `Docs/ThirdPartyNotices.md`:
 
 ```powershell
-Get-FileHash .\GooglePackages\*.tgz -Algorithm SHA256 | Sort-Object Path
+Get-FileHash .\GooglePackages\com.google.external-dependency-manager-1.2.188.tgz -Algorithm SHA256
 ```
 
-Add `*.tgz filter=lfs diff=lfs merge=lfs -text` to `.gitattributes`. Do not accept a tarball whose internal `package.json` name/version differs from its expected package/version.
+Keep `*.tgz filter=lfs diff=lfs merge=lfs -text` in `.gitattributes`. No Firebase archive belongs under `GooglePackages` or elsewhere in the repository.
 
-- [ ] **Step 3: Disable collection before Firebase runtime initialization**
+- [ ] **Step 3: Keep local service configuration out of source control**
 
-Create `Assets/Plugins/Android/AndroidManifest.xml`:
-
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-  <application>
-    <meta-data android:name="firebase_analytics_collection_enabled" android:value="false" />
-    <meta-data android:name="firebase_crashlytics_collection_enabled" android:value="false" />
-  </application>
-</manifest>
-```
-
-Add these ignored local build files to `.gitignore`:
+Keep the generated GMA settings and service configuration asset ignored:
 
 ```text
 Assets/Resources/ServiceConfiguration.asset
@@ -506,7 +484,9 @@ Assets/GoogleMobileAds/Resources/GoogleMobileAdsSettings.asset
 Assets/GoogleMobileAds/Resources/GoogleMobileAdsSettings.asset.meta
 ```
 
-- [ ] **Step 4: Ask the developer to let Unity resolve packages**
+Do not add `google-services.json`, a Firebase-only Android manifest, or any service credential.
+
+- [ ] **Step 4: Ask the developer to let Unity resolve GMA and EDM4U**
 
 Human actions:
 
@@ -515,23 +495,24 @@ Human actions:
 3. Confirm the Console has no compilation or Android dependency-resolution error.
 4. Close Unity and retain `Packages/packages-lock.json`.
 
-Expected: one resolved GMA package at `11.3.0`, all Firebase packages at `13.15.0`, EDM4U at `1.2.188`, and no Asset-package copy under `Assets/Firebase` or `Assets/ExternalDependencyManager`.
+Expected: GMA resolves at `11.3.0`, EDM4U resolves at `1.2.188`, and the resolved graph contains no Firebase package or assembly. This Unity checkpoint is human-only.
 
-- [ ] **Step 5: Run package and secret checks**
+- [ ] **Step 5: Run repository dependency checks**
 
 ```powershell
-rg -n 'com.google.ads.mobile|com.google.firebase|com.google.external-dependency-manager' Packages/manifest.json Packages/packages-lock.json
-rg -n 'firebase_analytics_collection_enabled|firebase_crashlytics_collection_enabled' Assets/Plugins/Android/AndroidManifest.xml
+.\scripts\check-no-remote-telemetry.ps1
+Get-Content .\Packages\manifest.json | ConvertFrom-Json | Out-Null
+Get-Content .\Packages\packages-lock.json | ConvertFrom-Json | Out-Null
 git status --short
 ```
 
-Expected: exact versions are visible, both defaults are false, and no `google-services.json` or service credential is staged.
+Expected: the no-remote gate passes, JSON parses, GMA/EDM remain pinned, and no credential is staged.
 
-- [ ] **Step 6: Commit pinned SDKs and notices**
+- [ ] **Step 6: Commit the pinned ad dependencies and notices**
 
 ```powershell
-git add .gitattributes .gitignore GooglePackages Packages/manifest.json Packages/packages-lock.json Assets/Plugins/Android/AndroidManifest.xml Assets/Plugins/Android/AndroidManifest.xml.meta Docs/ThirdPartyNotices.md Docs/ServiceSetup.md
-git commit -m "build: pin consent and telemetry SDKs"
+git add .gitattributes .gitignore GooglePackages/com.google.external-dependency-manager-1.2.188.tgz Packages/manifest.json Packages/packages-lock.json Docs/ThirdPartyNotices.md Docs/ServiceSetup.md
+git commit -m "build: pin rewarded ad dependencies"
 ```
 
 ### Task 6: Implement rewarded-ad and UMP adapters with once-only callbacks
@@ -652,97 +633,90 @@ git add Assets/Scripts/Runtime/Infrastructure/Ads Assets/Scripts/Runtime/Infrast
 git commit -m "feat: integrate consent-aware rewarded ads"
 ```
 
-### Task 7: Implement Firebase opt-in services and the allowlisted telemetry schema
-
-> **V1 amendment (2026-08-21):** This historical Firebase implementation was removed. The replacement is the executable exclusion gate, local no-transport services on every platform, and pure `AnalyticsEvents`/`GameTelemetry` logic only.
+### Task 7: Enforce local no-remote telemetry and a pure coarse schema
 
 **Files:**
-- Create: `Assets/Scripts/Runtime/Infrastructure/Firebase/FirebaseRuntime.cs`
-- Create: `Assets/Scripts/Runtime/Infrastructure/Firebase.meta`
-- Create: `Assets/Scripts/Runtime/Infrastructure/Firebase/FirebaseRuntime.cs.meta`
-- Create: `Assets/Scripts/Runtime/Infrastructure/Analytics/FirebaseAnalyticsService.cs`
+- Create: `scripts/check-no-remote-telemetry.ps1`
+- Create: `scripts/test-no-remote-telemetry-gate.ps1`
 - Create: `Assets/Scripts/Runtime/Infrastructure/Analytics/AnalyticsEvents.cs`
 - Create: `Assets/Scripts/Runtime/Infrastructure/Analytics/GameTelemetry.cs`
-- Create: `Assets/Scripts/Runtime/Infrastructure/Diagnostics/FirebaseCrashReporter.cs`
+- Create: `Assets/Scripts/Runtime/Infrastructure/Analytics/ConsentAwareAnalyticsService.cs`
+- Create: `Assets/Scripts/Runtime/Infrastructure/Diagnostics/ConsentAwareCrashReporter.cs`
 - Create: corresponding `.meta` files
 - Modify: `Assets/Scripts/Runtime/Infrastructure/ServiceFactory.cs`
 - Modify: `Assets/Scripts/Runtime/CurioClerk.Runtime.asmdef`
 - Create: `Assets/Tests/EditMode/TelemetryContractTests.cs`
 - Create: corresponding `.meta` file
+- Modify: release privacy/setup/checklist documents and this active plan/spec
 
 **Interfaces:**
 - Consumes: `IAnalyticsService.SetConsent/Track`, `ICrashReporter.SetConsent/Log/Record`, and `IClock.LocalNow`.
-- Produces: one Firebase dependency task, consent-controlled adapters, and events `tutorial_started`, `tutorial_completed`, `shift_started`, `shift_failed`, `shift_completed`, `reward_offer_shown`, `reward_result`, and `cosmetic_unlocked`.
+- Produces: local synchronous non-transport services, a pure allowlist/bucket helper, and an executable release gate that blocks remote gameplay/crash telemetry.
 
-- [ ] **Step 1: Write failing telemetry-schema tests**
+- [ ] **Step 1: Write the gate contract and capture controlled RED**
 
-Test exact allowlists:
+Create a self-cleaning test fixture outside shipping paths. It must start from a minimal allowed repository, then introduce all three realistic rewires:
 
-```csharp
-[Test]
-public void AnalyticsSchema_AllowsOnlyDocumentedEventsAndCoarseParameters()
-{
-    Assert.That(AnalyticsEvents.All, Is.EquivalentTo(new[]
-    {
-        "tutorial_started", "tutorial_completed", "shift_started", "shift_failed",
-        "shift_completed", "reward_offer_shown", "reward_result", "cosmetic_unlocked"
-    }));
-    Assert.That(AnalyticsEvents.AllowedParameterNames, Is.EquivalentTo(new[]
-    {
-        "band", "sorted_bucket", "duration_bucket", "placement", "result", "cosmetic_id"
-    }));
-}
-```
+- an Android-only analytics implementation using a direct network API;
+- a target-conditional analytics/crash factory branch;
+- a nested first-party `AndroidManifest.xml` collection component or metadata entry.
 
-Add tests proving `IAnalyticsService.Track` is a no-op while disabled, consent withdrawal immediately calls the SDK boundary with false, and event validation rejects an unknown name, free-form description, exact local date, email, and advertising identifier.
+Run the production gate against the mutated fixture and require it to fail with actionable messages. Never claim a Unity-test RED without a human Unity run.
 
-- [ ] **Step 2: Ask the developer to run tests and verify failure**
+- [ ] **Step 2: Implement the no-remote release gate**
 
-Human-run command: `.\scripts\test-unity.ps1`
+The gate must parse `Packages/manifest.json`, `Packages/packages-lock.json`, and `CurioClerk.Runtime.asmdef`; preserve exact GMA/UMP/EDM dependencies; and reject Firebase packages, precompiled references, adapters, archives, and collection metadata.
 
-Expected: compile/test failure because the schema and Firebase runtime do not exist.
+It must also:
 
-- [ ] **Step 3: Implement one Firebase initialization task**
+- recursively enforce an explicit v1 allowlist for runtime Analytics and Diagnostics files;
+- scan first-party runtime C# after removing comments and literals for documented direct network and common telemetry/crash SDK markers, leaving the GMA/UMP adapter path intact;
+- require `ServiceFactory` to construct only the approved local analytics and crash implementations with no target-conditional branch;
+- recursively inspect every first-party `AndroidManifest.xml` below `Assets`.
 
-`FirebaseRuntime` owns a cached `Task<bool>` from `FirebaseApp.CheckAndFixDependenciesAsync()` and marshals completion through `Firebase.Extensions.ContinueWithOnMainThread`. It must never retry concurrently, must return false when dependency status is not `Available`, and must not enable any collection itself. Both service adapters await/use this same result. Each adapter stores the latest requested consent value while initialization is pending and applies that latest value once initialization completes, so a rapid opt-in then withdrawal cannot re-enable collection later.
+Any newly added surface fails closed until this gate is deliberately reviewed.
 
-- [ ] **Step 4: Implement consent-controlled SDK calls**
+- [ ] **Step 3: Keep the production services local**
 
-When Firebase is available:
+`ConsentAwareAnalyticsService` and `ConsentAwareCrashReporter` may maintain only an in-memory enabled flag. `Track`, `Log`, and `Record` perform no network call and persist no report. `ServiceFactory` directly constructs these same implementations on every platform.
 
-```csharp
-FirebaseAnalytics.SetAnalyticsCollectionEnabled(enabled);
-Crashlytics.IsCrashlyticsCollectionEnabled = enabled;
-Crashlytics.ReportUncaughtExceptionsAsFatal = true;
-```
+The runtime asmdef contains GMA/UMP references only. There is no Firebase runtime folder, adapter, package, archive, precompiled reference, configuration, or Firebase-only Android manifest.
 
-`FirebaseAnalyticsService.Track` converts only validated string parameters to Firebase `Parameter` instances. `FirebaseCrashReporter.Log` and `.Record` call `Crashlytics.Log` and `Crashlytics.LogException` only while enabled. Neither service sets a user ID or logs artifact description text.
+- [ ] **Step 4: Keep the event schema pure and coarse**
 
-- [ ] **Step 5: Implement coarse bucketing**
-
-`GameTelemetry` uses these deterministic mappings:
+`AnalyticsEvents` accepts only the documented event and parameter names. `GameTelemetry` creates only allowlisted in-memory event objects and deterministic coarse buckets:
 
 ```csharp
 public static string SortedCountBucket(int count) => count <= 3 ? "0_3" : count <= 7 ? "4_7" : "8_12";
 public static string DurationBucket(double seconds) => seconds < 60 ? "under_60" : seconds < 120 ? "60_119" : "120_plus";
 ```
 
-It never sends score, coins, exact timestamps, artifact descriptions, or free-form exceptions as Analytics parameters.
+Reject unknown names/keys and values that could carry free text, artifact descriptions/IDs, locale-derived personal data, device/account identifiers, exact timestamps, seeds, or exact user paths. No event is uploaded or persisted.
 
-- [ ] **Step 6: Wire production Firebase services and run tests**
+- [ ] **Step 5: Test the exclusion and local behavior**
 
-Add installed Firebase assembly references to `CurioClerk.Runtime.asmdef`. `ServiceFactory` returns Firebase implementations on Android player builds and the existing consent-aware local implementations in Editor. Ask the developer to run `.\scripts\test-unity.ps1`; expected result is both suites passed.
+EditMode contracts name the privacy breaks they prevent: factory reintroduction of a transport, pre-consent persistence, post-withdrawal transmission, schema escape, and identity/free-text values. Ask the developer to run Unity tests as a human checkpoint.
 
-- [ ] **Step 7: Commit Firebase and telemetry infrastructure**
+Run the repository checks directly:
 
 ```powershell
-git add Assets/Scripts/Runtime/Infrastructure/Firebase Assets/Scripts/Runtime/Infrastructure/Firebase.meta Assets/Scripts/Runtime/Infrastructure/Analytics Assets/Scripts/Runtime/Infrastructure/Diagnostics Assets/Scripts/Runtime/Infrastructure/ServiceFactory.cs Assets/Scripts/Runtime/CurioClerk.Runtime.asmdef Assets/Tests/EditMode/TelemetryContractTests.cs Assets/Tests/EditMode/TelemetryContractTests.cs.meta
-git commit -m "feat: add opt-in Firebase telemetry"
+.\scripts\test-no-remote-telemetry-gate.ps1
+.\scripts\check-no-remote-telemetry.ps1
+Get-Content .\Packages\manifest.json | ConvertFrom-Json | Out-Null
+Get-Content .\Packages\packages-lock.json | ConvertFrom-Json | Out-Null
+Get-Content .\Assets\Scripts\Runtime\CurioClerk.Runtime.asmdef | ConvertFrom-Json | Out-Null
 ```
 
-### Task 8: Connect gameplay events, ad results, and privacy UI
+Expected: controlled mutation RED is observed internally, then the clean fixture and production repository pass. Unity execution remains human-only.
 
-> **V1 amendment (2026-08-21):** Do not wire a remote analytics/crash transport. Shipping event calls terminate in the local no-op service; use recording fakes only in tests. Player privacy UI and reviewer copy cover AdMob/UMP, not Firebase collection toggles.
+- [ ] **Step 6: Commit the local boundary and gate**
+
+```powershell
+git add scripts/check-no-remote-telemetry.ps1 scripts/test-no-remote-telemetry-gate.ps1 Assets/Scripts/Runtime/Infrastructure/Analytics Assets/Scripts/Runtime/Infrastructure/Diagnostics Assets/Scripts/Runtime/Infrastructure/ServiceFactory.cs Assets/Scripts/Runtime/CurioClerk.Runtime.asmdef Assets/Tests/EditMode/TelemetryContractTests.cs Assets/Tests/EditMode/TelemetryContractTests.cs.meta Docs
+git commit -m "fix: harden no-telemetry release guard"
+```
+
+### Task 8: Connect rewarded-ad results and AdMob/UMP privacy UI
 
 **Files:**
 - Create: `Assets/Scripts/Runtime/AssemblyInfo.cs`
@@ -754,82 +728,22 @@ git commit -m "feat: add opt-in Firebase telemetry"
 - Modify: `Assets/Tests/PlayMode/CurioClerk.PlayModeTests.asmdef`
 
 **Interfaces:**
-- Consumes: `RewardedAdResult`, `IAdService.SetRequestPermission`, and `GameTelemetry` methods from Tasks 6–7.
-- Produces: complete event coverage, a user-visible non-blocking result for unavailable/dismissed/failed rewards, and an internal test-service injection point exposed only to `CurioClerk.PlayModeTests`.
+- Consumes: `RewardedAdResult`, `IAdService.SetRequestPermission`, and optional pure `GameTelemetry` event construction.
+- Produces: idempotent reward behavior, a user-visible non-blocking ad result, UMP privacy-options re-entry, and test-only service injection. It does not produce remote gameplay/crash telemetry or collection toggles.
 
-- [ ] **Step 1: Write failing PlayMode tests**
+- [ ] **Step 1: Write failing PlayMode reward contracts**
 
-Add direct assembly references to `CurioClerk.Core` and `CurioClerk.Runtime` in the PlayMode test asmdef, then add fakes and these tests:
+Use a deferred fake ad service to prove failed/dismissed/unavailable results never grant or remove coins, an earned result grants once, and duplicate terminal callbacks cannot grant twice. A recording analytics fake may inspect pure allowlisted event objects in tests, but production remains the local non-transport service.
 
-```csharp
-[UnityTest]
-public IEnumerator FailedOrDuplicateAdCallbacks_NeverGrantOrRemoveCoinsTwice()
-{
-    var ads = new DeferredAdService { IsRewardedReady = true };
-    var analytics = new RecordingAnalyticsService();
-    ServiceFactory.SetTestServices(
-        ads, analytics, new ImmediatePrivacyService(true), new RecordingCrashReporter());
-    var host = new GameObject("RewardCallbackTestHost");
-    var app = host.AddComponent<GameApp>();
-    yield return null;
-
-    CompleteShiftCorrectly(app, 4242);
-    var coinsAfterBaseReward = app.SaveData.coins;
-    InvokePrivate(app, "RequestReward", true);
-    ads.Emit(RewardedAdResult.Failed);
-    ads.Emit(RewardedAdResult.Earned);
-    Assert.That(app.SaveData.coins, Is.EqualTo(coinsAfterBaseReward));
-
-    InvokePrivate(app, "RequestReward", true);
-    ads.Emit(RewardedAdResult.Earned);
-    var coinsAfterEarnedReward = app.SaveData.coins;
-    ads.Emit(RewardedAdResult.Earned);
-    Assert.That(coinsAfterEarnedReward, Is.GreaterThan(coinsAfterBaseReward));
-    Assert.That(app.SaveData.coins, Is.EqualTo(coinsAfterEarnedReward));
-    Assert.That(analytics.Events.Count(item => item.Name == "reward_result"), Is.EqualTo(2));
-
-    Object.Destroy(host);
-    ServiceFactory.ResetTestServices();
-    yield return null;
-}
-
-[UnityTest]
-public IEnumerator ConsentWithdrawal_DisablesAnalyticsAndCrashReportingAndKeepsGameplayAvailable()
-{
-    var analytics = new RecordingAnalyticsService();
-    var crashes = new RecordingCrashReporter();
-    ServiceFactory.SetTestServices(
-        new DeferredAdService(), analytics, new ImmediatePrivacyService(false), crashes);
-    var host = new GameObject("ConsentWithdrawalTestHost");
-    var app = host.AddComponent<GameApp>();
-    yield return null;
-
-    app.SaveData.analyticsConsent = true;
-    app.SaveData.crashReportingConsent = true;
-    InvokePrivate(app, "ToggleAnalytics");
-    InvokePrivate(app, "ToggleCrashReports");
-    app.StartNewShift(4242);
-
-    Assert.That(analytics.LastConsent, Is.False);
-    Assert.That(crashes.LastConsent, Is.False);
-    Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Shift));
-    Assert.That(GameObject.Find("RepairButton"), Is.Not.Null);
-
-    Object.Destroy(host);
-    ServiceFactory.ResetTestServices();
-    yield return null;
-}
-```
-
-The test file defines concrete `DeferredAdService.Emit`, `RecordingAnalyticsService.Events`, `ImmediatePrivacyService`, `RecordingCrashReporter`, `CompleteShiftCorrectly`, and `InvokePrivate` helpers. `CompleteShiftCorrectly` resolves each current artifact with `RuleEngine.Resolve` and calls `GameApp.ChooseDestination` twelve times. `AssemblyInfo.cs` contains `[assembly: InternalsVisibleTo("CurioClerk.PlayModeTests")]`. Under `UNITY_INCLUDE_TESTS`, `ServiceFactory.SetTestServices(...)` stores the four supplied interfaces and `ResetTestServices()` clears them; production factory paths remain unchanged. `GameApp` also guards each request with a local once-only completion flag so a faulty adapter cannot grant twice.
+Under `UNITY_INCLUDE_TESTS`, `ServiceFactory.SetTestServices(...)` and `ResetTestServices()` expose only the test injection point. `GameApp` guards every reward request with a local once-only completion flag.
 
 - [ ] **Step 2: Ask the developer to run tests and verify failure**
 
 Human-run command: `.\scripts\test-unity.ps1`
 
-Expected: compile or assertion failure because GameApp still uses `Action<bool>` rewards and does not emit the full event schema.
+Expected: compile or assertion failure because `GameApp` still uses the old reward callback and does not handle every terminal result idempotently.
 
-- [ ] **Step 3: Wire consent to ad initialization**
+- [ ] **Step 3: Wire UMP consent to ad initialization**
 
 In both `RequestAdConsent` and `ShowAdPrivacyOptions`, call:
 
@@ -837,26 +751,19 @@ In both `RequestAdConsent` and `ShowAdPrivacyOptions`, call:
 _adService.SetRequestPermission(_canRequestAds);
 ```
 
-Do this after computing `_canRequestAds`. A false result must unload/prevent requests and leave gameplay enabled.
+Do this after computing `_canRequestAds`. A false result prevents requests and leaves gameplay enabled. Privacy UI concerns AdMob/UMP only; do not create Analytics or Crashlytics consent toggles.
 
-- [ ] **Step 4: Wire reward events and player feedback**
+- [ ] **Step 4: Wire reward results and player feedback**
 
-Before showing an available offer, emit `reward_offer_shown` with the exact placement. Map results to `earned`, `dismissed`, `failed`, or `unavailable`; call `TryDoubleCoins`/`TryRevive` only for `Earned`. Add EN/KO keys `ad_dismissed` and `ad_failed`, display the message without removing base rewards, and rely on the ad service’s once-only completion.
+Map results to `earned`, `dismissed`, `failed`, or `unavailable`; call `TryDoubleCoins`/`TryRevive` only for `Earned`. Add EN/KO keys `ad_dismissed` and `ad_failed`, display the message without removing base rewards, and rely on the ad service's once-only completion.
 
-- [ ] **Step 5: Wire lifecycle events**
+If local gameplay event objects are useful for tests, create only the allowlisted `reward_offer_shown` and `reward_result` values. The shipping local service discards them synchronously without upload or persistence.
 
-Emit:
+- [ ] **Step 5: Keep optional lifecycle events local**
 
-- `tutorial_started` when tutorial screen first opens;
-- `tutorial_completed` immediately before the fixed tutorial shift starts;
-- `shift_started` with band;
-- `shift_failed` with band and sorted-count bucket;
-- `shift_completed` with band and duration bucket;
-- `cosmetic_unlocked` only when coins are actually spent to unlock a new cosmetic.
+Optional tutorial, shift, and cosmetic events may be constructed through `GameTelemetry` solely as pure coarse values. Do not transmit or persist them, and do not attach score, coins, exact timestamps, seeds, artifact identifiers/descriptions, user paths, or free text.
 
-Remove the existing score/mistakes/rewarded Analytics parameters because they are outside the approved schema.
-
-- [ ] **Step 6: Ask the developer to run tests and regenerate localization**
+- [ ] **Step 6: Regenerate localization and run human Unity checks**
 
 Human actions:
 
@@ -864,22 +771,21 @@ Human actions:
 2. Close Unity.
 3. Run `.\scripts\test-unity.ps1`.
 
-Expected: all tests pass and the EN/KO localization assets contain `ad_dismissed` and `ad_failed`.
+Expected: all tests pass, the EN/KO assets contain `ad_dismissed` and `ad_failed`, gameplay remains available without ads, and there are no Analytics/Crashlytics controls.
 
-- [ ] **Step 7: Commit gameplay integration**
+- [ ] **Step 7: Run the release boundary and commit gameplay integration**
 
 ```powershell
+.\scripts\check-no-remote-telemetry.ps1
 git add Assets/Scripts/Runtime/AssemblyInfo.cs Assets/Scripts/Runtime/AssemblyInfo.cs.meta Assets/Scripts/Runtime/Presentation/GameApp.cs Assets/Scripts/Runtime/Infrastructure/ServiceFactory.cs Assets/Scripts/Runtime/Localization/Localizer.cs Assets/Tests/PlayMode/GameAppPlayModeTests.cs Assets/Tests/PlayMode/CurioClerk.PlayModeTests.asmdef Assets/Localization
-git commit -m "feat: connect consent rewards and telemetry"
+git commit -m "feat: connect consent-aware rewards"
 ```
 
 ---
 
 ## Phase C — Certification Package
 
-### Task 9: Make release builds reproducible and inspectable
-
-> **V1 amendment (2026-08-21):** Service configuration is AdMob-only. Add no Firebase values or Crashlytics upload steps. General IL2CPP symbols remain a build/debug artifact, not a Firebase integration requirement.
+### Task 9: Make AdMob-only release builds reproducible and inspectable
 
 **Files:**
 - Create: `Assets/Scripts/Runtime/Infrastructure/ServiceConfiguration.cs`
@@ -930,7 +836,7 @@ No filesystem username, service ID, keystore path, or password may appear.
 
 - [ ] **Step 4: Harden the PowerShell build wrapper**
 
-`scripts/build-android.ps1` must fail before Unity starts if any of the six environment values are absent. It must not print secret values. After build, require the AAB, symbols zip, and JSON manifest; compare the manifest SHA-256 with `Get-FileHash`.
+`scripts/build-android.ps1` must run `scripts/check-no-remote-telemetry.ps1` and fail before Unity starts if the telemetry boundary fails or any of the six environment values are absent. It must not print secret values. It accepts AdMob configuration only and has no remote-telemetry configuration or upload step. After build, require the AAB, symbols zip, and JSON manifest; compare the manifest SHA-256 with `Get-FileHash`.
 
 - [ ] **Step 5: Pin bundletool and implement AAB inspection**
 
@@ -948,6 +854,7 @@ The script must assert package ID, version name/code, min SDK 29, target SDK 36,
 Human-run commands after exporting the six environment values in the current terminal:
 
 ```powershell
+.\scripts\check-no-remote-telemetry.ps1
 .\scripts\test-unity.ps1
 .\scripts\build-android.ps1
 .\scripts\inspect-aab.ps1 -AabPath .\Builds\Android\CurioClerk.aab -BundletoolPath .\tools\bundletool\bundletool-all-1.18.3.jar
@@ -962,9 +869,7 @@ git add Assets/Scripts/Runtime/Infrastructure/ServiceConfiguration.cs Assets/Scr
 git commit -m "build: validate signed Galaxy Store bundles"
 ```
 
-### Task 10: Create store copy, declarations, review notes, and release checks
-
-> **V1 amendment (2026-08-21):** Data Safety, privacy copy, and review notes describe actual AdMob/UMP behavior and the absence of Firebase/remote gameplay telemetry. Do not instruct reviewers to toggle Analytics/Crashlytics.
+### Task 10: Create AdMob/UMP store declarations, review notes, and release checks
 
 **Files:**
 - Create: `Docs/Store/GalaxyStoreListing.ko.md`
@@ -983,7 +888,7 @@ git commit -m "build: validate signed Galaxy Store bundles"
 
 - [ ] **Step 1: Expand the release-doc gate before creating store files**
 
-Require every file listed above and make Submission mode fail when any contains unresolved bracketed identity/date tokens, claims an account/backend/IAP, omits rewarded-ad disclosure, or describes data types that disagree with `Docs/PrivacyPolicy.md`.
+Require every file listed above and make Submission mode fail when any contains unresolved bracketed identity/date tokens, claims an account/backend/IAP, omits rewarded-ad disclosure, declares absent remote gameplay/crash telemetry, or describes AdMob/UMP data types that disagree with `Docs/PrivacyPolicy.md`. The repository no-remote gate remains a separate required release check.
 
 - [ ] **Step 2: Run the gate and verify failure**
 
@@ -1014,6 +919,7 @@ Both listings must state: warm occult rule-sorting puzzle, portrait one-hand pla
 - [ ] **Step 6: Run the gate and commit the store package**
 
 ```powershell
+.\scripts\check-no-remote-telemetry.ps1
 .\scripts\check-release-docs.ps1 -Mode Submission
 git add Docs/Store Docs/ReleaseEvidence/1.0.0/README.md Docs/ReleaseChecklist.md scripts/check-release-docs.ps1
 git commit -m "docs: prepare Galaxy Store submission package"
@@ -1022,8 +928,6 @@ git commit -m "docs: prepare Galaxy Store submission package"
 Expected: documentation gate passes.
 
 ### Task 11: Execute the no-tester technical validation matrix
-
-> **V1 amendment (2026-08-21):** Remote-telemetry validation is the repository exclusion gate plus local no-transport service checks. Do not send a Crashlytics event, upload symbols to Firebase, or require Firebase dashboard evidence.
 
 **Files:**
 - Create: `Docs/ReleaseEvidence/1.0.0/automated-tests.md`
@@ -1254,13 +1158,7 @@ git status --short
 - Google Mobile Ads Unity setup/version: https://developers.google.com/admob/unity/quick-start
 - Google Mobile Ads Unity `11.3.0` release: https://github.com/googleads/googleads-mobile-unity/releases/tag/v11.3.0
 - UMP Unity flow: https://developers.google.com/admob/unity/privacy
-- Firebase Unity package archive (`13.15.0`): https://developers.google.com/unity/archive
 - EDM4U package information (`1.2.188`): https://developers.google.com/unity/packages
-- Firebase Unity release notes: https://firebase.google.com/support/release-notes/unity
-- Firebase Unity package options: https://firebase.google.com/docs/unity/setup-alternative
-- Firebase Analytics collection control: https://firebase.google.com/docs/analytics/android/configure-data-collection
-- Firebase Crashlytics Unity opt-in: https://firebase.google.com/docs/crashlytics/unity/customize-crash-reports
-- Firebase IL2CPP symbol upload: https://firebase.google.com/docs/crashlytics/unity/get-started
 - bundletool `1.18.3`: https://github.com/google/bundletool/releases/tag/1.18.3
 - Galaxy Store registration/staged rollout/Data Safety: https://developer.samsung.com/galaxy-store/launch.html
 - Galaxy Store API/AAB/64-bit requirements: https://developer.samsung.com/galaxy-store/faq.html

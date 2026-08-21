@@ -1,6 +1,14 @@
+param(
+    [string]$ProjectRoot
+)
+
 $ErrorActionPreference = 'Stop'
 
-$projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
+    $ProjectRoot = Join-Path $PSScriptRoot '..'
+}
+
+$projectRootPath = [System.IO.Path]::GetFullPath($ProjectRoot)
 $failures = [System.Collections.Generic.List[string]]::new()
 
 function Add-Failure {
@@ -9,10 +17,16 @@ function Add-Failure {
     $failures.Add($Message)
 }
 
+function Get-NormalizedRelativePath {
+    param([string]$Path)
+
+    return [System.IO.Path]::GetRelativePath($projectRootPath, $Path).Replace('\', '/')
+}
+
 function Read-JsonFile {
     param([string]$RelativePath)
 
-    $path = Join-Path $projectRoot $RelativePath
+    $path = Join-Path $projectRootPath $RelativePath
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         Add-Failure "Missing required JSON file: $RelativePath"
         return $null
@@ -27,23 +41,41 @@ function Read-JsonFile {
     }
 }
 
+function Remove-CSharpCommentsAndLiterals {
+    param([string]$Content)
+
+    # Strip normal/verbatim strings, chars, and both comment forms before marker scans.
+    # This keeps examples, URLs, and documentation comments from triggering the release gate.
+    $nonCodePattern = '(?ms)("(?:\\.|[^"\\])*"|@"(?:""|[^"])*"|''(?:\\.|[^''\\])*''|//.*?$|/\*.*?\*/)'
+    return [System.Text.RegularExpressions.Regex]::Replace($Content, $nonCodePattern, ' ')
+}
+
 $manifest = Read-JsonFile 'Packages/manifest.json'
 if ($null -ne $manifest -and $null -ne $manifest.dependencies) {
-    foreach ($dependency in $manifest.dependencies.PSObject.Properties) {
+    $dependencies = $manifest.dependencies.PSObject.Properties
+    foreach ($dependency in $dependencies) {
         if ($dependency.Name -like 'com.google.firebase.*') {
             Add-Failure "Firebase package dependency remains in Packages/manifest.json: $($dependency.Name)"
         }
     }
+
+    $requiredDependencies = @{
+        'com.google.ads.mobile' = '11.3.0'
+        'com.google.external-dependency-manager' = 'file:../GooglePackages/com.google.external-dependency-manager-1.2.188.tgz'
+    }
+    foreach ($required in $requiredDependencies.GetEnumerator()) {
+        $property = $dependencies | Where-Object Name -eq $required.Key | Select-Object -First 1
+        if ($null -eq $property -or $property.Value -ne $required.Value) {
+            Add-Failure "Required v1 dependency is missing or changed: $($required.Key) must be $($required.Value)"
+        }
+    }
 }
 
-$packageLockPath = Join-Path $projectRoot 'Packages/packages-lock.json'
-if (Test-Path -LiteralPath $packageLockPath -PathType Leaf) {
-    $packageLock = Read-JsonFile 'Packages/packages-lock.json'
-    if ($null -ne $packageLock -and $null -ne $packageLock.dependencies) {
-        foreach ($dependency in $packageLock.dependencies.PSObject.Properties) {
-            if ($dependency.Name -like 'com.google.firebase.*') {
-                Add-Failure "Firebase package dependency remains in Packages/packages-lock.json: $($dependency.Name)"
-            }
+$packageLock = Read-JsonFile 'Packages/packages-lock.json'
+if ($null -ne $packageLock -and $null -ne $packageLock.dependencies) {
+    foreach ($dependency in $packageLock.dependencies.PSObject.Properties) {
+        if ($dependency.Name -like 'com.google.firebase.*') {
+            Add-Failure "Firebase package dependency remains in Packages/packages-lock.json: $($dependency.Name)"
         }
     }
 }
@@ -51,7 +83,8 @@ if (Test-Path -LiteralPath $packageLockPath -PathType Leaf) {
 $runtimeAsmdef = Read-JsonFile 'Assets/Scripts/Runtime/CurioClerk.Runtime.asmdef'
 if ($null -ne $runtimeAsmdef) {
     $allowedPrecompiledReferences = @('GoogleMobileAds.dll', 'GoogleMobileAds.Ump.dll')
-    foreach ($reference in @($runtimeAsmdef.precompiledReferences)) {
+    $actualPrecompiledReferences = @($runtimeAsmdef.precompiledReferences)
+    foreach ($reference in $actualPrecompiledReferences) {
         if ($reference -like 'Firebase.*') {
             Add-Failure "Firebase precompiled reference remains in CurioClerk.Runtime.asmdef: $reference"
         }
@@ -59,93 +92,153 @@ if ($null -ne $runtimeAsmdef) {
             Add-Failure "Unexpected runtime precompiled reference could add a remote transport: $reference"
         }
     }
+
+    foreach ($requiredReference in $allowedPrecompiledReferences) {
+        if ($requiredReference -notin $actualPrecompiledReferences) {
+            Add-Failure "Required GMA/UMP runtime reference is missing: $requiredReference"
+        }
+    }
+}
+
+$edmArchivePath = Join-Path $projectRootPath 'GooglePackages/com.google.external-dependency-manager-1.2.188.tgz'
+if (-not (Test-Path -LiteralPath $edmArchivePath -PathType Leaf)) {
+    Add-Failure 'Required EDM4U 1.2.188 archive is missing.'
+}
+
+$vendoredRoot = Join-Path $projectRootPath 'GooglePackages'
+if (Test-Path -LiteralPath $vendoredRoot -PathType Container) {
+    foreach ($archive in Get-ChildItem -LiteralPath $vendoredRoot -Recurse -File -Filter 'com.google.firebase*.tgz') {
+        Add-Failure "Vendored Firebase package remains: $(Get-NormalizedRelativePath $archive.FullName)"
+    }
+}
+
+$allowedTelemetryRuntimeFiles = @(
+    'Assets/Scripts/Runtime/Infrastructure/Analytics/IAnalyticsService.cs',
+    'Assets/Scripts/Runtime/Infrastructure/Analytics/IAnalyticsService.cs.meta',
+    'Assets/Scripts/Runtime/Infrastructure/Analytics/ConsentAwareAnalyticsService.cs',
+    'Assets/Scripts/Runtime/Infrastructure/Analytics/ConsentAwareAnalyticsService.cs.meta',
+    'Assets/Scripts/Runtime/Infrastructure/Analytics/AnalyticsEvents.cs',
+    'Assets/Scripts/Runtime/Infrastructure/Analytics/AnalyticsEvents.cs.meta',
+    'Assets/Scripts/Runtime/Infrastructure/Analytics/GameTelemetry.cs',
+    'Assets/Scripts/Runtime/Infrastructure/Analytics/GameTelemetry.cs.meta',
+    'Assets/Scripts/Runtime/Infrastructure/Diagnostics/ICrashReporter.cs',
+    'Assets/Scripts/Runtime/Infrastructure/Diagnostics/ICrashReporter.cs.meta',
+    'Assets/Scripts/Runtime/Infrastructure/Diagnostics/ConsentAwareCrashReporter.cs',
+    'Assets/Scripts/Runtime/Infrastructure/Diagnostics/ConsentAwareCrashReporter.cs.meta'
+)
+$telemetryRuntimeRoots = @(
+    'Assets/Scripts/Runtime/Infrastructure/Analytics',
+    'Assets/Scripts/Runtime/Infrastructure/Diagnostics'
+)
+
+foreach ($allowedPath in $allowedTelemetryRuntimeFiles) {
+    if (-not (Test-Path -LiteralPath (Join-Path $projectRootPath $allowedPath) -PathType Leaf)) {
+        Add-Failure "Approved v1 Analytics/Diagnostics runtime file is missing: $allowedPath"
+    }
+}
+
+foreach ($relativeRoot in $telemetryRuntimeRoots) {
+    $root = Join-Path $projectRootPath $relativeRoot
+    if (-not (Test-Path -LiteralPath $root -PathType Container)) {
+        Add-Failure "Approved v1 runtime directory is missing: $relativeRoot"
+        continue
+    }
+
+    foreach ($file in Get-ChildItem -LiteralPath $root -Recurse -File) {
+        $relative = Get-NormalizedRelativePath $file.FullName
+        if ($relative -notin $allowedTelemetryRuntimeFiles) {
+            Add-Failure "Unreviewed Analytics/Diagnostics runtime file: $relative"
+        }
+    }
 }
 
 $forbiddenRuntimePaths = @(
     'Assets/Scripts/Runtime/Infrastructure/Firebase.meta',
-    'Assets/Scripts/Runtime/Infrastructure/Analytics/FirebaseAnalyticsService.cs',
-    'Assets/Scripts/Runtime/Infrastructure/Analytics/FirebaseAnalyticsService.cs.meta',
-    'Assets/Scripts/Runtime/Infrastructure/Diagnostics/FirebaseCrashReporter.cs',
-    'Assets/Scripts/Runtime/Infrastructure/Diagnostics/FirebaseCrashReporter.cs.meta'
+    'Assets/Scripts/Runtime/Infrastructure/Firebase'
 )
-
-$firebaseRuntimeDirectory = Join-Path $projectRoot 'Assets/Scripts/Runtime/Infrastructure/Firebase'
-if (Test-Path -LiteralPath $firebaseRuntimeDirectory -PathType Container) {
-    $firebaseRuntimeEntries = @(Get-ChildItem -LiteralPath $firebaseRuntimeDirectory -Recurse -Force)
-    if ($firebaseRuntimeEntries.Count -gt 0) {
-        Add-Failure 'Firebase runtime adapter directory contains shipping files: Assets/Scripts/Runtime/Infrastructure/Firebase'
-    }
-}
-
 foreach ($relativePath in $forbiddenRuntimePaths) {
-    if (Test-Path -LiteralPath (Join-Path $projectRoot $relativePath)) {
+    if (Test-Path -LiteralPath (Join-Path $projectRootPath $relativePath)) {
         Add-Failure "Firebase runtime adapter path remains: $relativePath"
     }
 }
 
-$localServicePaths = @(
-    'Assets/Scripts/Runtime/Infrastructure/Analytics/ConsentAwareAnalyticsService.cs',
-    'Assets/Scripts/Runtime/Infrastructure/Diagnostics/ConsentAwareCrashReporter.cs'
+# These code-token patterns cover direct .NET/Unity transports plus common analytics and
+# crash-reporting SDK entry points. GMA/UMP types are intentionally absent from this list;
+# their reviewed adapters remain the only v1 network-capable service path.
+$forbiddenRuntimeMarkers = @(
+    [pscustomobject]@{ Name = 'UnityWebRequest'; Pattern = '\bUnityWebRequest\b' },
+    [pscustomobject]@{ Name = 'System.Net'; Pattern = '\bSystem\.Net(?:\.|\s*;)' },
+    [pscustomobject]@{ Name = 'HttpClient'; Pattern = '\bHttpClient\b' },
+    [pscustomobject]@{ Name = 'WebRequest/WebClient'; Pattern = '\b(?:WebRequest|WebClient)\b' },
+    [pscustomobject]@{ Name = 'socket transport'; Pattern = '\b(?:Socket|TcpClient|UdpClient|ClientWebSocket)\b' },
+    [pscustomobject]@{ Name = 'Firebase/Crashlytics'; Pattern = '\b(?:FirebaseApp|FirebaseAnalytics|Firebase|Crashlytics)\b' },
+    [pscustomobject]@{ Name = 'Sentry'; Pattern = '\bSentry(?:Sdk)?\b' },
+    [pscustomobject]@{ Name = 'Application Insights'; Pattern = '\b(?:TelemetryClient|ApplicationInsights)\b' },
+    [pscustomobject]@{ Name = 'App Center'; Pattern = '\bAppCenter\b' },
+    [pscustomobject]@{ Name = 'Bugsnag/Datadog/New Relic'; Pattern = '\b(?:Bugsnag|Datadog|NewRelic)\b' },
+    [pscustomobject]@{ Name = 'analytics SDK'; Pattern = '\b(?:Amplitude|Mixpanel|GameAnalytics)\b' },
+    [pscustomobject]@{ Name = 'Unity Analytics'; Pattern = '\bUnity(?:Engine|\.Services)\.Analytics\b' },
+    [pscustomobject]@{ Name = 'crash SDK'; Pattern = '\b(?:CrashReportHandler|Backtrace|Raygun)\b' }
 )
-$transportOrPersistenceMarkers = @(
-    'UnityEngine',
-    'System.IO',
-    'System.Net',
-    'HttpClient',
-    'UnityWebRequest',
-    'Debug.',
-    'PlayerPrefs',
-    'File.'
-)
-foreach ($relativePath in $localServicePaths) {
-    $path = Join-Path $projectRoot $relativePath
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-        Add-Failure "Missing local non-transport service: $relativePath"
-        continue
-    }
 
-    $content = Get-Content -LiteralPath $path -Raw
-    foreach ($marker in $transportOrPersistenceMarkers) {
-        if ($content.Contains($marker)) {
-            Add-Failure "Local telemetry service contains transport/persistence marker '$marker': $relativePath"
-        }
-    }
+$runtimeRoot = Join-Path $projectRootPath 'Assets/Scripts/Runtime'
+if (-not (Test-Path -LiteralPath $runtimeRoot -PathType Container)) {
+    Add-Failure 'Missing first-party runtime source root: Assets/Scripts/Runtime'
 }
-
-$runtimeRoot = Join-Path $projectRoot 'Assets/Scripts/Runtime'
-if (Test-Path -LiteralPath $runtimeRoot -PathType Container) {
+else {
     foreach ($source in Get-ChildItem -LiteralPath $runtimeRoot -Recurse -File -Filter '*.cs') {
-        $content = Get-Content -LiteralPath $source.FullName -Raw
-        if ($content -match '(?m)^\s*using\s+(global::)?Firebase(?:\.|\s*;)' -or
-            $content -match '\bFirebaseApp\b|\bFirebaseAnalytics\b|\bCrashlytics\b') {
-            $relative = [System.IO.Path]::GetRelativePath($projectRoot, $source.FullName).Replace('\', '/')
-            Add-Failure "Firebase SDK symbol remains in shipping runtime source: $relative"
+        $codeOnly = Remove-CSharpCommentsAndLiterals (Get-Content -LiteralPath $source.FullName -Raw)
+        foreach ($marker in $forbiddenRuntimeMarkers) {
+            if ($codeOnly -match $marker.Pattern) {
+                $relative = Get-NormalizedRelativePath $source.FullName
+                Add-Failure "Direct transport or telemetry SDK marker '$($marker.Name)' in first-party runtime source: $relative"
+            }
         }
     }
 }
 
-$vendoredRoot = Join-Path $projectRoot 'GooglePackages'
-if (Test-Path -LiteralPath $vendoredRoot -PathType Container) {
-    foreach ($archive in Get-ChildItem -LiteralPath $vendoredRoot -Recurse -File -Filter 'com.google.firebase*.tgz') {
-        $relative = [System.IO.Path]::GetRelativePath($projectRoot, $archive.FullName).Replace('\', '/')
-        Add-Failure "Vendored Firebase package remains: $relative"
+$serviceFactoryPath = Join-Path $projectRootPath 'Assets/Scripts/Runtime/Infrastructure/ServiceFactory.cs'
+if (-not (Test-Path -LiteralPath $serviceFactoryPath -PathType Leaf)) {
+    Add-Failure 'Missing ServiceFactory.cs.'
+}
+else {
+    $factoryCode = Remove-CSharpCommentsAndLiterals (Get-Content -LiteralPath $serviceFactoryPath -Raw)
+    $analyticsFactoryPattern = 'public\s+static\s+IAnalyticsService\s+CreateAnalyticsService\s*\(\s*\)\s*=>\s*new\s+ConsentAwareAnalyticsService\s*\(\s*\)\s*;'
+    $crashFactoryPattern = 'public\s+static\s+ICrashReporter\s+CreateCrashReporter\s*\(\s*\)\s*=>\s*new\s+ConsentAwareCrashReporter\s*\(\s*\)\s*;'
+    if ([regex]::Matches($factoryCode, '\bCreateAnalyticsService\s*\(').Count -ne 1 -or
+        $factoryCode -notmatch $analyticsFactoryPattern) {
+        Add-Failure 'ServiceFactory analytics construction is not the approved local implementation; remove target conditionals and return ConsentAwareAnalyticsService directly.'
+    }
+    if ([regex]::Matches($factoryCode, '\bCreateCrashReporter\s*\(').Count -ne 1 -or
+        $factoryCode -notmatch $crashFactoryPattern) {
+        Add-Failure 'ServiceFactory crash construction is not the approved local implementation; remove target conditionals and return ConsentAwareCrashReporter directly.'
     }
 }
 
-$androidManifestPath = Join-Path $projectRoot 'Assets/Plugins/Android/AndroidManifest.xml'
-if (Test-Path -LiteralPath $androidManifestPath -PathType Leaf) {
-    try {
-        [xml]$androidManifest = Get-Content -LiteralPath $androidManifestPath -Raw
-        $androidNamespace = 'http://schemas.android.com/apk/res/android'
-        $firebaseMetadata = @($androidManifest.manifest.application.'meta-data' | Where-Object {
-            $_.GetAttribute('name', $androidNamespace) -like 'firebase_*'
-        })
-        if ($firebaseMetadata.Count -gt 0) {
-            Add-Failure 'Firebase-only Android manifest metadata remains in Assets/Plugins/Android/AndroidManifest.xml.'
+$assetsRoot = Join-Path $projectRootPath 'Assets'
+$forbiddenManifestValuePattern = '(?i)(firebase|crashlytics|analytics|telemetry|appcenter|sentry|bugsnag|datadog|newrelic|amplitude|mixpanel|gameanalytics|crash[_\.-]?(?:report|collection|upload|handler))'
+if (Test-Path -LiteralPath $assetsRoot -PathType Container) {
+    foreach ($manifestFile in Get-ChildItem -LiteralPath $assetsRoot -Recurse -File -Filter 'AndroidManifest.xml') {
+        try {
+            [xml]$androidManifest = Get-Content -LiteralPath $manifestFile.FullName -Raw
+            $forbiddenValues = [System.Collections.Generic.List[string]]::new()
+            foreach ($node in @($androidManifest.SelectNodes('//*'))) {
+                foreach ($attribute in @($node.Attributes)) {
+                    if ($attribute.Value -match $forbiddenManifestValuePattern) {
+                        $forbiddenValues.Add($attribute.Value)
+                    }
+                }
+            }
+
+            if ($forbiddenValues.Count -gt 0) {
+                $relative = Get-NormalizedRelativePath $manifestFile.FullName
+                Add-Failure "Forbidden analytics/crash component or metadata in Android manifest: $relative ($($forbiddenValues -join ', '))"
+            }
         }
-    }
-    catch {
-        Add-Failure "Invalid Android manifest XML: $($_.Exception.Message)"
+        catch {
+            $relative = Get-NormalizedRelativePath $manifestFile.FullName
+            Add-Failure "Invalid Android manifest XML in ${relative}: $($_.Exception.Message)"
+        }
     }
 }
 

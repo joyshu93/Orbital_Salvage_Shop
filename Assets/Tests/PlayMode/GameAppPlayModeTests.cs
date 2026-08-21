@@ -175,8 +175,8 @@ namespace CurioClerk.Tests.PlayMode
             var coinsBeforeReward = Coins(app);
             var cases = new[]
             {
-                new RewardFeedbackCase(RewardedAdResult.Dismissed, "Ad dismissed. Base reward kept."),
-                new RewardFeedbackCase(RewardedAdResult.Failed, "Ad failed. Base reward kept."),
+                new RewardFeedbackCase(RewardedAdResult.Dismissed, "Ad dismissed. No changes were made."),
+                new RewardFeedbackCase(RewardedAdResult.Failed, "Ad failed. No changes were made."),
                 new RewardFeedbackCase(RewardedAdResult.Unavailable, "Rewarded ad unavailable")
             };
 
@@ -228,6 +228,116 @@ namespace CurioClerk.Tests.PlayMode
                 "Declining ad permission must not block gameplay.");
         }
 
+        [UnityTest]
+        public IEnumerator Settings_DeferredInitialConsentRefreshesPrivacyOptionsAndForwardsPermission()
+        {
+            var adService = new DeferredAdService();
+            var privacyService = new DeferredConsentPrivacyService();
+            var app = CreateApp(adService, privacyService);
+            yield return null;
+
+            app.ShowSettings();
+            Assert.That(GameObject.Find("AdPrivacyOptionsButton"), Is.Null);
+            Assert.That(adService.PermissionHistory, Is.Empty);
+
+            privacyService.CanRequestAds = true;
+            privacyService.PrivacyOptionsRequired = true;
+            privacyService.CompleteConsent();
+            yield return null;
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Settings));
+            Assert.That(GameObject.Find("AdPrivacyOptionsButton"), Is.Not.Null,
+                "Settings must refresh when the deferred initial UMP request completes.");
+            Assert.That(adService.PermissionHistory, Is.EqualTo(new[] { true }));
+        }
+
+        [UnityTest]
+        public IEnumerator FailedShift_EarnedRewardRevivesOnceAndDuplicateCallbacksDoNothing()
+        {
+            var adService = new DeferredAdService();
+            var app = CreateApp(adService, new ControllablePrivacyService());
+            yield return null;
+            var saveCoinsBefore = Coins(app);
+            var completedShiftsBefore = CompletedShifts(app);
+            var discoveredBefore = DiscoveredCount(app);
+            FailShift(app);
+
+            Assert.That(SessionState(app), Is.EqualTo("Failed"));
+            Assert.That(SessionHearts(app), Is.Zero);
+            Assert.That(SessionCoins(app), Is.Zero);
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Results));
+
+            ClickRewardedAdButton();
+            Assert.That(adService.LastPlacement, Is.EqualTo("shift_failed_revive"));
+            adService.Emit(RewardedAdResult.Earned);
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Shift));
+            Assert.That(SessionState(app), Is.EqualTo("Active"));
+            Assert.That(SessionHearts(app), Is.EqualTo(1));
+            Assert.That(SessionRewardClaimed(app), Is.True);
+            Assert.That(Coins(app), Is.EqualTo(saveCoinsBefore));
+            Assert.That(CompletedShifts(app), Is.EqualTo(completedShiftsBefore));
+            Assert.That(DiscoveredCount(app), Is.EqualTo(discoveredBefore));
+
+            adService.Emit(RewardedAdResult.Earned);
+            Assert.That(SessionState(app), Is.EqualTo("Active"));
+            Assert.That(SessionHearts(app), Is.EqualTo(1));
+
+            SortCurrentIncorrectly(app);
+            Assert.That(SessionState(app), Is.EqualTo("Failed"));
+            Assert.That(SessionHearts(app), Is.Zero);
+            ClickRewardedAdButton();
+            adService.Emit(RewardedAdResult.Earned);
+
+            Assert.That(SessionState(app), Is.EqualTo("Failed"),
+                "A claimed revive must not be granted again after the revived shift fails.");
+            Assert.That(SessionHearts(app), Is.Zero);
+            Assert.That(Coins(app), Is.EqualTo(saveCoinsBefore));
+            Assert.That(CompletedShifts(app), Is.EqualTo(completedShiftsBefore));
+            Assert.That(DiscoveredCount(app), Is.EqualTo(discoveredBefore));
+        }
+
+        [UnityTest]
+        public IEnumerator FailedShift_NonEarnedResultsPreserveStateProgressionAndRejectLaterEarned()
+        {
+            var adService = new DeferredAdService();
+            var app = CreateApp(adService, new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            var saveCoinsBefore = Coins(app);
+            var completedShiftsBefore = CompletedShifts(app);
+            var discoveredBefore = DiscoveredCount(app);
+            FailShift(app);
+            var cases = new[]
+            {
+                new RewardFeedbackCase(RewardedAdResult.Dismissed, "Ad dismissed. No changes were made."),
+                new RewardFeedbackCase(RewardedAdResult.Failed, "Ad failed. No changes were made."),
+                new RewardFeedbackCase(RewardedAdResult.Unavailable, "Rewarded ad unavailable")
+            };
+
+            foreach (var current in cases)
+            {
+                ClickRewardedAdButton();
+                adService.Emit(current.Result);
+                yield return null;
+
+                Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Results));
+                Assert.That(SessionState(app), Is.EqualTo("Failed"));
+                Assert.That(SessionHearts(app), Is.Zero);
+                Assert.That(SessionCoins(app), Is.Zero);
+                Assert.That(SessionRewardClaimed(app), Is.False);
+                Assert.That(Coins(app), Is.EqualTo(saveCoinsBefore));
+                Assert.That(CompletedShifts(app), Is.EqualTo(completedShiftsBefore));
+                Assert.That(DiscoveredCount(app), Is.EqualTo(discoveredBefore));
+                Assert.That(FeedbackText(), Is.EqualTo(current.ExpectedFeedback));
+
+                adService.Emit(RewardedAdResult.Earned);
+                Assert.That(SessionState(app), Is.EqualTo("Failed"));
+                Assert.That(SessionHearts(app), Is.Zero);
+                Assert.That(SessionRewardClaimed(app), Is.False);
+            }
+        }
+
         private static GameApp CreateApp(IAdService adService, IPrivacyService privacyService)
         {
             ServiceFactory.SetTestServices(adService, privacyService);
@@ -262,6 +372,32 @@ namespace CurioClerk.Tests.PlayMode
             }
         }
 
+        private static void FailShift(GameApp app)
+        {
+            app.StartNewShift(4242);
+            for (var index = 0; index < 3; index++)
+            {
+                SortCurrentIncorrectly(app);
+            }
+        }
+
+        private static void SortCurrentIncorrectly(GameApp app)
+        {
+            var appType = typeof(GameApp);
+            var session = appType
+                .GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app);
+            var rules = appType
+                .GetField("_activeRules", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app);
+            var artifact = session.GetType().GetProperty("CurrentArtifact").GetValue(session);
+            var ruleEngineType = Type.GetType("CurioClerk.Core.Rules.RuleEngine, CurioClerk.Core");
+            var ruleEngine = Activator.CreateInstance(ruleEngineType);
+            var expected = ruleEngineType.GetMethod("Resolve").Invoke(ruleEngine, new[] { artifact, rules });
+            var incorrect = Enum.ToObject(expected.GetType(), (Convert.ToInt32(expected) + 1) % 3);
+            appType.GetMethod("ChooseDestination").Invoke(app, new[] { incorrect });
+        }
+
         private static int Coins(GameApp app)
         {
             var save = typeof(GameApp).GetProperty("SaveData").GetValue(app);
@@ -276,11 +412,54 @@ namespace CurioClerk.Tests.PlayMode
             return (int)session.GetType().GetProperty("Coins").GetValue(session);
         }
 
+        private static int SessionHearts(GameApp app)
+        {
+            return (int)Session(app).GetType().GetProperty("Hearts").GetValue(Session(app));
+        }
+
+        private static string SessionState(GameApp app)
+        {
+            return Session(app).GetType().GetProperty("State").GetValue(Session(app)).ToString();
+        }
+
+        private static bool SessionRewardClaimed(GameApp app)
+        {
+            return (bool)Session(app).GetType().GetProperty("RewardClaimed").GetValue(Session(app));
+        }
+
+        private static object Session(GameApp app)
+        {
+            return typeof(GameApp)
+                .GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app);
+        }
+
+        private static int CompletedShifts(GameApp app)
+        {
+            var save = typeof(GameApp).GetProperty("SaveData").GetValue(app);
+            return (int)save.GetType().GetField("completedShifts").GetValue(save);
+        }
+
+        private static int DiscoveredCount(GameApp app)
+        {
+            var save = typeof(GameApp).GetProperty("SaveData").GetValue(app);
+            return ((IList)save.GetType().GetField("discoveredArtifactIds").GetValue(save)).Count;
+        }
+
         private static void RequestCompletedShiftReward(GameApp app)
         {
             typeof(GameApp)
                 .GetMethod("RequestReward", BindingFlags.Instance | BindingFlags.NonPublic)
                 .Invoke(app, new object[] { true });
+        }
+
+        private static void ClickRewardedAdButton()
+        {
+            var buttonType = Type.GetType("UnityEngine.UI.Button, UnityEngine.UI");
+            var button = GameObject.Find("RewardedAdButton");
+            Assert.That(button, Is.Not.Null, "The failed results screen must expose the rewarded-ad offer.");
+            var onClick = buttonType.GetProperty("onClick").GetValue(button.GetComponent(buttonType));
+            onClick.GetType().GetMethod("Invoke").Invoke(onClick, null);
         }
 
         private static void InvokePrivate(GameApp app, string methodName)
@@ -319,6 +498,8 @@ namespace CurioClerk.Tests.PlayMode
 
             public List<bool> PermissionHistory { get; } = new List<bool>();
 
+            public string LastPlacement { get; private set; }
+
             public void SetRequestPermission(bool allowed)
             {
                 PermissionHistory.Add(allowed);
@@ -326,6 +507,7 @@ namespace CurioClerk.Tests.PlayMode
 
             public void ShowRewarded(string placement, Action<RewardedAdResult> completed)
             {
+                LastPlacement = placement;
                 _completed = completed;
             }
 
@@ -350,6 +532,33 @@ namespace CurioClerk.Tests.PlayMode
             public void ShowPrivacyOptions(Action<bool> completed)
             {
                 completed?.Invoke(CanRequestAds);
+            }
+        }
+
+        private sealed class DeferredConsentPrivacyService : IPrivacyService
+        {
+            private Action<bool> _consentCompleted;
+
+            public bool CanRequestAds { get; set; }
+
+            public bool PrivacyOptionsRequired { get; set; }
+
+            public void RequestConsent(Action<bool> completed)
+            {
+                _consentCompleted = completed;
+            }
+
+            public void ShowPrivacyOptions(Action<bool> completed)
+            {
+                completed?.Invoke(CanRequestAds);
+            }
+
+            public void CompleteConsent()
+            {
+                Assert.That(_consentCompleted, Is.Not.Null, "No initial consent request is pending.");
+                var completed = _consentCompleted;
+                _consentCompleted = null;
+                completed(CanRequestAds);
             }
         }
     }

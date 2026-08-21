@@ -413,6 +413,10 @@ namespace CurioClerk.Presentation
                 {
                     ShowResults();
                 }
+                else if (_screenRoot != null && ActiveScreen == AppScreen.Settings)
+                {
+                    ShowSettings();
+                }
             });
         }
 

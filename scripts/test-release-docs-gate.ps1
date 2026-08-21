@@ -417,6 +417,20 @@ try {
         Expect-Fail $modelMutation.Name { Invoke-Gate $fixture 'Submission' }
     }
 
+    foreach ($modelVariant in @(
+        @{ Name = 'RTL Galaxy A05s variant'; Before = 'Galaxy A model: Galaxy A55 5G'; After = 'Galaxy A model: Galaxy A05s' },
+        @{ Name = 'RTL Galaxy S25 Edge variant'; Before = 'Galaxy S model: Galaxy S24 Ultra'; After = 'Galaxy S model: Galaxy S25 Edge' },
+        @{ Name = 'RTL Galaxy Z Fold10+ variant'; Before = 'Galaxy Fold model: Galaxy Z Fold6'; After = 'Galaxy Fold model: Galaxy Z Fold10+' }
+    )) {
+        $fixture = New-ConfirmedFixture
+        Replace-Literal $fixture 'Docs/ReleaseEvidence/1.0.0/remote-test-lab.md' $modelVariant.Before $modelVariant.After
+        Expect-Pass $modelVariant.Name { Invoke-Gate $fixture 'Submission' }
+    }
+
+    $emptyRtlModel = New-ConfirmedFixture
+    Replace-Literal $emptyRtlModel 'Docs/ReleaseEvidence/1.0.0/remote-test-lab.md' 'Galaxy S model: Galaxy S24 Ultra' 'Galaxy S model: ` `'
+    Expect-Fail 'RTL empty model' { Invoke-Gate $emptyRtlModel 'Submission' }
+
     $sameBeforeReference = New-ConfirmedFixture
     Replace-Literal $sameBeforeReference 'Docs/ArtReleaseReview.md' 'Before evidence: Assets/Art/Brand/AppIcon.before.png' 'Before evidence: Assets/Art/Brand/AppIcon.png'
     Expect-Fail 'art before and after same current path' { Invoke-Gate $sameBeforeReference 'Submission' }

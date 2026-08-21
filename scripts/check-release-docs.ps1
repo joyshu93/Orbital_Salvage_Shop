@@ -632,10 +632,11 @@ if ($Mode -eq 'Submission') {
     $androidMajors = @()
     $aspectClasses = @()
     $rtlModels = @()
+    $numericModelSuffix = '[0-9][A-Za-z0-9+._-]*(?: [A-Za-z0-9][A-Za-z0-9+._-]*)*'
     $modelPatterns = @{
-        'Galaxy A' = '\AGalaxy A[0-9]{2}(?: 5G)?\z'
-        'Galaxy S' = '\AGalaxy S[0-9]{1,2}(?:\+| FE| Ultra)?\z'
-        'Galaxy Fold' = '\A(?:Galaxy Z Fold|Galaxy Fold)[2-9](?: 5G)?\z'
+        'Galaxy A' = "\AGalaxy A$numericModelSuffix\z"
+        'Galaxy S' = "\AGalaxy S$numericModelSuffix\z"
+        'Galaxy Fold' = "\A(?:Galaxy Z Fold|Galaxy Fold)$numericModelSuffix\z"
     }
     foreach ($profile in @('Galaxy A', 'Galaxy S', 'Galaxy Fold')) {
         $model = Get-StructuredField $remoteLab "$profile model" 'remote-test-lab.md'

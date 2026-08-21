@@ -393,15 +393,17 @@ git commit -m "chore: remove unresolved TMP sample assets"
 
 - [ ] **Step 1: Add the art review record**
 
-Create `Docs/ArtReleaseReview.md` with one row per shipped visual and these columns:
+Create `Docs/ArtReleaseReview.md` with one row per shipped visual. The Application icon row must bind its `ART-BRAND-###` ID, exact repository path, and release decision:
 
 ```markdown
-| Asset ID | Repository/store path | Source type | Human changes | Before/after evidence | Similarity/brand review | Release decision | Reviewer/date |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| ART-BRAND-001 | `Assets/Art/Brand/AppIcon.png` | AI concept requiring human creative work | Record composition, silhouette, palette, line, and cleanup decisions | Record both retained files or Git commits | Record search method and result | Blocked until the developer writes `Approved for release` | Developer signs and dates |
+| Approved asset ID | Repository path | Release decision |
+| --- | --- | --- |
+| ART-BRAND-001 | Assets/Art/Brand/AppIcon.png | Blocked until the developer writes `Approved for release` |
 ```
 
-Add rejection rules for named-artist imitation, protected characters, brand marks, watermarks, signatures, and visually confusing store icons.
+Below the row, use the exact structured fields required by `scripts/check-release-docs.ps1`: `Release approval status`, `Approval date`, `Developer attestation`, `Human creative pass`, `Approved asset ID`, `Repository path`, `Release decision`, substantive `Composition changes`, `Silhouette changes`, `Palette changes`, and `Line / shape cleanup`, repository-relative or full-Git-SHA `Before evidence` and `After evidence`, `Similarity search method`, `Similarity review result`, `Trademark review`, `Rights review`, `Watermark review`, `Signature review`, `Named-artist review`, `Protected-character review`, and `Approved icon SHA-256`. The ID must also be in the `Application icon` row of `Docs/Store/AssetInventory.md` and in a matching `Docs/AIAssetProvenance.md` section containing the exact icon path and current hash. A separately documented replacement may use another `ART-BRAND-###` ID.
+
+Add rejection rules for named-artist imitation, protected characters, brand marks, watermarks, signatures, and visually confusing store icons. Do not create or mark this record approved until the developer actually performs the review.
 
 - [ ] **Step 2: Have the developer perform and document the creative pass**
 
@@ -935,6 +937,7 @@ Expected for agent-completable work: Repository mode passes. Submission mode rem
 
 **Files:**
 - Create: `Docs/ReleaseEvidence/1.0.0/automated-tests.md`
+- Create: `Docs/ReleaseEvidence/1.0.0/aab-inspection.md`
 - Create: `Docs/ReleaseEvidence/1.0.0/owned-device.md`
 - Create: `Docs/ReleaseEvidence/1.0.0/remote-test-lab.md`
 - Create: `Docs/ReleaseEvidence/1.0.0/service-validation.md`
@@ -947,15 +950,17 @@ Expected for agent-completable work: Repository mode passes. Submission mode rem
 
 - [ ] **Step 1: Record automated-test evidence**
 
-The developer runs `.\scripts\test-unity.ps1` and records date, Git SHA, Unity version, EditMode pass/total, PlayMode pass/total, and the retained local XML/log paths. Do not commit machine-absolute paths or logs containing account details.
+The developer runs `.\scripts\test-unity.ps1` and records `Evidence status: DEVELOPER_RECORDED`, ISO evidence date, the 40-character RC Git SHA, Unity `6000.3.21f1`, EditMode and PlayMode `PASSED` with positive equal pass/total counts, and sanitized repository-relative retained XML/log paths. Do not commit machine-absolute paths or logs containing account details.
+
+Create `aab-inspection.md` for the same RC SHA with `Inspection status: PASSED`, bundletool `1.18.3`, AAB SHA-256 and `Hash match: PASSED`, package `com.joyshu93.curioclerknightshift`, version `1.0.0`/`10000`, minimum API `29`, target API `36`, `ARM64`, `IL2CPP`, and `Symbols: PRESENT`.
 
 - [ ] **Step 2: Complete the owned-device matrix**
 
-On one owned Samsung device, record model, Android/API level, screen resolution/aspect, install source, AAB-derived build version, and pass/fail for: first launch, tutorial, three shifts, drag/buttons/Hold, offline mode, pause/resume, force-stop recovery, corrupt-save recovery, EN/KO change, UMP grant/deny/privacy-options changes, ad earned/dismissed/no-fill/failure/duplicate callback, and relaunch.
+On one owned Samsung device, record the common evidence status/date/RC SHA, the inspected AAB SHA, model, Android version/API level, screen resolution/aspect, install source, build `1.0.0`/`10000`, and explicit `PASSED` results for: first launch, tutorial, three shifts, drag/buttons/Hold, offline mode, pause/resume, force-stop recovery, corrupt-save recovery, EN/KO change, UMP grant/deny/privacy-options changes, ad earned/dismissed/no-fill/failure/duplicate callback, and relaunch. Record P0, P1, and reward anomalies as zero for acceptance.
 
 - [ ] **Step 3: Complete three Remote Test Lab profiles**
 
-Choose one available Galaxy A-series slab, one Galaxy S-series slab, and one Galaxy Fold profile spanning at least two Android major versions and two aspect classes. Run install/launch/tutorial/one-shift/language/safe-area/pause-resume checks. Record the exact models chosen, lab date, OS, and results; do not imply these are independent human usability tests.
+Choose one available Galaxy A-series slab, one Galaxy S-series slab, and one Galaxy Fold profile spanning at least two Android major versions and two aspect classes. Record common status/date/RC SHA, exact model, integer Android major, explicit aspect class, and `PASSED` for install/launch/tutorial/one-shift/language/safe-area/pause-resume on every profile; do not imply these are independent human usability tests.
 
 - [ ] **Step 4: Validate only the shipped AdMob/UMP service path and no-remote boundary**
 
@@ -970,9 +975,11 @@ With the developer's own UMP choices and test devices:
 - verify the resolved package/player graph contains no remote gameplay/crash telemetry transport;
 - verify local analytics/crash services do not transmit, log, cache, or persist payloads.
 
+The sanitized record also states exact GMA `11.3.0` and EDM4U `1.2.188`, UMP update every launch, zero requests before `CanRequestAds`, base progression when unavailable, exactly one earned reward, zero duplicate grants, zero gameplay/crash endpoints, no telemetry in the package graph, observed traffic `ADMOB_UMP_ONLY`, and zero local payload transmit/log/cache/persist operations.
+
 - [ ] **Step 5: Make and sign the RC decision**
 
-`rc-decision.md` records Git SHA, AAB SHA-256, version, unresolved defect count by severity, rights-gate status, store-doc gate status, test matrix status, and the developer’s dated `Accept RC` or `Reject RC` decision. Acceptance requires P0/P1 = 0 and every rights/privacy/build gate complete.
+`rc-decision.md` records common evidence status/date, the same Git SHA and AAB SHA-256 as every other record, version `1.0.0`/`10000`, unresolved defect count by severity, rights-gate status, store-doc gate status, test matrix status, and the developer’s dated `ACCEPT RC` or `REJECT RC` decision. Acceptance requires P0/P1 = 0 and every rights/privacy/build gate complete.
 
 - [ ] **Step 6: Commit sanitized evidence**
 

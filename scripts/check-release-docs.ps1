@@ -107,18 +107,29 @@ function Get-RequiredIntegerField([string]$Text, [string]$Name, [string]$Documen
 
 function Assert-SanitizedEvidence([string]$Text, [string]$DocumentName) {
     $forbiddenPatterns = @(
+        '[\x00-\x08\x0B\x0C\x0E-\x1F]',
         '(?im)(?:^|[\s`"''(])(?:[A-Za-z]:[\\/]|file:/+|/(?:Users|home|var|tmp|etc)/|/(?!/)[A-Za-z0-9._-]+/)',
+        '(?m)(?:^|[\s`"''(])(?:\\\\|//)[A-Za-z0-9._-]+[\\/][A-Za-z0-9.$_-]+',
         '(?i)-----BEGIN [A-Z ]*PRIVATE KEY-----',
-        '(?i)\b(?:gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|Bearer\s+[A-Za-z0-9._~+/-]{12,})\b',
-        '(?im)^\s*(?:access token|refresh token|password|credential|secret|api key)\s*:\s*(?!REDACTED\b)\S+',
+        '(?i)\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|Bearer\s+[A-Za-z0-9._~+/-]{12,})\b',
+        '(?i)\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b',
+        '(?im)^\s*(?:access[_ -]?token|refresh[_ -]?token|password|credential|client[_ -]?secret|secret|api[_ -]?key)\s*[:=]\s*(?!REDACTED\b)\S+',
         '(?i)ca-app-pub-\d+[/~]\d+',
-        '(?im)^\s*(?:government ID|passport|bank account|tax ID|identity document|financial record)\s*:',
-        '(?m)(?:\[[A-Z][A-Z0-9_]+\]|\b(?:PENDING|TODO|TBD|PLACEHOLDER|NOT RUN)\b)'
+        '(?im)^\s*(?:government ID|passport(?: number)?|bank account|routing number|credit card|tax ID|identity document|financial record)\s*:',
+        '(?m)(?:\[[A-Z][A-Z0-9_]+\]|\b(?:PENDING|TODO|TBD|PLACEHOLDER|NOT RUN)\b|^\s*-\s*\[\s\])'
     )
     foreach ($pattern in $forbiddenPatterns) {
-        if ($Text -match $pattern) {
-            throw "$DocumentName contains forbidden path, secret, identity/financial record, ad identifier, or pending placeholder evidence."
+        $match = [regex]::Match($Text, $pattern)
+        if ($match.Success) {
+            throw "$DocumentName contains forbidden path, secret, identity/financial record, ad identifier, or pending placeholder evidence near '$($match.Value)'."
         }
+    }
+}
+
+function Assert-RepositoryRelativeEvidencePath([string]$Value, [string]$DocumentName, [string]$FieldName, [string]$ExtensionPattern) {
+    if ($Value -notmatch "\A(?:Docs|Assets|ProjectSettings|Packages|scripts)/[A-Za-z0-9._/-]+$ExtensionPattern\z" -or
+        $Value -match '(?:^|/)\.\.(?:/|$)') {
+        throw "$DocumentName field '$FieldName' must be a sanitized repository-relative path."
     }
 }
 
@@ -207,6 +218,7 @@ foreach ($unsupportedClaim in @(
     '(?im)^\s*(?:An?\s+)?award[- ]winning\b',
     '(?im)^\s*(?:#?1|number one)\b.*(?:game|puzzle|rank)',
     '(?im)^\s*(?:Ads?|Rewarded ads?)\s+(?:are|is)\s+guaranteed\b',
+    '(?im)^\s*Ads?\s+(?:are|is)\s+always\s+available\b',
     '(?im)^\s*(?:An?\s+)?ad\s+will\s+always\s+be\s+available\b',
     '(?im)^\s*Guaranteed ad availability\b',
     '(?im)^\s*Approved by (?:Samsung|Galaxy Store)\b'
@@ -216,13 +228,15 @@ foreach ($unsupportedClaim in @(
     }
 }
 foreach ($contradictoryClaim in @(
-    '(?im)^\s*(?:(?:You|Players?) can\s+)?(?:Create|Register|Sign in|Log in)(?: for| with| to)? (?:an? )?account\b',
+    '(?im)^\s*(?:(?:You|Players?) (?:can|may)\s+)?(?:Create|Register|Sign in|Log in)(?: for| with| to)? (?:an? )?account\b',
     '(?im)^\s*(?:(?:You|Players?) can\s+)?(?:Buy|Purchase) (?:coins|items|charms)\b',
     '(?im)^\s*(?:In-app purchases?) (?:are|is) available\b',
     '(?im)^\s*(?:Sync|Save) (?:your )?(?:progress )?(?:to|with) (?:the )?cloud\b',
     '(?im)^\s*Your progress syncs (?:to|with) (?:the )?cloud\b',
+    '(?im)^\s*Cloud saves? (?:are|is) available\b',
     '(?im)^\s*(?:We|The developer|The game) (?:collect|upload|send)s? (?:gameplay |crash )?(?:analytics|events|reports)\b',
-    '(?im)^\s*Gameplay events are sent to (?:the )?(?:developer|server|backend)\b'
+    '(?im)^\s*Gameplay events are sent to (?:the )?(?:developer|server|backend)\b',
+    '(?im)^\s*We upload gameplay data to (?:our|the) servers?\b'
 )) {
     if ($affirmativeStoreCopy -match $contradictoryClaim) {
         throw "Store copy contradicts the v1 service boundary: $contradictoryClaim"
@@ -399,139 +413,188 @@ if ($Mode -eq 'Submission') {
     if ($mediaStatus -ne 'HUMAN_APPROVED' -or -not (Test-IsoDate $mediaDate)) { $submissionBlockers.Add('Required store media are not human-approved with a date.') }
     if ($evidenceStatus -ne 'DEVELOPER_CONFIRMED' -or $rcDecision -ne 'ACCEPTED' -or -not (Test-IsoDate $rcDecisionDate)) { $submissionBlockers.Add('Release evidence or accepted RC decision is unresolved.') }
 
-    $artReviewPath = Join-Path $root 'Docs/ArtReleaseReview.md'
-    if (-not (Test-Path -LiteralPath $artReviewPath -PathType Leaf)) {
-        $submissionBlockers.Add('Docs/ArtReleaseReview.md is missing.')
-    }
     foreach ($assetName in @('Application icon', 'Phone screenshots')) {
         $row = [regex]::Match($assetInventory, "(?m)^\| $([regex]::Escape($assetName)) \|(?<body>.*)\|$")
         if (-not $row.Success -or $row.Groups['body'].Value -match '(?i)missing|not uploaded|prototype only|blocked|no files created') {
             $submissionBlockers.Add("Required media is not submission-ready: $assetName.")
         }
     }
-    $task11EvidencePaths = @(
-        'Docs/ReleaseEvidence/1.0.0/automated-tests.md',
-        'Docs/ReleaseEvidence/1.0.0/owned-device.md',
-        'Docs/ReleaseEvidence/1.0.0/remote-test-lab.md',
-        'Docs/ReleaseEvidence/1.0.0/service-validation.md',
-        'Docs/ReleaseEvidence/1.0.0/rc-decision.md'
+
+    $artReviewRelative = 'Docs/ArtReleaseReview.md'
+    $evidenceRootRelative = 'Docs/ReleaseEvidence/1.0.0'
+    $requiredEvidenceNames = @(
+        'README.md',
+        'automated-tests.md',
+        'aab-inspection.md',
+        'owned-device.md',
+        'remote-test-lab.md',
+        'service-validation.md',
+        'rc-decision.md'
     )
-    foreach ($relative in $task11EvidencePaths) {
-        if (-not (Test-Path -LiteralPath (Join-Path $root $relative) -PathType Leaf)) {
-            $submissionBlockers.Add("Task 11 evidence is missing: $relative")
+    $artReviewPath = Join-Path $root $artReviewRelative
+    if (-not (Test-Path -LiteralPath $artReviewPath -PathType Leaf)) { $submissionBlockers.Add("$artReviewRelative is missing.") }
+    $evidenceRoot = Join-Path $root $evidenceRootRelative
+    foreach ($name in $requiredEvidenceNames) {
+        if (-not (Test-Path -LiteralPath (Join-Path $evidenceRoot $name) -PathType Leaf)) {
+            $submissionBlockers.Add("Task 11 evidence is missing: $evidenceRootRelative/$name")
         }
     }
     if ($evidenceIndex -match '(?m)^\| (?:Automated tests|AAB inspection|Owned-device validation|Remote Test Lab|Service validation|RC decision) \| (?:Not run|Pending developer evidence) \|') {
         $submissionBlockers.Add('Evidence index still contains pending/not-run release evidence.')
     }
-
-    $artReview = $null
-    if (Test-Path -LiteralPath $artReviewPath -PathType Leaf) {
-        $artReview = Read-SubmissionEvidence 'Docs/ArtReleaseReview.md'
-    }
-    $task11Evidence = @{}
-    foreach ($relative in $task11EvidencePaths) {
-        if (Test-Path -LiteralPath (Join-Path $root $relative) -PathType Leaf) {
-            $task11Evidence[$relative] = Read-SubmissionEvidence $relative
-        }
-    }
-
-    if ($mediaStatus -eq 'HUMAN_APPROVED' -and $null -ne $artReview) {
-        if ((Get-StructuredField $artReview 'Release approval status' 'ArtReleaseReview.md') -ne 'HUMAN_APPROVED') { throw 'Art release approval status must be HUMAN_APPROVED.' }
-        if (-not (Test-IsoDate (Get-StructuredField $artReview 'Approval date' 'ArtReleaseReview.md'))) { throw 'Art release approval date must be ISO yyyy-MM-dd.' }
-        $attestation = Get-StructuredField $artReview 'Reviewer / attestation' 'ArtReleaseReview.md'
-        if ([string]::IsNullOrWhiteSpace($attestation) -or $attestation.Length -lt 12) { throw 'Art release review requires a meaningful reviewer attestation.' }
-        if ((Get-StructuredField $artReview 'Human creative pass' 'ArtReleaseReview.md') -ne 'COMPLETED') { throw 'Human creative pass must be COMPLETED.' }
-        if ((Get-StructuredField $artReview 'Similarity review' 'ArtReleaseReview.md') -ne 'PASSED') { throw 'Similarity review must be PASSED.' }
-        if ((Get-StructuredField $artReview 'Rights review' 'ArtReleaseReview.md') -ne 'PASSED') { throw 'Rights review must be PASSED.' }
-        $approvedAssetId = Get-StructuredField $artReview 'Approved asset ID' 'ArtReleaseReview.md'
-        if ($approvedAssetId -notmatch '\AART-BRAND-[0-9]{3}\z') { throw 'Approved asset ID must use the ART-BRAND-### format.' }
-        if ($assetInventory -notmatch [regex]::Escape($approvedAssetId)) { throw 'Approved asset ID must appear in AssetInventory.md.' }
-        $approvedIconSha = Get-StructuredField $artReview 'Approved icon SHA-256' 'ArtReleaseReview.md'
-        $iconPath = Join-Path $root 'Assets/Art/Brand/AppIcon.png'
-        if (-not (Test-Path -LiteralPath $iconPath -PathType Leaf)) { throw 'Approved application icon file is missing.' }
-        $actualIconSha = (Get-FileHash -LiteralPath $iconPath -Algorithm SHA256).Hash
-        if ($approvedIconSha -notmatch '\A[0-9a-fA-F]{64}\z' -or $approvedIconSha -ne $actualIconSha) { throw 'Approved icon SHA-256 does not match Assets/Art/Brand/AppIcon.png.' }
-        $provenance = $documents['Docs/AIAssetProvenance.md']
-        $provenanceSection = [regex]::Match($provenance, "(?ms)^###\s+$([regex]::Escape($approvedAssetId))\b.*?\r?\n(?<body>.*?)(?=^###\s+|\z)")
-        if (-not $provenanceSection.Success -or $provenanceSection.Groups['body'].Value -notmatch [regex]::Escape($actualIconSha)) {
-            throw 'Approved asset ID and current icon SHA-256 must appear together in AIAssetProvenance.md.'
-        }
-    }
-
-    $allTask11Present = @($task11EvidencePaths | Where-Object { -not (Test-Path -LiteralPath (Join-Path $root $_) -PathType Leaf) }).Count -eq 0
-    if ($evidenceStatus -eq 'DEVELOPER_CONFIRMED' -and $allTask11Present) {
-        $automated = $task11Evidence['Docs/ReleaseEvidence/1.0.0/automated-tests.md']
-        $owned = $task11Evidence['Docs/ReleaseEvidence/1.0.0/owned-device.md']
-        $remoteLab = $task11Evidence['Docs/ReleaseEvidence/1.0.0/remote-test-lab.md']
-        $service = $task11Evidence['Docs/ReleaseEvidence/1.0.0/service-validation.md']
-        $rcEvidence = $task11Evidence['Docs/ReleaseEvidence/1.0.0/rc-decision.md']
-        foreach ($entry in @(
-            @{ Text = $automated; Name = 'automated-tests.md' },
-            @{ Text = $owned; Name = 'owned-device.md' },
-            @{ Text = $remoteLab; Name = 'remote-test-lab.md' },
-            @{ Text = $service; Name = 'service-validation.md' },
-            @{ Text = $rcEvidence; Name = 'rc-decision.md' }
-        )) {
-            Assert-CommonEvidence $entry.Text $entry.Name $signedRcSha
-        }
-
-        if ((Get-StructuredField $automated 'Unity version' 'automated-tests.md') -ne '6000.3.21f1') { throw 'Automated evidence Unity version must be 6000.3.21f1.' }
-        foreach ($modeName in @('EditMode', 'PlayMode')) {
-            if ((Get-StructuredField $automated "$modeName status" 'automated-tests.md') -ne 'PASSED') { throw "$modeName automated-test status must be PASSED." }
-            $passed = Get-RequiredIntegerField $automated "$modeName passed" 'automated-tests.md'
-            $total = Get-RequiredIntegerField $automated "$modeName total" 'automated-tests.md'
-            if ($total -le 0 -or $passed -ne $total) { throw "$modeName automated-test passed/total counts must be equal and greater than zero." }
-        }
-
-        $ownedAabSha = Get-StructuredField $owned 'AAB SHA-256' 'owned-device.md'
-        if ($ownedAabSha -notmatch '\A[0-9a-fA-F]{64}\z') { throw 'Owned-device AAB SHA-256 must be 64 hexadecimal characters.' }
-        if ((Get-StructuredField $owned 'Matrix status' 'owned-device.md') -ne 'PASSED') { throw 'Owned-device matrix status must be PASSED.' }
-        $ownedModel = Get-StructuredField $owned 'Owned device model' 'owned-device.md'
-        if ([string]::IsNullOrWhiteSpace($ownedModel)) { throw 'Owned-device evidence requires a device model.' }
-        $ownedApi = Get-RequiredIntegerField $owned 'Android API' 'owned-device.md'
-        if ($ownedApi -lt 29) { throw 'Owned-device Android API must be at least 29.' }
-        foreach ($check in @('First launch', 'Tutorial', 'Three shifts')) {
-            if ((Get-StructuredField $owned $check 'owned-device.md') -ne 'PASSED') { throw "Owned-device check must be PASSED: $check." }
-        }
-        foreach ($zeroField in @('P0 defects', 'P1 defects', 'Reward anomalies')) {
-            if ((Get-RequiredIntegerField $owned $zeroField 'owned-device.md') -ne 0) { throw "Owned-device $zeroField must be zero." }
-        }
-
-        if ((Get-StructuredField $remoteLab 'Matrix status' 'remote-test-lab.md') -ne 'PASSED') { throw 'Remote Test Lab matrix status must be PASSED.' }
-        if ((Get-RequiredIntegerField $remoteLab 'Profile count' 'remote-test-lab.md') -lt 3) { throw 'Remote Test Lab requires at least three profiles.' }
-        foreach ($profileField in @('Galaxy A-series profile', 'Galaxy S-series profile', 'Galaxy Fold profile')) {
-            $profile = Get-StructuredField $remoteLab $profileField 'remote-test-lab.md'
-            if ([string]::IsNullOrWhiteSpace($profile) -or $profile.Length -lt 10) { throw "Remote Test Lab profile is incomplete: $profileField." }
-        }
-
-        if ((Get-StructuredField $service 'Service validation status' 'service-validation.md') -ne 'PASSED') { throw 'Service validation status must be PASSED.' }
-        if ((Get-StructuredField $service 'No-remote Release gate' 'service-validation.md') -ne 'PASSED') { throw 'No-remote Release gate evidence must be PASSED.' }
-        if ((Get-StructuredField $service 'Observed service traffic' 'service-validation.md') -ne 'ADMOB_UMP_ONLY') { throw 'Observed service traffic must be ADMOB_UMP_ONLY.' }
-        if ((Get-RequiredIntegerField $service 'Duplicate reward grants' 'service-validation.md') -ne 0) { throw 'Duplicate reward grants must be zero.' }
-        if ((Get-StructuredField $service 'Unavailable-ad base progression' 'service-validation.md') -ne 'PASSED') { throw 'Unavailable-ad base progression must be PASSED.' }
-        if ((Get-StructuredField $service 'UMP launch update' 'service-validation.md') -ne 'PASSED') { throw 'UMP launch update must be PASSED.' }
-        if ((Get-RequiredIntegerField $service 'Ad requests before CanRequestAds' 'service-validation.md') -ne 0) { throw 'Ad requests before CanRequestAds must be zero.' }
-
-        if ((Get-StructuredField $rcEvidence 'RC Decision' 'rc-decision.md') -ne 'ACCEPT RC') { throw 'RC evidence Decision must be ACCEPT RC.' }
-        $rcAabSha = Get-StructuredField $rcEvidence 'AAB SHA-256' 'rc-decision.md'
-        if ($rcAabSha -notmatch '\A[0-9a-fA-F]{64}\z' -or $rcAabSha -ne $ownedAabSha) { throw 'RC and owned-device AAB SHA-256 values must match.' }
-        foreach ($zeroField in @('P0 defects', 'P1 defects')) {
-            if ((Get-RequiredIntegerField $rcEvidence $zeroField 'rc-decision.md') -ne 0) { throw "RC $zeroField must be zero." }
-        }
-        foreach ($gateField in @('Rights gate', 'Store docs gate', 'Test matrix')) {
-            if ((Get-StructuredField $rcEvidence $gateField 'rc-decision.md') -ne 'PASSED') { throw "RC $gateField must be PASSED." }
-        }
-    }
-
-    $submissionDocs = @($privacyPolicy, $sellerSetup, $listingEn, $listingKo, $reviewNotes, $dataSafety, $ratingAnswers, $assetInventory, $evidenceIndex) -join "`n"
-    $unresolvedTokens = @([regex]::Matches($submissionDocs, '\[[A-Z][A-Z0-9_]+\]') | ForEach-Object { $_.Value } | Sort-Object -Unique)
-    if ($unresolvedTokens.Count -gt 0) {
-        $submissionBlockers.Add("Unresolved submission tokens: $($unresolvedTokens -join ', ')")
-    }
     if ($submissionBlockers.Count -gt 0) {
         throw "Submission documentation is blocked:`n- $($submissionBlockers -join "`n- ")"
     }
+
+    # A confirmed Submission scans the complete sanitized evidence tree, including future files.
+    $recursiveEvidence = @{}
+    foreach ($path in [System.IO.Directory]::EnumerateFiles($evidenceRoot, '*', [System.IO.SearchOption]::AllDirectories)) {
+        if ([System.IO.Path]::GetExtension($path) -ne '.md') {
+            throw "Release evidence must contain sanitized Markdown only: $path"
+        }
+        $relative = $path.Substring($root.Length).TrimStart([char[]]@('\', '/')).Replace('\', '/')
+        $text = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+        Assert-SanitizedEvidence $text $relative
+        $recursiveEvidence[$relative] = $text
+    }
+    $artReview = [System.IO.File]::ReadAllText($artReviewPath, [System.Text.Encoding]::UTF8)
+    Assert-SanitizedEvidence $artReview $artReviewRelative
+
+    # Task 4 human art approval is bound to the exact submitted icon and provenance record.
+    if ((Get-StructuredField $artReview 'Release approval status' 'ArtReleaseReview.md') -ne 'HUMAN_APPROVED') { throw 'Art release approval status must be HUMAN_APPROVED.' }
+    if (-not (Test-IsoDate (Get-StructuredField $artReview 'Approval date' 'ArtReleaseReview.md'))) { throw 'Art release approval date must be ISO yyyy-MM-dd.' }
+    $attestation = Get-StructuredField $artReview 'Developer attestation' 'ArtReleaseReview.md'
+    if ($attestation -notmatch '(?i)\b(?:I|developer)\b.*\b(?:made|created|edited|changed)\b.*\b(?:reviewed|approve)\b.*\brelease\b' -or $attestation.Length -lt 70) {
+        throw 'Art release review requires a substantive developer creative-work attestation.'
+    }
+    if ((Get-StructuredField $artReview 'Human creative pass' 'ArtReleaseReview.md') -ne 'COMPLETED') { throw 'Human creative pass must be COMPLETED.' }
+    $approvedAssetId = Get-StructuredField $artReview 'Approved asset ID' 'ArtReleaseReview.md'
+    if ($approvedAssetId -notmatch '\AART-BRAND-[0-9]{3}\z') { throw 'Approved asset ID must use the ART-BRAND-### format.' }
+    $approvedPath = Get-StructuredField $artReview 'Repository path' 'ArtReleaseReview.md'
+    if ($approvedPath -ne 'Assets/Art/Brand/AppIcon.png') { throw 'Art release Repository path must be Assets/Art/Brand/AppIcon.png.' }
+    if ((Get-StructuredField $artReview 'Release decision' 'ArtReleaseReview.md') -ne 'Approved for release') { throw 'Art release decision must be Approved for release.' }
+    $reviewRowPattern = "(?m)^\|\s*$([regex]::Escape($approvedAssetId))\s*\|\s*Assets/Art/Brand/AppIcon\.png\s*\|\s*Approved for release\s*\|$"
+    if ($artReview -notmatch $reviewRowPattern) { throw 'Art review Application icon row must bind the approved ID, path, and decision.' }
+    $iconInventoryRow = [regex]::Match($assetInventory, '(?m)^\| Application icon \|(?<body>.*)\|$')
+    if (-not $iconInventoryRow.Success -or $iconInventoryRow.Groups['body'].Value -notmatch [regex]::Escape($approvedAssetId)) {
+        throw 'Approved asset ID must appear in the Application icon inventory row.'
+    }
+    foreach ($changeField in @('Composition changes', 'Silhouette changes', 'Palette changes', 'Line / shape cleanup')) {
+        $value = Get-StructuredField $artReview $changeField 'ArtReleaseReview.md'
+        if ($value.Length -lt 45 -or $value -match '(?i)^(?:changed it|done|complete|n/a|none)$') { throw "Art review field '$changeField' is not substantive." }
+    }
+    $beforeEvidence = Get-StructuredField $artReview 'Before evidence' 'ArtReleaseReview.md'
+    $afterEvidence = Get-StructuredField $artReview 'After evidence' 'ArtReleaseReview.md'
+    if ($beforeEvidence -notmatch '\A(?:Git commit [0-9a-fA-F]{40}|(?:Docs|Assets)/[A-Za-z0-9._/-]+)\z') { throw 'Before evidence must be a repository-relative file or full Git commit.' }
+    if ($afterEvidence -notmatch '\A(?:Git commit [0-9a-fA-F]{40}|(?:Docs|Assets)/[A-Za-z0-9._/-]+)\z') { throw 'After evidence must be a repository-relative file or full Git commit.' }
+    $similarityMethod = Get-StructuredField $artReview 'Similarity search method' 'ArtReleaseReview.md'
+    if ($similarityMethod.Length -lt 55 -or $similarityMethod -notmatch '(?i)(?:reverse.image|search).*(?:store|keyword|similar)') { throw 'Similarity search method must describe a substantive search.' }
+    foreach ($resultField in @('Similarity review result', 'Trademark review', 'Rights review', 'Watermark review', 'Signature review', 'Named-artist review', 'Protected-character review')) {
+        if ((Get-StructuredField $artReview $resultField 'ArtReleaseReview.md') -ne 'PASSED') { throw "Art review field '$resultField' must be PASSED." }
+    }
+    $iconPath = Join-Path $root 'Assets/Art/Brand/AppIcon.png'
+    $actualIconSha = (Get-FileHash -LiteralPath $iconPath -Algorithm SHA256).Hash
+    $approvedIconSha = Get-StructuredField $artReview 'Approved icon SHA-256' 'ArtReleaseReview.md'
+    if ($approvedIconSha -notmatch '\A[0-9a-fA-F]{64}\z' -or $approvedIconSha -ne $actualIconSha) { throw 'Approved icon SHA-256 does not match Assets/Art/Brand/AppIcon.png.' }
+    $provenance = $documents['Docs/AIAssetProvenance.md']
+    $provenanceSection = [regex]::Match($provenance, "(?ms)^###\s+$([regex]::Escape($approvedAssetId))\b.*?\r?\n(?<body>.*?)(?=^###\s+|\z)")
+    if (-not $provenanceSection.Success -or
+        $provenanceSection.Groups['body'].Value -notmatch [regex]::Escape($actualIconSha) -or
+        $provenanceSection.Groups['body'].Value -notmatch 'Assets/Art/Brand/AppIcon\.png') {
+        throw 'Approved asset ID, icon path, and current SHA-256 must appear together in AIAssetProvenance.md.'
+    }
+
+    $automated = $recursiveEvidence["$evidenceRootRelative/automated-tests.md"]
+    $aabInspection = $recursiveEvidence["$evidenceRootRelative/aab-inspection.md"]
+    $owned = $recursiveEvidence["$evidenceRootRelative/owned-device.md"]
+    $remoteLab = $recursiveEvidence["$evidenceRootRelative/remote-test-lab.md"]
+    $service = $recursiveEvidence["$evidenceRootRelative/service-validation.md"]
+    $rcEvidence = $recursiveEvidence["$evidenceRootRelative/rc-decision.md"]
+    foreach ($entry in @(
+        @{ Text = $automated; Name = 'automated-tests.md' },
+        @{ Text = $aabInspection; Name = 'aab-inspection.md' },
+        @{ Text = $owned; Name = 'owned-device.md' },
+        @{ Text = $remoteLab; Name = 'remote-test-lab.md' },
+        @{ Text = $service; Name = 'service-validation.md' },
+        @{ Text = $rcEvidence; Name = 'rc-decision.md' }
+    )) { Assert-CommonEvidence $entry.Text $entry.Name $signedRcSha }
+
+    if ((Get-StructuredField $automated 'Unity version' 'automated-tests.md') -ne '6000.3.21f1') { throw 'Automated evidence Unity version must be 6000.3.21f1.' }
+    foreach ($modeName in @('EditMode', 'PlayMode')) {
+        if ((Get-StructuredField $automated "$modeName status" 'automated-tests.md') -ne 'PASSED') { throw "$modeName status must be PASSED." }
+        $passed = Get-RequiredIntegerField $automated "$modeName passed" 'automated-tests.md'
+        $total = Get-RequiredIntegerField $automated "$modeName total" 'automated-tests.md'
+        if ($total -le 0 -or $passed -ne $total) { throw "$modeName passed and total must match and be positive." }
+        Assert-RepositoryRelativeEvidencePath (Get-StructuredField $automated "$modeName XML path" 'automated-tests.md') 'automated-tests.md' "$modeName XML path" '\.xml'
+        Assert-RepositoryRelativeEvidencePath (Get-StructuredField $automated "$modeName log path" 'automated-tests.md') 'automated-tests.md' "$modeName log path" '\.log'
+    }
+
+    if ((Get-StructuredField $aabInspection 'Inspection status' 'aab-inspection.md') -ne 'PASSED') { throw 'AAB inspection must be PASSED.' }
+    if ((Get-StructuredField $aabInspection 'Bundletool version' 'aab-inspection.md') -ne '1.18.3') { throw 'AAB inspection bundletool version must be 1.18.3.' }
+    $aabSha = Get-StructuredField $aabInspection 'AAB SHA-256' 'aab-inspection.md'
+    if ($aabSha -notmatch '\A[0-9a-fA-F]{64}\z') { throw 'AAB SHA-256 must be 64 hexadecimal characters.' }
+    $aabExactFields = @{
+        'Hash match' = 'PASSED'; 'Package ID' = 'com.joyshu93.curioclerknightshift'; 'Version name' = '1.0.0';
+        'Version code' = '10000'; 'Minimum API' = '29'; 'Target API' = '36'; 'Architecture' = 'ARM64';
+        'Backend' = 'IL2CPP'; 'Symbols' = 'PRESENT'
+    }
+    foreach ($field in $aabExactFields.Keys) {
+        if ((Get-StructuredField $aabInspection $field 'aab-inspection.md') -ne $aabExactFields[$field]) { throw "AAB inspection field '$field' is invalid." }
+    }
+
+    if ((Get-StructuredField $owned 'AAB SHA-256' 'owned-device.md') -ne $aabSha) { throw 'Owned-device and inspected AAB SHA-256 values must match.' }
+    if ((Get-StructuredField $owned 'Matrix status' 'owned-device.md') -ne 'PASSED') { throw 'Owned-device matrix status must be PASSED.' }
+    if ((Get-StructuredField $owned 'Owned device model' 'owned-device.md').Length -lt 8) { throw 'Owned-device model is incomplete.' }
+    if ((Get-StructuredField $owned 'Android version' 'owned-device.md') -notmatch '\A[0-9]{2}(?:\.[0-9]+)?\z') { throw 'Owned-device Android version is invalid.' }
+    if ((Get-StructuredField $owned 'Resolution / aspect' 'owned-device.md') -notmatch '\A[0-9]{3,5}x[0-9]{3,5}\s*/\s*[0-9.]+:[0-9.]+\z') { throw 'Owned-device resolution/aspect is invalid.' }
+    if ((Get-StructuredField $owned 'Install source' 'owned-device.md').Length -lt 20) { throw 'Owned-device install source is incomplete.' }
+    if ((Get-RequiredIntegerField $owned 'Android API' 'owned-device.md') -lt 29) { throw 'Owned-device Android API must be at least 29.' }
+    if ((Get-StructuredField $owned 'Build version name' 'owned-device.md') -ne '1.0.0' -or (Get-StructuredField $owned 'Build version code' 'owned-device.md') -ne '10000') { throw 'Owned-device build must be 1.0.0/10000.' }
+    foreach ($check in @('First launch', 'Tutorial', 'Three shifts', 'Drag / buttons / Hold', 'Offline mode', 'Pause / resume', 'Force-stop recovery', 'Corrupt-save recovery', 'EN / KO language', 'UMP grant', 'UMP deny', 'UMP privacy options', 'Ad earned', 'Ad dismissed', 'Ad no-fill', 'Ad failure', 'Ad duplicate callback', 'Relaunch')) {
+        if ((Get-StructuredField $owned $check 'owned-device.md') -ne 'PASSED') { throw "Owned-device check must be PASSED: $check." }
+    }
+    foreach ($zero in @('P0 defects', 'P1 defects', 'Reward anomalies')) { if ((Get-RequiredIntegerField $owned $zero 'owned-device.md') -ne 0) { throw "Owned-device $zero must be zero." } }
+
+    if ((Get-StructuredField $remoteLab 'Matrix status' 'remote-test-lab.md') -ne 'PASSED' -or (Get-RequiredIntegerField $remoteLab 'Profile count' 'remote-test-lab.md') -lt 3) { throw 'Remote Test Lab matrix requires at least three passed profiles.' }
+    $androidMajors = @()
+    $aspectClasses = @()
+    foreach ($profile in @('Galaxy A', 'Galaxy S', 'Galaxy Fold')) {
+        if ((Get-StructuredField $remoteLab "$profile model" 'remote-test-lab.md').Length -lt 8) { throw "$profile model is incomplete." }
+        $major = Get-RequiredIntegerField $remoteLab "$profile Android major" 'remote-test-lab.md'
+        if ($major -lt 10) { throw "$profile Android major is invalid." }
+        $androidMajors += $major
+        $aspect = Get-StructuredField $remoteLab "$profile aspect class" 'remote-test-lab.md'
+        if ($aspect -notmatch '\A[A-Z][A-Z0-9_]+\z') { throw "$profile aspect class is invalid." }
+        $aspectClasses += $aspect
+        foreach ($check in @('install', 'launch', 'tutorial', 'one shift', 'language', 'safe area', 'pause / resume')) {
+            if ((Get-StructuredField $remoteLab "$profile $check" 'remote-test-lab.md') -ne 'PASSED') { throw "$profile check must be PASSED: $check." }
+        }
+    }
+    if (@($androidMajors | Sort-Object -Unique).Count -lt 2 -or @($aspectClasses | Sort-Object -Unique).Count -lt 2) { throw 'Remote Test Lab must span at least two Android majors and two aspect classes.' }
+
+    $serviceExact = @{
+        'Service validation status'='PASSED'; 'No-remote Release gate'='PASSED'; 'Google Mobile Ads Unity version'='11.3.0';
+        'EDM4U version'='1.2.188'; 'UMP update every launch'='PASSED'; 'Unavailable-ad base progression'='PASSED';
+        'Package graph remote telemetry'='ABSENT'; 'Observed service traffic'='ADMOB_UMP_ONLY'
+    }
+    foreach ($field in $serviceExact.Keys) { if ((Get-StructuredField $service $field 'service-validation.md') -ne $serviceExact[$field]) { throw "Service field '$field' is invalid." } }
+    if ((Get-RequiredIntegerField $service 'Earned rewards' 'service-validation.md') -ne 1) { throw 'Service validation must record exactly one earned reward.' }
+    foreach ($zero in @('Ad requests before CanRequestAds', 'Duplicate reward grants', 'Gameplay / crash endpoints observed', 'Local payload transmissions', 'Local payload logs', 'Local payload cache writes', 'Local payload persistence writes')) {
+        if ((Get-RequiredIntegerField $service $zero 'service-validation.md') -ne 0) { throw "Service field '$zero' must be zero." }
+    }
+
+    if ((Get-StructuredField $rcEvidence 'RC Decision' 'rc-decision.md') -ne 'ACCEPT RC') { throw 'RC evidence Decision must be ACCEPT RC.' }
+    if ((Get-StructuredField $rcEvidence 'Version name' 'rc-decision.md') -ne '1.0.0' -or (Get-StructuredField $rcEvidence 'Version code' 'rc-decision.md') -ne '10000') { throw 'RC build must be 1.0.0/10000.' }
+    if ((Get-StructuredField $rcEvidence 'AAB SHA-256' 'rc-decision.md') -ne $aabSha) { throw 'RC and inspected AAB SHA-256 values must match.' }
+    foreach ($zero in @('P0 defects', 'P1 defects')) { if ((Get-RequiredIntegerField $rcEvidence $zero 'rc-decision.md') -ne 0) { throw "RC $zero must be zero." } }
+    foreach ($gateField in @('Rights gate', 'Store docs gate', 'Test matrix')) { if ((Get-StructuredField $rcEvidence $gateField 'rc-decision.md') -ne 'PASSED') { throw "RC $gateField must be PASSED." } }
+
+    $submissionDocs = @($privacyPolicy, $sellerSetup, $listingEn, $listingKo, $reviewNotes, $dataSafety, $ratingAnswers, $assetInventory, $evidenceIndex) -join "`n"
+    $unresolvedTokens = @([regex]::Matches($submissionDocs, '\[[A-Z][A-Z0-9_]+\]') | ForEach-Object { $_.Value } | Sort-Object -Unique)
+    if ($unresolvedTokens.Count -gt 0) { throw "Unresolved submission tokens: $($unresolvedTokens -join ', ')" }
+    Write-Host 'Release documentation gate passed (Submission mode).'
+    return
 }
+
 
 Write-Host "Release documentation gate passed ($Mode mode)."

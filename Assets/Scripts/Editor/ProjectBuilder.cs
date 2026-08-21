@@ -20,8 +20,6 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 using TMPro;
-using Unity.Android.Types;
-using UnityEditor.Android;
 
 namespace CurioClerk.Editor
 {
@@ -80,15 +78,11 @@ namespace CurioClerk.Editor
         {
             var currentEditorAndroid = Path.Combine(Path.GetDirectoryName(EditorApplication.applicationPath) ?? string.Empty,
                 "Data", "PlaybackEngines", "AndroidPlayer");
-            var sharedUnityAndroid = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-                "Unity", "Hub", "Editor", "6000.2.7f2", "Editor", "Data", "PlaybackEngines", "AndroidPlayer");
-            var root = new[] { currentEditorAndroid, sharedUnityAndroid }.FirstOrDefault(candidate =>
-                Directory.Exists(Path.Combine(candidate, "SDK")) &&
-                Directory.Exists(Path.Combine(candidate, "NDK")) &&
-                Directory.Exists(Path.Combine(candidate, "OpenJDK")));
-            if (root == null)
+            if (!Directory.Exists(Path.Combine(currentEditorAndroid, "SDK")) ||
+                !Directory.Exists(Path.Combine(currentEditorAndroid, "NDK")) ||
+                !Directory.Exists(Path.Combine(currentEditorAndroid, "OpenJDK")))
             {
-                throw new BuildFailedException("Unity-provided Android SDK, NDK and OpenJDK were not found. Add the three Android child modules in Unity Hub.");
+                throw new BuildFailedException("Unity-provided Android SDK, NDK and OpenJDK were not found. Add the three Android child modules for Unity 6000.3.21f1 in Unity Hub.");
             }
 
             var settingsType = Type.GetType("UnityEditor.Android.AndroidExternalToolsSettings, UnityEditor.Android.Extensions");
@@ -97,11 +91,11 @@ namespace CurioClerk.Editor
                 throw new BuildFailedException("AndroidExternalToolsSettings API was not loaded. Verify Android Build Support for Unity 6000.3.21f1.");
             }
 
-            SetStaticProperty(settingsType, "sdkRootPath", Path.Combine(root, "SDK"));
-            SetStaticProperty(settingsType, "ndkRootPath", Path.Combine(root, "NDK"));
-            SetStaticProperty(settingsType, "jdkRootPath", Path.Combine(root, "OpenJDK"));
+            SetStaticProperty(settingsType, "sdkRootPath", Path.Combine(currentEditorAndroid, "SDK"));
+            SetStaticProperty(settingsType, "ndkRootPath", Path.Combine(currentEditorAndroid, "NDK"));
+            SetStaticProperty(settingsType, "jdkRootPath", Path.Combine(currentEditorAndroid, "OpenJDK"));
             SetStaticProperty(settingsType, "stopGradleDaemonsOnExit", true);
-            Debug.Log($"Android external tools configured from Unity installation: {root}");
+            Debug.Log($"Android external tools configured from Unity installation: {currentEditorAndroid}");
         }
 
         private static void SetStaticProperty(Type type, string name, object value)
@@ -130,26 +124,8 @@ namespace CurioClerk.Editor
 
         private static void ConfigurePlayer()
         {
-            PlayerSettings.companyName = "joyshu93";
-            PlayerSettings.productName = "Curio Clerk: Night Shift";
-            PlayerSettings.bundleVersion = "0.1.0";
-            PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "com.joyshu93.curioclerknightshift");
-            PlayerSettings.Android.bundleVersionCode = 1;
-            PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel29;
-            PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel36;
-            PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
-            PlayerSettings.Android.targetArchitectures = UnityEditor.AndroidArchitecture.ARM64;
-            PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
-            PlayerSettings.allowedAutorotateToPortrait = false;
-            PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
-            PlayerSettings.allowedAutorotateToLandscapeLeft = false;
-            PlayerSettings.allowedAutorotateToLandscapeRight = false;
-            PlayerSettings.colorSpace = ColorSpace.Linear;
+            ReleaseConfiguration.Apply();
             ConfigureInputSystemOnly();
-            EditorUserBuildSettings.androidBuildSystem = UnityEditor.AndroidBuildSystem.Gradle;
-            EditorUserBuildSettings.buildAppBundle = true;
-            UserBuildSettings.DebugSymbols.level = DebugSymbolLevel.SymbolTable;
-            UserBuildSettings.DebugSymbols.format = DebugSymbolFormat.Zip | DebugSymbolFormat.LegacyExtensions;
         }
 
         private static void ConfigureInputSystemOnly()

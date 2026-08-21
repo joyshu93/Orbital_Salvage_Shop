@@ -45,6 +45,17 @@ This checklist is the Samsung Galaxy Store-first release gate for v1. It does no
 - [ ] Certification feedback is resolved or explicitly accepted by the developer before rollout.
 - [ ] Release documentation gate passes in Repository mode; Submission mode passes only after real public identity fields are supplied.
 
+## Store declarations and submission evidence
+
+- [ ] English and Korean listing fact IDs, titles, package ID, version, rewarded-ad disclosure, and offline/base-progression promises match each other and the signed RC.
+- [ ] `Docs/Store/DataSafety.md` is reconciled against the final AdMob/UMP package graph, manifest, consent-message configuration, hosted privacy policy, and current Seller Portal wording.
+- [ ] The developer confirms the live Seller Portal rating questionnaire from the exact final art, audio, English, and Korean content; no provisional worksheet is represented as an official rating.
+- [ ] Every required icon and screenshot exists, matches the signed RC, maps to the provenance/notices ledgers, and has a documented human art/rights approval.
+- [ ] Public developer name, support email, effective date, and hosted privacy-policy URL are real and consistent across Seller Portal and the public policy.
+- [ ] `scripts/check-release-docs.ps1 -Mode Repository` passes before handoff; `-Mode Submission` passes only after every human/external gate is resolved.
+- [ ] Separately, `scripts/check-no-remote-telemetry.ps1 -Mode Release` passes after the developer resolves packages in Unity; the documentation gate does not substitute for this check.
+- [ ] `Docs/ReleaseEvidence/1.0.0/README.md` links only sanitized evidence for the exact RC and contains no identity, credential, signing, ad-ID, or machine-absolute-path data.
+
 ## Rollout
 
 - [ ] Apply percentage metrics only after at least 30 unique users are on the relevant release; for smaller samples, use raw counts only.

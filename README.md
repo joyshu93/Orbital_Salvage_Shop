@@ -31,4 +31,8 @@ The current project workflow does not enable Unity MCP or other Authorized Agent
 
 The production SDK adapters deliberately remain disabled until AdMob/Firebase projects and consent messaging exist. Gameplay falls back safely when those SDKs are absent.
 
-See [project context](Docs/UnityProjectContext.md), [service setup](Docs/ServiceSetup.md), [Unity automation boundary](Docs/MCPSetup.md), [AI provenance policy](Docs/AIAssetProvenance.md), [third-party notices](Docs/ThirdPartyNotices.md), and the [release checklist](Docs/ReleaseChecklist.md).
+## Release route
+
+The v1 release route is Samsung Galaxy Store in South Korea through a commercial Seller Portal account. See the [Samsung Seller setup record](Docs/Store/SamsungSellerSetup.md) and [release checklist](Docs/ReleaseChecklist.md). Google Play and Steam are deferred; their historical notes are retained only as references and are not v1 release gates.
+
+See [project context](Docs/UnityProjectContext.md), [service setup](Docs/ServiceSetup.md), [Unity automation boundary](Docs/MCPSetup.md), [AI provenance policy](Docs/AIAssetProvenance.md), and [third-party notices](Docs/ThirdPartyNotices.md).

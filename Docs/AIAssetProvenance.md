@@ -6,12 +6,12 @@ This document is the release evidence ledger for AI-assisted work in **Curio Cle
 
 ## Current product classification
 
-- The shipped game does not accept prompts or generate content at runtime. Under the current Google Play guidance, it is not treated as a generative-AI app merely because AI tools assisted development.
-- Google Play separately asks for asset-by-asset declarations when visual assets are submitted through Store listing, Promotional content, or YouTube content flows. An AI-generated or AI-edited store asset must be evaluated and declared on its own merits.
+- The shipped game does not accept prompts or generate content at runtime. Under the historic Google Play guidance retained below as a reference, it is not treated as a generative-AI app merely because AI tools assisted development.
+- Each store may require an asset-by-asset declaration when visual assets are submitted through listing, promotional, or video-content flows. An AI-generated or AI-edited store asset must be evaluated and handled according to the selected store's current submission requirements.
 - OpenAI's terms assign Output to the user as between OpenAI and the user, to the extent permitted by law, but also state that output may not be unique. That assignment does not clear third-party copyright, trademark, publicity, or other rights.
 - Korean Copyright Commission guidance distinguishes AI output from identifiable human creative expression. This project therefore records the tool, prompt, role of the output, and the human-authored contribution separately as its evidence policy.
 
-Re-evaluate this classification before every production submission and whenever the game gains runtime generation, user-generated content, camera/microphone input, or AI-mediated chat.
+Re-evaluate this classification against the selected store's current requirements before every production submission and whenever the game gains runtime generation, user-generated content, camera/microphone input, or AI-mediated chat.
 
 ## Release gates
 
@@ -23,7 +23,7 @@ An asset is not release-approved until all applicable items are complete:
 - [ ] Human creative decisions and edits are described; before/after evidence is retained when meaningful edits are claimed.
 - [ ] Similarity, trademark, character, logo, likeness, and misleading-content checks are complete.
 - [ ] Third-party license and attribution obligations are copied to `Docs/ThirdPartyNotices.md`.
-- [ ] Store assets have an individual Play Console AI-declaration decision.
+- [ ] Store assets have an individual store submission decision and supporting rationale.
 - [ ] A human has marked the asset `Approved for release` below.
 
 Unity import settings, compression, automatic resizing, format conversion, or selecting an output alone must not be recorded as substantial human creative editing.
@@ -61,7 +61,7 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Human edits | No direct repaint, redraw, compositing, or documented shape/color correction. Unity import/resizing is automated processing only. |
 | Third-party elements | None intentionally requested or identified; final similarity and trademark review remains open. |
 | Intended uses | Prototype launcher icon. It may become a Store listing icon only after release approval. |
-| Play Console decision | **Declare as AI-generated** if this file or an AI-edited derivative is submitted. Re-evaluate only if replaced with a separately documented human-created asset. |
+| Store submission decision | For any selected store, determine its current AI-asset disclosure requirement before submission. Historic Google Play reference: **Declare as AI-generated** if this file or an AI-edited derivative is submitted. Re-evaluate only if replaced with a separately documented human-created asset. |
 | Release status | **Prototype only — not approved for RC.** Replace it or complete a documented human creative pass, similarity review, and explicit human approval. |
 
 ### DEV-CODE-001 — initial project implementation
@@ -72,7 +72,7 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Tool | OpenAI Codex with developer-authored product requirements and approvals |
 | Human contribution | Product goals, genre selection, monetization constraints, platform decisions, acceptance decisions, and final release authority |
 | Verification | Changes remain subject to Git review, automated tests, manual Unity execution, device testing, and third-party license review. AI assistance is not evidence of correctness or non-infringement. |
-| Play Console decision | The current asset-declaration help page concerns submitted visual assets, not source-code authorship. No code declaration is identified, but this must be rechecked at submission time. |
+| Store submission decision | The historic Google Play asset-declaration help page concerns submitted visual assets, not source-code authorship. No code declaration is identified there; recheck the selected store's current requirements at submission time. |
 | Release status | Allowed as reviewed source; each change still requires normal engineering and license gates. |
 
 ## New entry template
@@ -94,7 +94,7 @@ Human-authored decisions and edits:
 Before/after evidence path:
 Third-party/license/attribution notes:
 Similarity/trademark/likeness review:
-Play Console declaration decision and reason:
+Store submission decision and reason:
 Reviewer, review date, and status:
 ```
 
@@ -106,7 +106,7 @@ For store screenshots, also record which in-game assets are visible. A screensho
 - Keep project-owned editable source files and meaningful before/after exports. Do not commit secrets or personal data.
 - Store purchase receipts and licenses outside the public repository; record a non-sensitive receipt ID or storage reference here.
 - If an exact historic prompt is unavailable, label the summary as reconstructed. Never invent an exact prompt after the fact.
-- Review the ledger at content freeze and again immediately before Play Console submission.
+- Review the ledger at content freeze and again immediately before store submission.
 
 ## Official references
 

@@ -2,6 +2,10 @@
 
 Service credentials are intentionally excluded from Git. The game currently uses consent-aware local/no-op adapters, so unavailable SDKs never block play or base rewards.
 
+## Store release boundary
+
+Samsung Galaxy Store v1 account, identity, financial verification, signing custody, and listing setup are tracked in `Docs/Store/SamsungSellerSetup.md`. Do not add Seller Portal credentials, verification evidence, signing keys, or public identity placeholders to this repository. Public values belong in `Docs/PrivacyPolicy.md` only after the developer supplies them.
+
 ## AdMob and UMP
 
 1. Register the Android app in AdMob with package `com.joyshu93.curioclerknightshift`.

@@ -19,4 +19,4 @@ Third-party services may process data under their own policies:
 - Firebase privacy information: https://firebase.google.com/support/privacy
 - Google advertising technologies: https://policies.google.com/technologies/ads
 
-Questions or deletion/privacy requests can be sent to `[SUPPORT_EMAIL]`. This policy must be hosted at a public URL and updated to match the final SDK configuration before release.
+Questions or deletion/privacy requests can be sent to `[SUPPORT_EMAIL]`. This policy must be hosted at a public URL and updated to match the final SDK configuration before Samsung Galaxy Store submission.

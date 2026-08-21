@@ -40,6 +40,15 @@ namespace CurioClerk.Editor
             new Regex(@"\Aca-app-pub-[0-9]+~[0-9]+\z", RegexOptions.CultureInvariant);
         private static readonly Regex RewardedIdPattern =
             new Regex(@"\Aca-app-pub-[0-9]+/[0-9]+\z", RegexOptions.CultureInvariant);
+        private static readonly string[] ReleaseSecretEnvironmentNames =
+        {
+            "CURIO_ADMOB_APP_ID",
+            "CURIO_ADMOB_REWARDED_ID",
+            "CURIO_ANDROID_KEYSTORE_PATH",
+            "CURIO_ANDROID_KEYSTORE_PASS",
+            "CURIO_ANDROID_KEY_ALIAS",
+            "CURIO_ANDROID_KEY_PASS"
+        };
 
         [MenuItem("Tools/Curio Clerk/Generate Project Assets")]
         public static void BuildAll()
@@ -64,6 +73,8 @@ namespace CurioClerk.Editor
             ReleaseEnvironment environment = null;
             try
             {
+                ValidateUnityVersion();
+                RunReleaseNoRemoteTelemetryGate();
                 environment = ReadAndValidateReleaseEnvironment();
                 ConfigureServiceAssets(environment.AdMobAppId, environment.AdMobRewardedId);
                 ConfigureAndroidExternalTools();
@@ -135,6 +146,85 @@ namespace CurioClerk.Editor
             {
                 throw new BuildFailedException("The AdMob rewarded unit ID is missing, malformed, or a sample value.");
             }
+        }
+
+        private static void ValidateUnityVersion()
+        {
+            if (!string.Equals(Application.unityVersion, ReleaseConfiguration.UnityVersion,
+                    StringComparison.Ordinal))
+            {
+                throw new BuildFailedException("The release must run in the repository-pinned Unity version.");
+            }
+        }
+
+        private static void RunReleaseNoRemoteTelemetryGate()
+        {
+            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            var gatePath = Path.Combine(projectRoot, "scripts", "check-no-remote-telemetry.ps1");
+            var windowsPowerShell = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.System),
+                "WindowsPowerShell",
+                "v1.0",
+                "powershell.exe");
+            if (!File.Exists(windowsPowerShell) || !File.Exists(gatePath))
+            {
+                throw new BuildFailedException("The release privacy gate host or script is missing.");
+            }
+
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = windowsPowerShell,
+                Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File " +
+                            QuoteProcessArgument(gatePath) + " -ProjectRoot " +
+                            QuoteProcessArgument(projectRoot) + " -Mode Release",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            foreach (var environmentName in ReleaseSecretEnvironmentNames)
+            {
+                startInfo.EnvironmentVariables.Remove(environmentName);
+            }
+
+            try
+            {
+                using (var process = System.Diagnostics.Process.Start(startInfo))
+                {
+                    if (process == null)
+                    {
+                        throw new BuildFailedException("The release privacy gate could not start.");
+                    }
+
+                    var standardOutput = process.StandardOutput.ReadToEndAsync();
+                    var standardError = process.StandardError.ReadToEndAsync();
+                    process.WaitForExit();
+                    System.Threading.Tasks.Task.WaitAll(standardOutput, standardError);
+                    if (process.ExitCode != 0)
+                    {
+                        throw new BuildFailedException("The release no-remote-telemetry gate failed.");
+                    }
+                }
+            }
+            catch (BuildFailedException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                throw new BuildFailedException("The release no-remote-telemetry gate could not execute.");
+            }
+        }
+
+        private static string QuoteProcessArgument(string value)
+        {
+            if (string.IsNullOrEmpty(value) || value.IndexOf('"') >= 0)
+            {
+                throw new BuildFailedException("The release privacy gate path is invalid.");
+            }
+
+            return '"' + value + '"';
         }
 
         private static ReleaseEnvironment ReadAndValidateReleaseEnvironment()
@@ -243,6 +333,11 @@ namespace CurioClerk.Editor
 
         private static void ClearReleaseSecrets(ReleaseEnvironment environment)
         {
+            if (environment == null)
+            {
+                return;
+            }
+
             try
             {
                 ClearReleaseSigning();

@@ -135,6 +135,7 @@ namespace CurioClerk.Tests.EditMode
         {
             var type = FindType("CurioClerk.Editor.ReleaseConfiguration");
             Assert.That(type, Is.Not.Null);
+            Assert.That(type.GetField("UnityVersion").GetRawConstantValue(), Is.EqualTo("6000.3.21f1"));
             Assert.That(type.GetField("VersionName").GetRawConstantValue(), Is.EqualTo("1.0.0"));
             Assert.That(type.GetField("VersionCode").GetRawConstantValue(), Is.EqualTo(10000));
             Assert.That(type.GetField("PackageId").GetRawConstantValue(),

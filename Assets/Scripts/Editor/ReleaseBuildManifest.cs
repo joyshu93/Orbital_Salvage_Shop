@@ -35,7 +35,7 @@ namespace CurioClerk.Editor
                 packageId = ReleaseConfiguration.PackageId,
                 versionName = ReleaseConfiguration.VersionName,
                 versionCode = ReleaseConfiguration.VersionCode,
-                unityVersion = Application.unityVersion,
+                unityVersion = ReleaseConfiguration.UnityVersion,
                 minimumApi = ReleaseConfiguration.MinimumApi,
                 targetApi = ReleaseConfiguration.TargetApi,
                 architecture = "ARM64",

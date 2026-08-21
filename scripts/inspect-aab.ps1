@@ -9,6 +9,11 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProjectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $InspectionPath = Join-Path $ProjectRoot 'Builds\Android\inspection.txt'
+$InspectionTempPath = $null
+
+if (Test-Path -LiteralPath $InspectionPath) {
+    Remove-Item -LiteralPath $InspectionPath -Force
+}
 
 if (-not (Test-Path -LiteralPath $AabPath -PathType Leaf)) {
     throw 'The AAB to inspect does not exist.'
@@ -43,15 +48,38 @@ function ConvertTo-SanitizedText {
     param([string]$Text)
 
     $sanitized = $Text
-    foreach ($path in @($resolvedAabPath, $resolvedBundletoolPath, $ProjectRoot, $env:USERPROFILE)) {
-        if (-not [string]::IsNullOrWhiteSpace($path)) {
-            $sanitized = [Regex]::Replace($sanitized, [Regex]::Escape($path), '[path]',
-                [Text.RegularExpressions.RegexOptions]::IgnoreCase)
-        }
+    foreach ($pathVariant in $KnownPathVariants) {
+        $sanitized = [Regex]::Replace($sanitized, [Regex]::Escape($pathVariant), '[path]',
+            [Text.RegularExpressions.RegexOptions]::IgnoreCase)
     }
 
     $sanitized = [Regex]::Replace($sanitized, 'ca-app-pub-[0-9]+[~/][0-9]+', '[redacted-service-id]')
-    return [Regex]::Replace($sanitized, '(?i)\b[A-Z]:\\[^\r\n"'']+', '[path]')
+    $sanitized = [Regex]::Replace($sanitized, '(?i)file:/+[A-Z]:/[^\r\n<>"'']+', '[path]')
+    $sanitized = [Regex]::Replace($sanitized, '(?i)\b[A-Z]:/[^\r\n<>"'']+', '[path]')
+    return [Regex]::Replace($sanitized, '(?i)\b[A-Z]:\\[^\r\n<>"'']+', '[path]')
+}
+
+$KnownPathVariants = @(
+    foreach ($path in @($resolvedAabPath, $resolvedBundletoolPath, $ProjectRoot, $env:USERPROFILE)) {
+        if ([string]::IsNullOrWhiteSpace($path)) {
+            continue
+        }
+
+        $fullPath = [System.IO.Path]::GetFullPath($path)
+        $forwardPath = $fullPath.Replace('\', '/')
+        $absoluteUri = ([Uri]$fullPath).AbsoluteUri
+        $literalFileUri = 'file:///' + $forwardPath
+        $fullPath
+        $forwardPath
+        $absoluteUri
+        $literalFileUri
+    }
+) | Sort-Object Length -Descending -Unique
+
+$bundletoolVersionOutput = Invoke-Bundletool @('version')
+$bundletoolVersion = [Regex]::Replace($bundletoolVersionOutput.Trim(), '\s+', ' ')
+if ($bundletoolVersion -cne '1.18.3') {
+    throw 'The actual bundletool version is not the pinned 1.18.3 release.'
 }
 
 $validateOutput = Invoke-Bundletool @('validate', "--bundle=$resolvedAabPath")
@@ -102,6 +130,28 @@ $report = @(
     '',
     $abiSummary
 ) -join [Environment]::NewLine
-[System.IO.File]::WriteAllText($InspectionPath, $report)
+
+foreach ($pathVariant in $KnownPathVariants) {
+    if ($report.IndexOf($pathVariant, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+        throw 'The sanitized inspection report still contains a known machine path.'
+    }
+}
+
+if ($report -match 'ca-app-pub-[0-9]+[~/][0-9]+') {
+    throw 'The sanitized inspection report still contains a service identifier.'
+}
+
+$InspectionTempPath = "$InspectionPath.$PID.$([guid]::NewGuid().ToString('N')).tmp"
+try {
+    [System.IO.File]::WriteAllText($InspectionTempPath, $report)
+    Move-Item -LiteralPath $InspectionTempPath -Destination $InspectionPath -Force
+    $InspectionTempPath = $null
+}
+finally {
+    if (-not [string]::IsNullOrEmpty($InspectionTempPath) -and
+        (Test-Path -LiteralPath $InspectionTempPath)) {
+        Remove-Item -LiteralPath $InspectionTempPath -Force
+    }
+}
 
 Write-Host 'AAB validation and sanitized inspection report completed.'

@@ -80,6 +80,30 @@ catch {
     throw 'Sanitized Android build manifest is not valid JSON.'
 }
 
+$expectedManifestValues = [ordered]@{
+    'product' = 'Curio Clerk: Night Shift'
+    'packageId' = 'com.joyshu93.curioclerknightshift'
+    'versionName' = '1.0.0'
+    'versionCode' = '10000'
+    'unityVersion' = '6000.3.21f1'
+    'minimumApi' = '29'
+    'targetApi' = '36'
+    'architecture' = 'ARM64'
+    'backend' = 'IL2CPP'
+}
+$expectedManifestFields = @($expectedManifestValues.Keys) + 'aabSha256'
+$actualManifestFields = @($manifest.PSObject.Properties.Name)
+if ($actualManifestFields.Count -ne $expectedManifestFields.Count -or
+    @(Compare-Object -ReferenceObject $expectedManifestFields -DifferenceObject $actualManifestFields).Count -ne 0) {
+    throw 'Sanitized Android build manifest fields do not match the public release schema.'
+}
+
+foreach ($entry in $expectedManifestValues.GetEnumerator()) {
+    if (-not [string]::Equals([string]$manifest.($entry.Key), $entry.Value, [StringComparison]::Ordinal)) {
+        throw "Sanitized Android build manifest field '$($entry.Key)' does not match the release contract."
+    }
+}
+
 if ($manifest.aabSha256 -notmatch '\A[0-9A-F]{64}\z') {
     throw 'Sanitized Android build manifest contains an invalid AAB SHA-256.'
 }

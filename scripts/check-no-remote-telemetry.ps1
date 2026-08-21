@@ -22,7 +22,15 @@ function Add-Failure {
 function Get-NormalizedRelativePath {
     param([string]$Path)
 
-    return [System.IO.Path]::GetRelativePath($projectRootPath, $Path).Replace('\', '/')
+    $rootWithSeparator = $projectRootPath
+    $separator = [System.IO.Path]::DirectorySeparatorChar.ToString()
+    if (-not $rootWithSeparator.EndsWith($separator, [StringComparison]::Ordinal)) {
+        $rootWithSeparator += $separator
+    }
+
+    $rootUri = [Uri]$rootWithSeparator
+    $pathUri = [Uri]([System.IO.Path]::GetFullPath($Path))
+    return [Uri]::UnescapeDataString($rootUri.MakeRelativeUri($pathUri).ToString()).Replace('\', '/')
 }
 
 function Read-JsonFile {

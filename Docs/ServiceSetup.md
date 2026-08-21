@@ -55,13 +55,13 @@ $env:CURIO_ANDROID_KEY_ALIAS = '<key alias>'
 $env:CURIO_ANDROID_KEY_PASS = '<key password>'
 ```
 
-The build validates the live ID shapes, rejects Google's sample IDs, writes the rewarded unit only to the ignored `Assets/Resources/ServiceConfiguration.asset`, and writes the app ID only to the ignored Google Mobile Ads settings asset. Signing values are applied in memory immediately before `BuildPipeline.BuildPlayer` and cleared afterward. The committed build manifest contains only public release metadata and the AAB SHA-256.
+The build first verifies that the running Editor is exactly Unity `6000.3.21f1` and independently runs the Release-mode no-remote-telemetry gate, so invoking the Unity menu or batch entry point cannot bypass the wrapper preflight. The gate child process is hidden and receives no AdMob or signing environment values. The build then validates the live ID shapes, rejects Google's sample IDs, writes the rewarded unit only to the ignored `Assets/Resources/ServiceConfiguration.asset`, and writes the app ID only to the ignored Google Mobile Ads settings asset. Signing values are applied in memory immediately before `BuildPipeline.BuildPlayer` and cleared afterward. The committed build manifest contains exactly the approved public release metadata and the AAB SHA-256.
 
 After Unity has resolved the pinned GMA/EDM4U packages, the human developer downloads the official `bundletool-all-1.18.3.jar` from:
 
 - https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
 
-Keep it at `tools/bundletool/bundletool-all-1.18.3.jar`; the jar is ignored. Then run:
+Keep it at `tools/bundletool/bundletool-all-1.18.3.jar`; the jar is ignored. The inspection script executes `bundletool version` and requires the actual normalized output to equal `1.18.3`; renaming another jar is insufficient. Then run:
 
 ```powershell
 .\scripts\check-no-remote-telemetry.ps1 -Mode Release

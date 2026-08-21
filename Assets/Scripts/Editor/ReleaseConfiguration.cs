@@ -8,6 +8,7 @@ namespace CurioClerk.Editor
 {
     public static class ReleaseConfiguration
     {
+        public const string UnityVersion = "6000.3.21f1";
         public const string ProductName = "Curio Clerk: Night Shift";
         public const string PackageId = "com.joyshu93.curioclerknightshift";
         public const string VersionName = "1.0.0";

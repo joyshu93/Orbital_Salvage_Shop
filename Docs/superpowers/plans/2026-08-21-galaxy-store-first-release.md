@@ -732,7 +732,7 @@ git commit -m "fix: harden no-telemetry release guard"
 - Consumes: `RewardedAdResult`, `IAdService.SetRequestPermission`, and optional pure `GameTelemetry` event construction.
 - Produces: idempotent reward behavior, a user-visible non-blocking ad result, UMP privacy-options re-entry, and test-only service injection. It does not produce remote gameplay/crash telemetry or collection toggles.
 
-- [ ] **Step 1: Write failing PlayMode reward contracts**
+- [x] **Step 1: Write failing PlayMode reward contracts**
 
 Use a deferred fake ad service to prove failed/dismissed/unavailable results never grant or remove coins, an earned result grants once, and duplicate terminal callbacks cannot grant twice. A recording analytics fake may inspect pure allowlisted event objects in tests, but production remains the local non-transport service.
 
@@ -744,7 +744,7 @@ Human-run command: `.\scripts\test-unity.ps1`
 
 Expected: compile or assertion failure because `GameApp` still uses the old reward callback and does not handle every terminal result idempotently.
 
-- [ ] **Step 3: Wire UMP consent to ad initialization**
+- [x] **Step 3: Wire UMP consent to ad initialization**
 
 In both `RequestAdConsent` and `ShowAdPrivacyOptions`, call:
 
@@ -754,13 +754,13 @@ _adService.SetRequestPermission(_canRequestAds);
 
 Do this after computing `_canRequestAds`. A false result prevents requests and leaves gameplay enabled. Privacy UI concerns AdMob/UMP only; do not create Analytics or Crashlytics consent toggles.
 
-- [ ] **Step 4: Wire reward results and player feedback**
+- [x] **Step 4: Wire reward results and player feedback**
 
 Map results to `earned`, `dismissed`, `failed`, or `unavailable`; call `TryDoubleCoins`/`TryRevive` only for `Earned`. Add EN/KO keys `ad_dismissed` and `ad_failed`, display the message without removing base rewards, and rely on the ad service's once-only completion.
 
 If local gameplay event objects are useful for tests, create only the allowlisted `reward_offer_shown` and `reward_result` values. The shipping local service discards them synchronously without upload or persistence.
 
-- [ ] **Step 5: Keep optional lifecycle events local**
+- [x] **Step 5: Keep optional lifecycle events local**
 
 Optional tutorial, shift, and cosmetic events may be constructed through `GameTelemetry` solely as pure coarse values. Do not transmit or persist them, and do not attach score, coins, exact timestamps, seeds, artifact identifiers/descriptions, user paths, or free text.
 
@@ -774,7 +774,7 @@ Human actions:
 
 Expected: all tests pass, the EN/KO assets contain `ad_dismissed` and `ad_failed`, gameplay remains available without ads, and there are no Analytics/Crashlytics controls.
 
-- [ ] **Step 7: Run the release boundary and commit gameplay integration**
+- [x] **Step 7: Run the release boundary and commit gameplay integration**
 
 ```powershell
 .\scripts\check-no-remote-telemetry.ps1

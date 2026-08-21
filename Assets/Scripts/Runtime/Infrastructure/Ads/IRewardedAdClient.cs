@@ -6,6 +6,8 @@ namespace CurioClerk.Infrastructure.Ads
     {
         bool IsReady { get; }
 
+        bool ConsumeLoadFailure();
+
         void SetRequestPermission(bool allowed);
 
         void Show(Action<RewardedAdResult> completed);

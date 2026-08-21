@@ -1,11 +1,20 @@
 #if UNITY_ANDROID && !UNITY_EDITOR
 using System;
+using GoogleMobileAds.Api;
 using GoogleMobileAds.Ump.Api;
 
 namespace CurioClerk.Infrastructure.Privacy
 {
     public sealed class GoogleUmpPrivacyService : IPrivacyService
     {
+        public GoogleUmpPrivacyService()
+        {
+            // UMP 11.3.0 also completes through MobileAds.RaiseAction.
+#pragma warning disable 0618
+            MobileAds.RaiseAdEventsOnUnityMainThread = true;
+#pragma warning restore 0618
+        }
+
         public bool CanRequestAds => ConsentInformation.CanRequestAds();
 
         public bool PrivacyOptionsRequired =>

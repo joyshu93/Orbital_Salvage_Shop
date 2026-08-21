@@ -10,6 +10,7 @@ namespace CurioClerk.Infrastructure.Ads
 
         public GoogleRewardedAdService(string rewardedAdUnitId)
         {
+            ConfigureMainThreadCallbacks();
             _service = new RewardedAdService(
                 new GoogleRewardedAdClient(rewardedAdUnitId),
                 rewardedAdUnitId);
@@ -27,6 +28,14 @@ namespace CurioClerk.Infrastructure.Ads
             _service.ShowRewarded(placement, completed);
         }
 
+        private static void ConfigureMainThreadCallbacks()
+        {
+            // Pinned GMA 11.3.0 routes RaiseAction callbacks through Unity's update executor when true.
+#pragma warning disable 0618
+            MobileAds.RaiseAdEventsOnUnityMainThread = true;
+#pragma warning restore 0618
+        }
+
         private sealed class GoogleRewardedAdClient : IRewardedAdClient
         {
             private readonly string _rewardedAdUnitId;
@@ -36,6 +45,7 @@ namespace CurioClerk.Infrastructure.Ads
             private bool _initialized;
             private bool _initializationPending;
             private bool _loadPending;
+            private bool _loadFailed;
             private bool _rewardEarned;
             private int _loadGeneration;
 
@@ -49,6 +59,13 @@ namespace CurioClerk.Infrastructure.Ads
                 _rewardedAd != null &&
                 _rewardedAd.CanShowAd();
 
+            public bool ConsumeLoadFailure()
+            {
+                var failed = _loadFailed;
+                _loadFailed = false;
+                return failed;
+            }
+
             public void SetRequestPermission(bool allowed)
             {
                 _requestAllowed = allowed;
@@ -56,6 +73,7 @@ namespace CurioClerk.Infrastructure.Ads
                 {
                     _loadGeneration++;
                     _loadPending = false;
+                    _loadFailed = false;
                     _activeRequest = null;
                     DestroyLoadedAd();
                     return;
@@ -117,6 +135,7 @@ namespace CurioClerk.Infrastructure.Ads
                 if (!_requestAllowed ||
                     _activeRequest != null ||
                     _loadPending ||
+                    _loadFailed ||
                     IsReady ||
                     string.IsNullOrWhiteSpace(_rewardedAdUnitId))
                 {
@@ -126,24 +145,38 @@ namespace CurioClerk.Infrastructure.Ads
                 DestroyLoadedAd();
                 _loadPending = true;
                 var generation = ++_loadGeneration;
-                RewardedAd.Load(_rewardedAdUnitId, new AdRequest(), (ad, error) =>
+                try
                 {
-                    if (generation != _loadGeneration || !_requestAllowed)
+                    RewardedAd.Load(_rewardedAdUnitId, new AdRequest(), (ad, error) =>
                     {
-                        ad?.Destroy();
-                        return;
-                    }
+                        if (generation != _loadGeneration || !_requestAllowed)
+                        {
+                            ad?.Destroy();
+                            return;
+                        }
 
-                    _loadPending = false;
-                    _loadGeneration++;
-                    if (error != null || ad == null)
+                        _loadPending = false;
+                        _loadGeneration++;
+                        if (error != null || ad == null)
+                        {
+                            _loadFailed = true;
+                            ad?.Destroy();
+                            return;
+                        }
+
+                        _loadFailed = false;
+                        _rewardedAd = ad;
+                    });
+                }
+                catch
+                {
+                    if (generation == _loadGeneration && _requestAllowed)
                     {
-                        ad?.Destroy();
-                        return;
+                        _loadPending = false;
+                        _loadGeneration++;
+                        _loadFailed = true;
                     }
-
-                    _rewardedAd = ad;
-                });
+                }
             }
 
             private void Complete(RewardedAd source, RewardedAdResult result)

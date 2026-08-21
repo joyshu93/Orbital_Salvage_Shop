@@ -7,11 +7,13 @@ namespace CurioClerk.Infrastructure
 {
     public static class ServiceFactory
     {
+#if UNITY_ANDROID && !UNITY_EDITOR && DEVELOPMENT_BUILD
         private const string AndroidRewardedTestUnitId = "ca-app-pub-3940256099942544/5224354917";
+#endif
 
         public static IAdService CreateAdService()
         {
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if UNITY_ANDROID && !UNITY_EDITOR && DEVELOPMENT_BUILD
             return new GoogleRewardedAdService(AndroidRewardedTestUnitId);
 #else
             return new DefaultAdService();

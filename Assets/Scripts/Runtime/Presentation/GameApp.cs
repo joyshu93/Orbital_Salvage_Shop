@@ -344,9 +344,9 @@ namespace CurioClerk.Presentation
             }
 
             var placement = completed ? "shift_complete_double" : "shift_failed_revive";
-            _adService.ShowRewarded(placement, success =>
+            _adService.ShowRewarded(placement, result =>
             {
-                if (!success)
+                if (result != RewardedAdResult.Earned)
                 {
                     return;
                 }
@@ -408,6 +408,7 @@ namespace CurioClerk.Presentation
             {
                 _adConsentResolved = true;
                 _canRequestAds = canRequestAds && _privacy.CanRequestAds;
+                _adService?.SetRequestPermission(_canRequestAds);
                 if (_screenRoot != null && ActiveScreen == AppScreen.Results)
                 {
                     ShowResults();
@@ -421,6 +422,7 @@ namespace CurioClerk.Presentation
             {
                 _adConsentResolved = true;
                 _canRequestAds = canRequestAds && _privacy.CanRequestAds;
+                _adService?.SetRequestPermission(_canRequestAds);
                 ShowSettings();
             });
         }

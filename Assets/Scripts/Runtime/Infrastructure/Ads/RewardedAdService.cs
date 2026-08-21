@@ -45,7 +45,33 @@ namespace CurioClerk.Infrastructure.Ads
 
         public void ShowRewarded(string placement, Action<RewardedAdResult> completed)
         {
-            if (!AllowedPlacements.Contains(placement) || !IsRewardedReady)
+            if (!AllowedPlacements.Contains(placement) ||
+                !_isConfigured ||
+                !_requestAllowed ||
+                _requestActive)
+            {
+                completed?.Invoke(RewardedAdResult.Unavailable);
+                return;
+            }
+
+            if (_client.ConsumeLoadFailure())
+            {
+                try
+                {
+                    completed?.Invoke(RewardedAdResult.Failed);
+                }
+                finally
+                {
+                    if (_requestAllowed)
+                    {
+                        _client.SetRequestPermission(true);
+                    }
+                }
+
+                return;
+            }
+
+            if (!_client.IsReady)
             {
                 completed?.Invoke(RewardedAdResult.Unavailable);
                 return;

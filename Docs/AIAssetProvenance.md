@@ -9,7 +9,7 @@ This document is the release evidence ledger for AI-assisted work in **Curio Cle
 - The shipped game does not accept prompts or generate content at runtime. Under the current Google Play guidance, it is not treated as a generative-AI app merely because AI tools assisted development.
 - Google Play separately asks for asset-by-asset declarations when visual assets are submitted through Store listing, Promotional content, or YouTube content flows. An AI-generated or AI-edited store asset must be evaluated and declared on its own merits.
 - OpenAI's terms assign Output to the user as between OpenAI and the user, to the extent permitted by law, but also state that output may not be unique. That assignment does not clear third-party copyright, trademark, publicity, or other rights.
-- Korean Copyright Commission guidance distinguishes AI output from identifiable human creative expression. For an AI-assisted work, record the tool, prompt, role of the output, and the human-authored contribution separately.
+- Korean Copyright Commission guidance distinguishes AI output from identifiable human creative expression. This project therefore records the tool, prompt, role of the output, and the human-authored contribution separately as its evidence policy.
 
 Re-evaluate this classification before every production submission and whenever the game gains runtime generation, user-generated content, camera/microphone input, or AI-mediated chat.
 
@@ -54,6 +54,9 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Creation evidence | File created 2026-08-20; first committed in `74754efb7354ca3bba629744ca8660c6c3ac835d` on 2026-08-20 KST |
 | Prompt record | Exact prompt was not retained. Reconstructed summary: a square, warm occult lost-and-found game icon using burgundy, amber, and brass; a large antique key, a sleeping moth-like curio, a glowing desk lamp, crystals, bottles, and feathers; no text. This reconstruction is a known provenance gap and must not be represented as the exact prompt. |
 | Reference inputs | None supplied |
+| Input rights basis | No reference files were uploaded. The reconstructed prompt summary describes the developer's original product direction, but the missing exact prompt prevents a complete token-by-token input audit. |
+| Provider terms basis | OpenAI's Rest-of-World Terms of Use effective 2026-01-01 were checked on 2026-08-21. They assign Output to the user as between OpenAI and the user, to the extent permitted by law. The generation record did not preserve which account agreement governed this session, so the developer must confirm the applicable account terms before release. https://openai.com/policies/row-terms-of-use/ |
+| Rights caveat | Provider assignment is not third-party rights clearance. Output may not be unique, and copyright, trademark, character, likeness, and confusing-similarity review remains the developer's responsibility. |
 | Human direction | The developer selected the warm-occult product direction and approved the concept subject and mood. |
 | Human edits | No direct repaint, redraw, compositing, or documented shape/color correction. Unity import/resizing is automated processing only. |
 | Third-party elements | None intentionally requested or identified; final similarity and trademark review remains open. |

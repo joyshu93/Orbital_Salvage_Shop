@@ -34,6 +34,8 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(type.GetField("VersionCode").GetRawConstantValue(), Is.EqualTo(10000));
             Assert.That(type.GetField("PackageId").GetRawConstantValue(),
                 Is.EqualTo("com.joyshu93.curioclerknightshift"));
+            Assert.That(type.GetField("MinimumApi").GetRawConstantValue(), Is.EqualTo(29));
+            Assert.That(type.GetField("TargetApi").GetRawConstantValue(), Is.EqualTo(36));
             Assert.That(type.GetMethod("Apply", BindingFlags.Public | BindingFlags.Static), Is.Not.Null);
         }
 

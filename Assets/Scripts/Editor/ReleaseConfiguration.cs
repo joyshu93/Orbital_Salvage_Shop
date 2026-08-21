@@ -22,8 +22,8 @@ namespace CurioClerk.Editor
             PlayerSettings.bundleVersion = VersionName;
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, PackageId);
             PlayerSettings.Android.bundleVersionCode = VersionCode;
-            PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel29;
-            PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel36;
+            PlayerSettings.Android.minSdkVersion = (AndroidSdkVersions)MinimumApi;
+            PlayerSettings.Android.targetSdkVersion = (AndroidSdkVersions)TargetApi;
             PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;

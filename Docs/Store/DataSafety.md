@@ -1,6 +1,10 @@
 # AdMob/UMP data-safety reconciliation — 1.0.0
 
 Reconciliation status: PENDING_FINAL_CONFIGURATION_CONFIRMATION
+Confirmation date: PENDING
+Signed RC Git SHA: PENDING
+Google Mobile Ads Unity version: 11.3.0
+External Dependency Manager for Unity version: 1.2.188
 
 This is an internal worksheet for reconciling the signed build, `Docs/PrivacyPolicy.md`, and Samsung Seller Portal. Google Play's disclosure guidance is a reconciliation source, not a claim that Samsung uses the same form verbatim. The developer must inspect the final Seller Portal questions and signed release configuration before submitting answers.
 
@@ -19,6 +23,12 @@ The developer does not collect gameplay or crash payloads remotely. Google AdMob
 | Remote crash reporting | Absent |
 
 ## AdMob/UMP data categories to reconcile
+
+<!-- AD_DATA_CATEGORY: IP_NETWORK_APPROXIMATE_LOCATION -->
+<!-- AD_DATA_CATEGORY: PRODUCT_INTERACTIONS -->
+<!-- AD_DATA_CATEGORY: DIAGNOSTICS_PERFORMANCE -->
+<!-- AD_DATA_CATEGORY: DEVICE_ACCOUNT_IDENTIFIERS -->
+<!-- AD_DATA_CATEGORY: CONSENT_PRIVACY_CHOICES -->
 
 | Category | Conservative v1 declaration basis |
 | --- | --- |

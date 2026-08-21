@@ -1,6 +1,7 @@
 # Galaxy Store media inventory — 1.0.0
 
 Media approval status: BLOCKED
+Approval date: PENDING
 
 No media is approved or uploaded by this record. Store images must portray the signed build accurately and pass the project's provenance, rights, and human art-review gates.
 

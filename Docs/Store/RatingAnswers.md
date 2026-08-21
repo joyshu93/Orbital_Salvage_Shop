@@ -1,7 +1,8 @@
 # Content-rating worksheet — 1.0.0
 
 Questionnaire status: PENDING_DEVELOPER_CONFIRMATION
-Official rating assigned: No
+Confirmation date: PENDING
+Official rating result: PENDING
 
 This worksheet records current build facts only. It is not a completed Seller Portal questionnaire and does not assign, predict, or impersonate an official age rating. The developer must answer the current Seller Portal questions and confirm the result against the signed RC.
 
@@ -24,7 +25,7 @@ This worksheet records current build facts only. It is not a completed Seller Po
 - [ ] Review every answer in the live Seller Portal questionnaire.
 - [ ] Compare answers with the exact signed build, final art, audio, and EN/KO text.
 - [ ] Record the Seller Portal result and confirmation date without copying identity information.
-- [ ] Re-run Submission mode only after replacing `PENDING_DEVELOPER_CONFIRMATION` with a dated developer-confirmed status and recording the result.
+- [ ] Re-run Submission mode only after setting the structured status, ISO confirmation date, and official result from the live Seller Portal response.
 
 ## Official sources
 

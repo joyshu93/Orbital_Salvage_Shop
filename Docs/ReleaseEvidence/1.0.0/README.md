@@ -1,6 +1,8 @@
 # Curio Clerk 1.0.0 release-evidence index
 
 Evidence status: PENDING_DEVELOPER_EVIDENCE
+RC decision: PENDING
+Decision date: PENDING
 
 This directory is a sanitized index and template. It does not claim that a test, build, device run, Seller Portal action, certification, or RC decision has occurred.
 

@@ -43,7 +43,7 @@ This checklist is the Samsung Galaxy Store-first release gate for v1. It does no
 - [ ] Seller Portal metadata, content classification, privacy disclosures, pricing, and distribution country are complete for South Korea.
 - [ ] The signed RC AAB and required symbols are uploaded to Seller Portal.
 - [ ] Certification feedback is resolved or explicitly accepted by the developer before rollout.
-- [ ] Release documentation gate passes in Repository mode; Submission mode passes only after real public identity fields are supplied.
+- [ ] Release documentation gate passes in Repository mode; Submission mode passes only after every structured account, public identity/privacy, Data Safety, rating, media-rights, Task 11 evidence, and accepted-RC gate is developer-confirmed.
 
 ## Store declarations and submission evidence
 

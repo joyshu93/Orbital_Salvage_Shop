@@ -1,14 +1,21 @@
+using System;
+using System.Text.RegularExpressions;
 using CurioClerk.Infrastructure.Ads;
 using CurioClerk.Infrastructure.Analytics;
 using CurioClerk.Infrastructure.Diagnostics;
 using CurioClerk.Infrastructure.Privacy;
+#if UNITY_ANDROID && !UNITY_EDITOR
+using UnityEngine;
+#endif
 
 namespace CurioClerk.Infrastructure
 {
     public static class ServiceFactory
     {
-#if UNITY_ANDROID && !UNITY_EDITOR && DEVELOPMENT_BUILD
+#if UNITY_ANDROID && !UNITY_EDITOR
         private const string AndroidRewardedTestUnitId = "ca-app-pub-3940256099942544/5224354917";
+        private static readonly Regex AndroidRewardedUnitIdPattern =
+            new Regex(@"\Aca-app-pub-[0-9]+/[0-9]+\z", RegexOptions.CultureInvariant);
 #endif
 #if UNITY_INCLUDE_TESTS
         private static IAdService s_TestAdService;
@@ -25,8 +32,19 @@ namespace CurioClerk.Infrastructure
 #endif
 #if UNITY_ANDROID && !UNITY_EDITOR && DEVELOPMENT_BUILD
             return new GoogleRewardedAdService(AndroidRewardedTestUnitId);
+#elif UNITY_ANDROID && !UNITY_EDITOR
+            var configuration = Resources.Load<ServiceConfiguration>("ServiceConfiguration");
+            var rewardedId = configuration == null ? null : configuration.AndroidRewardedAdUnitId;
+            if (string.IsNullOrEmpty(rewardedId) ||
+                !AndroidRewardedUnitIdPattern.IsMatch(rewardedId) ||
+                string.Equals(rewardedId, AndroidRewardedTestUnitId, StringComparison.Ordinal))
+            {
+                return new UnavailableAdService();
+            }
+
+            return new GoogleRewardedAdService(rewardedId);
 #else
-            return new DefaultAdService();
+            return new UnavailableAdService();
 #endif
         }
 
@@ -62,5 +80,19 @@ namespace CurioClerk.Infrastructure
             s_TestPrivacyService = null;
         }
 #endif
+
+        private sealed class UnavailableAdService : IAdService
+        {
+            public bool IsRewardedReady => false;
+
+            public void SetRequestPermission(bool allowed)
+            {
+            }
+
+            public void ShowRewarded(string placement, Action<RewardedAdResult> completed)
+            {
+                completed?.Invoke(RewardedAdResult.Unavailable);
+            }
+        }
     }
 }

@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using CurioClerk.Content;
+using CurioClerk.Infrastructure;
 using CurioClerk.Localization;
 using CurioClerk.Presentation;
 using UnityEditor;
@@ -29,6 +31,15 @@ namespace CurioClerk.Editor
         private const string LocalizationRoot = "Assets/Localization";
         private const string RenderingRoot = "Assets/Rendering";
         private const string SceneRoot = "Assets/Scenes";
+        private const string ServiceConfigurationPath = "Assets/Resources/ServiceConfiguration.asset";
+        private const string GoogleMobileAdsSettingsPath =
+            "Assets/GoogleMobileAds/Resources/GoogleMobileAdsSettings.asset";
+        private const string GoogleSampleAppId = "ca-app-pub-3940256099942544~3347511713";
+        private const string GoogleSampleRewardedId = "ca-app-pub-3940256099942544/5224354917";
+        private static readonly Regex AppIdPattern =
+            new Regex(@"\Aca-app-pub-[0-9]+~[0-9]+\z", RegexOptions.CultureInvariant);
+        private static readonly Regex RewardedIdPattern =
+            new Regex(@"\Aca-app-pub-[0-9]+/[0-9]+\z", RegexOptions.CultureInvariant);
 
         [MenuItem("Tools/Curio Clerk/Generate Project Assets")]
         public static void BuildAll()
@@ -50,28 +61,196 @@ namespace CurioClerk.Editor
         [MenuItem("Tools/Curio Clerk/Build Android AAB")]
         public static void BuildAndroid()
         {
-            ConfigureAndroidExternalTools();
-            BuildAll();
-            EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android);
-            EditorUserBuildSettings.buildAppBundle = true;
-
-            var output = Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/Android/CurioClerk.aab"));
-            Directory.CreateDirectory(Path.GetDirectoryName(output) ?? throw new InvalidOperationException("Invalid build output path."));
-
-            var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            ReleaseEnvironment environment = null;
+            try
             {
-                scenes = new[] { "Assets/Scenes/Bootstrap.unity", "Assets/Scenes/Main.unity" },
-                locationPathName = output,
-                target = BuildTarget.Android,
-                options = BuildOptions.None
-            });
+                environment = ReadAndValidateReleaseEnvironment();
+                ConfigureServiceAssets(environment.AdMobAppId, environment.AdMobRewardedId);
+                ConfigureAndroidExternalTools();
+                BuildAll();
+                EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android);
+                EditorUserBuildSettings.buildAppBundle = true;
 
-            if (report.summary.result != BuildResult.Succeeded)
+                var output = Path.GetFullPath(Path.Combine(Application.dataPath, "../Builds/Android/CurioClerk.aab"));
+                Directory.CreateDirectory(Path.GetDirectoryName(output) ??
+                                          throw new InvalidOperationException("Invalid build output path."));
+
+                ConfigureReleaseSigning(environment);
+                BuildReport report;
+                try
+                {
+                    report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+                    {
+                        scenes = new[] { "Assets/Scenes/Bootstrap.unity", "Assets/Scenes/Main.unity" },
+                        locationPathName = output,
+                        target = BuildTarget.Android,
+                        options = BuildOptions.None
+                    });
+                }
+                finally
+                {
+                    ClearReleaseSecrets(environment);
+                }
+
+                if (report.summary.result != BuildResult.Succeeded)
+                {
+                    throw new BuildFailedException($"Android build failed with {report.summary.totalErrors} errors.");
+                }
+
+                ReleaseBuildManifest.Write(output);
+                Debug.Log($"Android AAB and sanitized manifest built successfully ({report.summary.totalSize} bytes).");
+            }
+            finally
             {
-                throw new BuildFailedException($"Android build failed with {report.summary.totalErrors} errors.");
+                ClearReleaseSecrets(environment);
+            }
+        }
+
+        public static void ValidateReleaseEnvironment()
+        {
+            ReleaseEnvironment environment = null;
+            try
+            {
+                environment = ReadAndValidateReleaseEnvironment();
+                ConfigureServiceAssets(environment.AdMobAppId, environment.AdMobRewardedId);
+            }
+            finally
+            {
+                ClearReleaseSecrets(environment);
+            }
+        }
+
+        public static void ValidateServiceIds(string appId, string rewardedId)
+        {
+            if (string.IsNullOrEmpty(appId) ||
+                !AppIdPattern.IsMatch(appId) ||
+                string.Equals(appId, GoogleSampleAppId, StringComparison.Ordinal))
+            {
+                throw new BuildFailedException("The AdMob app ID is missing, malformed, or a sample value.");
             }
 
-            Debug.Log($"Android AAB built: {output} ({report.summary.totalSize} bytes)");
+            if (string.IsNullOrEmpty(rewardedId) ||
+                !RewardedIdPattern.IsMatch(rewardedId) ||
+                string.Equals(rewardedId, GoogleSampleRewardedId, StringComparison.Ordinal))
+            {
+                throw new BuildFailedException("The AdMob rewarded unit ID is missing, malformed, or a sample value.");
+            }
+        }
+
+        private static ReleaseEnvironment ReadAndValidateReleaseEnvironment()
+        {
+            var environment = new ReleaseEnvironment
+            {
+                AdMobAppId = Environment.GetEnvironmentVariable("CURIO_ADMOB_APP_ID"),
+                AdMobRewardedId = Environment.GetEnvironmentVariable("CURIO_ADMOB_REWARDED_ID"),
+                KeystorePath = Environment.GetEnvironmentVariable("CURIO_ANDROID_KEYSTORE_PATH"),
+                KeystorePassword = Environment.GetEnvironmentVariable("CURIO_ANDROID_KEYSTORE_PASS"),
+                KeyAlias = Environment.GetEnvironmentVariable("CURIO_ANDROID_KEY_ALIAS"),
+                KeyPassword = Environment.GetEnvironmentVariable("CURIO_ANDROID_KEY_PASS")
+            };
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(environment.AdMobAppId) ||
+                    string.IsNullOrWhiteSpace(environment.AdMobRewardedId) ||
+                    string.IsNullOrWhiteSpace(environment.KeystorePath) ||
+                    string.IsNullOrWhiteSpace(environment.KeystorePassword) ||
+                    string.IsNullOrWhiteSpace(environment.KeyAlias) ||
+                    string.IsNullOrWhiteSpace(environment.KeyPassword))
+                {
+                    throw new BuildFailedException("The six required release environment values are incomplete.");
+                }
+
+                ValidateServiceIds(environment.AdMobAppId, environment.AdMobRewardedId);
+                environment.KeystorePath = Path.GetFullPath(environment.KeystorePath);
+
+                if (!File.Exists(environment.KeystorePath))
+                {
+                    throw new BuildFailedException("The release keystore is missing or inaccessible.");
+                }
+
+                return environment;
+            }
+            catch (BuildFailedException)
+            {
+                environment.Clear();
+                throw;
+            }
+            catch (Exception)
+            {
+                environment.Clear();
+                throw new BuildFailedException("The release environment could not be validated.");
+            }
+        }
+
+        private static void ConfigureServiceAssets(string appId, string rewardedId)
+        {
+            EnsureFolder("Assets/Resources");
+            var serviceConfiguration = AssetDatabase.LoadAssetAtPath<ServiceConfiguration>(ServiceConfigurationPath);
+            if (serviceConfiguration == null)
+            {
+                serviceConfiguration = ScriptableObject.CreateInstance<ServiceConfiguration>();
+                AssetDatabase.CreateAsset(serviceConfiguration, ServiceConfigurationPath);
+            }
+
+            var serializedServiceConfiguration = new SerializedObject(serviceConfiguration);
+            var rewardedIdProperty = serializedServiceConfiguration.FindProperty("_androidRewardedAdUnitId");
+            if (rewardedIdProperty == null)
+            {
+                throw new BuildFailedException("The local service configuration schema is invalid.");
+            }
+
+            rewardedIdProperty.stringValue = rewardedId;
+            serializedServiceConfiguration.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(serviceConfiguration);
+
+            var mobileAdsSettings = AssetDatabase.LoadMainAssetAtPath(GoogleMobileAdsSettingsPath);
+            if (mobileAdsSettings == null)
+            {
+                throw new BuildFailedException("Google Mobile Ads settings are missing. Resolve the package and create its settings asset.");
+            }
+
+            var serializedMobileAdsSettings = new SerializedObject(mobileAdsSettings);
+            var appIdProperty = serializedMobileAdsSettings.FindProperty("adMobAndroidAppId");
+            if (appIdProperty == null || appIdProperty.propertyType != SerializedPropertyType.String)
+            {
+                throw new BuildFailedException("The Google Mobile Ads settings schema is unsupported.");
+            }
+
+            appIdProperty.stringValue = appId;
+            serializedMobileAdsSettings.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(mobileAdsSettings);
+            AssetDatabase.SaveAssets();
+        }
+
+        private static void ConfigureReleaseSigning(ReleaseEnvironment environment)
+        {
+            PlayerSettings.Android.useCustomKeystore = true;
+            PlayerSettings.Android.keystoreName = environment.KeystorePath;
+            PlayerSettings.Android.keystorePass = environment.KeystorePassword;
+            PlayerSettings.Android.keyaliasName = environment.KeyAlias;
+            PlayerSettings.Android.keyaliasPass = environment.KeyPassword;
+        }
+
+        private static void ClearReleaseSigning()
+        {
+            PlayerSettings.Android.keystorePass = string.Empty;
+            PlayerSettings.Android.keyaliasPass = string.Empty;
+            PlayerSettings.Android.keystoreName = string.Empty;
+            PlayerSettings.Android.keyaliasName = string.Empty;
+            PlayerSettings.Android.useCustomKeystore = false;
+        }
+
+        private static void ClearReleaseSecrets(ReleaseEnvironment environment)
+        {
+            try
+            {
+                ClearReleaseSigning();
+            }
+            finally
+            {
+                environment?.Clear();
+            }
         }
 
         private static void ConfigureAndroidExternalTools()
@@ -428,6 +607,26 @@ namespace CurioClerk.Editor
                 }
 
                 current = next;
+            }
+        }
+
+        private sealed class ReleaseEnvironment
+        {
+            public string AdMobAppId;
+            public string AdMobRewardedId;
+            public string KeystorePath;
+            public string KeystorePassword;
+            public string KeyAlias;
+            public string KeyPassword;
+
+            public void Clear()
+            {
+                AdMobAppId = null;
+                AdMobRewardedId = null;
+                KeystorePath = null;
+                KeystorePassword = null;
+                KeyAlias = null;
+                KeyPassword = null;
             }
         }
     }

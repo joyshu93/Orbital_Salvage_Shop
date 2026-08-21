@@ -51,6 +51,7 @@ Assets/GoogleMobileAds/Resources/GoogleMobileAdsSettings.asset
 Assets/GoogleMobileAds/Resources/GoogleMobileAdsSettings.asset.meta
 .env
 .env.*
+tools/bundletool/*.jar
 
 # Local Codex worktrees
 .worktrees/

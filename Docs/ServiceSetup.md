@@ -10,7 +10,7 @@ Samsung Galaxy Store v1 account, identity, financial verification, signing custo
 
 1. Register the Android app in AdMob with package `com.joyshu93.curioclerknightshift`.
 2. The official Google-authored Google Mobile Ads Unity plugin is pinned as `com.google.ads.mobile` 11.3.0 and distributed through the community OpenUPM registry configured in `Packages/manifest.json`; OpenUPM is not a Google-operated registry. Do not also import the official `.unitypackage` or copy plugin files under `Assets`.
-3. After the human package-resolution checkpoint below, enter the Android AdMob app ID under `Assets > Google Mobile Ads > Settings`. The generated local settings asset is ignored by Git.
+3. After the human package-resolution checkpoint below, open and save `Assets > Google Mobile Ads > Settings` once so the local settings asset exists. Do not commit it or put a live ID in source; the release builder injects the environment-supplied app ID into this ignored asset.
 4. Create one rewarded unit. During development use Google's Android rewarded test unit, never a live unit.
 5. In AdMob Privacy & messaging, create the required UMP messages.
 6. On every launch, call consent `Update`, then `LoadAndShowConsentFormIfRequired`. Initialize/load ads only when `CanRequestAds()` is true. Expose `ShowPrivacyOptionsForm()` from Settings when required.
@@ -41,6 +41,36 @@ The 2026-08-21 v1 decision excludes Firebase and remote gameplay/crash telemetry
 3. Confirm the Console has no compilation or Android dependency-resolution error.
 4. Confirm the resolved graph contains Google Mobile Ads 11.3.0 and EDM4U 1.2.188, with no `com.google.firebase.*` package.
 5. Confirm there is no Asset-package copy under `Assets/Firebase` or `Assets/ExternalDependencyManager`, close Unity, and retain the Unity-generated `Packages/packages-lock.json` change.
+
+## Human-owned release configuration and build
+
+The release build reads six values from the current terminal process. Never put the values in Git, a checked-in script, a screenshot, or a support log:
+
+```powershell
+$env:CURIO_ADMOB_APP_ID = '<live AdMob Android app ID>'
+$env:CURIO_ADMOB_REWARDED_ID = '<live rewarded unit ID>'
+$env:CURIO_ANDROID_KEYSTORE_PATH = '<existing keystore path>'
+$env:CURIO_ANDROID_KEYSTORE_PASS = '<keystore password>'
+$env:CURIO_ANDROID_KEY_ALIAS = '<key alias>'
+$env:CURIO_ANDROID_KEY_PASS = '<key password>'
+```
+
+The build validates the live ID shapes, rejects Google's sample IDs, writes the rewarded unit only to the ignored `Assets/Resources/ServiceConfiguration.asset`, and writes the app ID only to the ignored Google Mobile Ads settings asset. Signing values are applied in memory immediately before `BuildPipeline.BuildPlayer` and cleared afterward. The committed build manifest contains only public release metadata and the AAB SHA-256.
+
+After Unity has resolved the pinned GMA/EDM4U packages, the human developer downloads the official `bundletool-all-1.18.3.jar` from:
+
+- https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
+
+Keep it at `tools/bundletool/bundletool-all-1.18.3.jar`; the jar is ignored. Then run:
+
+```powershell
+.\scripts\check-no-remote-telemetry.ps1 -Mode Release
+.\scripts\test-unity.ps1
+.\scripts\build-android.ps1
+.\scripts\inspect-aab.ps1 -AabPath .\Builds\Android\CurioClerk.aab -BundletoolPath .\tools\bundletool\bundletool-all-1.18.3.jar
+```
+
+Expected local outputs are the signed AAB, one general IL2CPP symbols zip, `CurioClerk-build.json`, and a sanitized `inspection.txt` under the ignored `Builds/Android` directory. Confirm Git status contains no settings asset, keystore, identifier, password, jar, or build output before release handoff.
 
 ## Local coarse event vocabulary
 

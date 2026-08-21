@@ -791,6 +791,7 @@ git commit -m "feat: connect consent-aware rewards"
 **Files:**
 - Create: `Assets/Scripts/Runtime/Infrastructure/ServiceConfiguration.cs`
 - Create: corresponding `.meta` file
+- Modify: `Assets/Scripts/Runtime/Infrastructure/ServiceFactory.cs`
 - Create: `Assets/Scripts/Editor/ReleaseBuildManifest.cs`
 - Create: corresponding `.meta` file
 - Modify: `Assets/Scripts/Editor/ProjectBuilder.cs`
@@ -811,6 +812,8 @@ Extend `EditorAutomationContractTests` to require `ProjectBuilder.ValidateServic
 - [ ] **Step 2: Implement local service configuration generation**
 
 `ServiceConfiguration` contains one serialized `AndroidRewardedAdUnitId` and is loaded from `Resources`. `ProjectBuilder.ValidateReleaseEnvironment` reads the two AdMob values, validates `ca-app-pub-<digits>~<digits>` for the app and `ca-app-pub-<digits>/<digits>` for rewarded, rejects Google sample IDs, writes the rewarded ID to the ignored Resources asset, and uses `SerializedObject` at `Assets/GoogleMobileAds/Resources/GoogleMobileAdsSettings.asset` to set `adMobAndroidAppId`. Never log either full ID.
+
+In non-development Android builds, `ServiceFactory` loads the generated `ServiceConfiguration` and constructs `GoogleRewardedAdService` only from its validated rewarded ID. Development builds retain Google's official sample rewarded ID. Missing or invalid release configuration returns the unavailable local service; no live or sample identifier is hard-coded as a release fallback.
 
 Configure the keystore from environment only for the release build and clear the in-memory password fields in a `finally` block after `BuildPipeline.BuildPlayer` returns.
 
@@ -866,7 +869,7 @@ Expected: tests pass, all three build artifacts exist, SHA-256 values match, bun
 - [ ] **Step 7: Commit build automation without generated artifacts or secrets**
 
 ```powershell
-git add Assets/Scripts/Runtime/Infrastructure/ServiceConfiguration.cs Assets/Scripts/Runtime/Infrastructure/ServiceConfiguration.cs.meta Assets/Scripts/Editor/ReleaseBuildManifest.cs Assets/Scripts/Editor/ReleaseBuildManifest.cs.meta Assets/Scripts/Editor/ProjectBuilder.cs scripts/build-android.ps1 scripts/inspect-aab.ps1 tools/bundletool/.gitkeep .gitignore Docs/ServiceSetup.md
+git add Assets/Scripts/Runtime/Infrastructure/ServiceConfiguration.cs Assets/Scripts/Runtime/Infrastructure/ServiceConfiguration.cs.meta Assets/Scripts/Runtime/Infrastructure/ServiceFactory.cs Assets/Scripts/Editor/ReleaseBuildManifest.cs Assets/Scripts/Editor/ReleaseBuildManifest.cs.meta Assets/Scripts/Editor/ProjectBuilder.cs scripts/build-android.ps1 scripts/inspect-aab.ps1 tools/bundletool/.gitkeep .gitignore Docs/ServiceSetup.md
 git commit -m "build: validate signed Galaxy Store bundles"
 ```
 

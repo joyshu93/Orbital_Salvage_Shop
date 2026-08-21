@@ -1,10 +1,11 @@
-param()
+﻿param()
 
 $ErrorActionPreference = 'Stop'
 $sourceRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $gate = Join-Path $PSScriptRoot 'check-release-docs.ps1'
 $tempBase = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
 $fixtures = [System.Collections.Generic.List[string]]::new()
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 function Invoke-Gate([string]$Root, [string]$Mode) {
     & $gate -ProjectRoot $Root -Mode $Mode *> $null
@@ -35,27 +36,30 @@ function New-Fixture {
     [void][System.IO.Directory]::CreateDirectory($root)
     Copy-Item -LiteralPath (Join-Path $sourceRoot 'README.md') -Destination (Join-Path $root 'README.md')
     Copy-Item -LiteralPath (Join-Path $sourceRoot 'Docs') -Destination (Join-Path $root 'Docs') -Recurse
+    $iconDirectory = Join-Path $root 'Assets/Art/Brand'
+    [void][System.IO.Directory]::CreateDirectory($iconDirectory)
+    Copy-Item -LiteralPath (Join-Path $sourceRoot 'Assets/Art/Brand/AppIcon.png') -Destination (Join-Path $iconDirectory 'AppIcon.png')
     $fixtures.Add($root)
     return $root
 }
 
 function Replace-Literal([string]$Root, [string]$RelativePath, [string]$Before, [string]$After) {
     $path = Join-Path $Root $RelativePath
-    $text = [System.IO.File]::ReadAllText($path)
+    $text = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
     if (-not $text.Contains($Before)) {
         throw "Fixture replacement source not found in ${RelativePath}: $Before"
     }
-    [System.IO.File]::WriteAllText($path, $text.Replace($Before, $After))
+    [System.IO.File]::WriteAllText($path, $text.Replace($Before, $After), $utf8NoBom)
 }
 
 function Replace-Pattern([string]$Root, [string]$RelativePath, [string]$Pattern, [string]$After) {
     $path = Join-Path $Root $RelativePath
-    $text = [System.IO.File]::ReadAllText($path)
+    $text = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
     $updated = [regex]::Replace($text, $Pattern, $After)
     if ($updated -eq $text) {
         throw "Fixture pattern did not match in ${RelativePath}: $Pattern"
     }
-    [System.IO.File]::WriteAllText($path, $updated)
+    [System.IO.File]::WriteAllText($path, $updated, $utf8NoBom)
 }
 
 function Set-ConfirmedFixture([string]$Root) {
@@ -82,17 +86,100 @@ function Set-ConfirmedFixture([string]$Root) {
 
     Replace-Literal $Root 'Docs/Store/AssetInventory.md' 'Media approval status: BLOCKED' 'Media approval status: HUMAN_APPROVED'
     Replace-Literal $Root 'Docs/Store/AssetInventory.md' 'Approval date: PENDING' 'Approval date: 2026-09-01'
-    Replace-Pattern $Root 'Docs/Store/AssetInventory.md' '(?m)^\| Application icon \|.*$' '| Application icon | Fixture-approved icon | Ready for submission | `Docs/AIAssetProvenance.md`; `Docs/ArtReleaseReview.md` | Human approved. |'
+    Replace-Pattern $Root 'Docs/Store/AssetInventory.md' '(?m)^\| Application icon \|.*$' '| Application icon | Fixture-approved icon | Ready for submission | `Docs/AIAssetProvenance.md` `ART-BRAND-001`; `Docs/ArtReleaseReview.md` | Human approved. |'
     Replace-Pattern $Root 'Docs/Store/AssetInventory.md' '(?m)^\| Phone screenshots \|.*$' '| Phone screenshots | Fixture-approved screenshots | Ready for submission | `Docs/AIAssetProvenance.md`; `Docs/ThirdPartyNotices.md`; `Docs/ArtReleaseReview.md` | Human approved. |'
     $artReview = Join-Path $Root 'Docs/ArtReleaseReview.md'
-    [System.IO.File]::WriteAllText($artReview, "# Fixture art release review`n`nHuman approval fixture only.`n")
+    $iconHash = (Get-FileHash -LiteralPath (Join-Path $Root 'Assets/Art/Brand/AppIcon.png') -Algorithm SHA256).Hash
+    $artReviewContent = @"
+# Fixture art release review
+
+Release approval status: HUMAN_APPROVED
+Approval date: 2026-09-01
+Reviewer / attestation: Example fixture reviewer confirms this sanitized approval record.
+Human creative pass: COMPLETED
+Similarity review: PASSED
+Rights review: PASSED
+Approved asset ID: ART-BRAND-001
+Approved icon SHA-256: $iconHash
+"@
+    [System.IO.File]::WriteAllText($artReview, $artReviewContent, $utf8NoBom)
 
     Replace-Literal $Root 'Docs/ReleaseEvidence/1.0.0/README.md' 'Evidence status: PENDING_DEVELOPER_EVIDENCE' 'Evidence status: DEVELOPER_CONFIRMED'
     Replace-Literal $Root 'Docs/ReleaseEvidence/1.0.0/README.md' 'RC decision: PENDING' 'RC decision: ACCEPTED'
     Replace-Literal $Root 'Docs/ReleaseEvidence/1.0.0/README.md' 'Decision date: PENDING' 'Decision date: 2026-09-01'
     Replace-Pattern $Root 'Docs/ReleaseEvidence/1.0.0/README.md' '(?m)^\| (Automated tests|AAB inspection|Owned-device validation|Remote Test Lab|Service validation|RC decision) \| (Not run|Pending developer evidence) \|' '| $1 | Developer evidence recorded |'
-    foreach ($file in @('automated-tests.md', 'owned-device.md', 'remote-test-lab.md', 'service-validation.md', 'rc-decision.md')) {
-        [System.IO.File]::WriteAllText((Join-Path $Root "Docs/ReleaseEvidence/1.0.0/$file"), "# Synthetic fixture`n")
+    $rcSha = '0123456789abcdef0123456789abcdef01234567'
+    $aabSha = 'ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789'
+    $evidence = @{
+        'automated-tests.md' = @"
+# Synthetic automated-test evidence
+Evidence status: DEVELOPER_RECORDED
+Evidence date: 2026-09-01
+RC Git SHA: $rcSha
+Unity version: 6000.3.21f1
+EditMode status: PASSED
+EditMode passed: 24
+EditMode total: 24
+PlayMode status: PASSED
+PlayMode passed: 12
+PlayMode total: 12
+"@
+        'owned-device.md' = @"
+# Synthetic owned-device evidence
+Evidence status: DEVELOPER_RECORDED
+Evidence date: 2026-09-01
+RC Git SHA: $rcSha
+AAB SHA-256: $aabSha
+Matrix status: PASSED
+Owned device model: Fixture Galaxy S device
+Android API: 36
+First launch: PASSED
+Tutorial: PASSED
+Three shifts: PASSED
+P0 defects: 0
+P1 defects: 0
+Reward anomalies: 0
+"@
+        'remote-test-lab.md' = @"
+# Synthetic Remote Test Lab evidence
+Evidence status: DEVELOPER_RECORDED
+Evidence date: 2026-09-01
+RC Git SHA: $rcSha
+Matrix status: PASSED
+Profile count: 3
+Galaxy A-series profile: Fixture Galaxy A | Android 14 | slab
+Galaxy S-series profile: Fixture Galaxy S | Android 15 | slab
+Galaxy Fold profile: Fixture Galaxy Fold | Android 15 | foldable
+"@
+        'service-validation.md' = @"
+# Synthetic service-validation evidence
+Evidence status: DEVELOPER_RECORDED
+Evidence date: 2026-09-01
+RC Git SHA: $rcSha
+Service validation status: PASSED
+No-remote Release gate: PASSED
+Observed service traffic: ADMOB_UMP_ONLY
+Duplicate reward grants: 0
+Unavailable-ad base progression: PASSED
+UMP launch update: PASSED
+Ad requests before CanRequestAds: 0
+"@
+        'rc-decision.md' = @"
+# Synthetic RC decision
+Evidence status: DEVELOPER_RECORDED
+Evidence date: 2026-09-01
+RC Git SHA: $rcSha
+AAB SHA-256: $aabSha
+RC Decision: ACCEPT RC
+P0 defects: 0
+P1 defects: 0
+Rights gate: PASSED
+Store docs gate: PASSED
+Test matrix: PASSED
+"@
+    }
+    foreach ($file in $evidence.Keys) {
+        [System.IO.File]::WriteAllText((Join-Path $Root "Docs/ReleaseEvidence/1.0.0/$file"), $evidence[$file], $utf8NoBom)
     }
 }
 
@@ -108,6 +195,15 @@ try {
 
     $confirmed = New-ConfirmedFixture
     Expect-Pass 'complete synthetic confirmed submission' { Invoke-Gate $confirmed 'Submission' }
+
+    $replacementIcon = New-ConfirmedFixture
+    $replacementIconHash = (Get-FileHash -LiteralPath (Join-Path $replacementIcon 'Assets/Art/Brand/AppIcon.png') -Algorithm SHA256).Hash
+    Replace-Literal $replacementIcon 'Docs/ArtReleaseReview.md' 'Approved asset ID: ART-BRAND-001' 'Approved asset ID: ART-BRAND-002'
+    Replace-Literal $replacementIcon 'Docs/Store/AssetInventory.md' 'ART-BRAND-001' 'ART-BRAND-002'
+    $provenancePath = Join-Path $replacementIcon 'Docs/AIAssetProvenance.md'
+    $provenance = [System.IO.File]::ReadAllText($provenancePath, [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($provenancePath, "$provenance`n### ART-BRAND-002 — synthetic replacement`n`n| SHA-256 | $replacementIconHash |`n", $utf8NoBom)
+    Expect-Pass 'separately documented replacement icon asset ID' { Invoke-Gate $replacementIcon 'Submission' }
 
     $stateMutations = @(
         @{ Name = 'account registration status'; File = 'Docs/Store/SamsungSellerSetup.md'; Before = 'Account registration status: REGISTERED'; After = 'Account registration status: PENDING_DEVELOPER_ACTION' },
@@ -153,16 +249,55 @@ try {
     Replace-Literal $categoryParity 'Docs/PrivacyPolicy.md' '<!-- AD_DATA_CATEGORY: PRODUCT_INTERACTIONS -->' '<!-- category removed by fixture -->'
     Expect-Fail 'AdMob/UMP category parity' { Invoke-Gate $categoryParity 'Submission' }
 
+    $deepEvidenceMutations = @(
+        @{ Name = 'art approval status'; File = 'Docs/ArtReleaseReview.md'; Before = 'Release approval status: HUMAN_APPROVED'; After = 'Release approval status: BLOCKED' },
+        @{ Name = 'art icon hash mismatch'; File = 'Docs/ArtReleaseReview.md'; Before = 'Approved icon SHA-256: '; After = 'Approved icon SHA-256: 0000000000000000000000000000000000000000000000000000000000000000`nOriginal hash: ' },
+        @{ Name = 'automated EditMode counts'; File = 'Docs/ReleaseEvidence/1.0.0/automated-tests.md'; Before = 'EditMode passed: 24'; After = 'EditMode passed: 23' },
+        @{ Name = 'automated Unity version'; File = 'Docs/ReleaseEvidence/1.0.0/automated-tests.md'; Before = 'Unity version: 6000.3.21f1'; After = 'Unity version: 6000.3.20f1' },
+        @{ Name = 'owned-device P0 defect'; File = 'Docs/ReleaseEvidence/1.0.0/owned-device.md'; Before = 'P0 defects: 0'; After = 'P0 defects: 1' },
+        @{ Name = 'owned-device reward anomaly'; File = 'Docs/ReleaseEvidence/1.0.0/owned-device.md'; Before = 'Reward anomalies: 0'; After = 'Reward anomalies: 1' },
+        @{ Name = 'RTL profile coverage'; File = 'Docs/ReleaseEvidence/1.0.0/remote-test-lab.md'; Before = 'Galaxy Fold profile: Fixture Galaxy Fold | Android 15 | foldable'; After = 'Galaxy Fold profile: PENDING' },
+        @{ Name = 'inconsistent evidence RC SHA'; File = 'Docs/ReleaseEvidence/1.0.0/remote-test-lab.md'; Before = 'RC Git SHA: 0123456789abcdef0123456789abcdef01234567'; After = 'RC Git SHA: 1111111111111111111111111111111111111111' },
+        @{ Name = 'service no-remote failure'; File = 'Docs/ReleaseEvidence/1.0.0/service-validation.md'; Before = 'No-remote Release gate: PASSED'; After = 'No-remote Release gate: FAILED' },
+        @{ Name = 'service duplicate reward'; File = 'Docs/ReleaseEvidence/1.0.0/service-validation.md'; Before = 'Duplicate reward grants: 0'; After = 'Duplicate reward grants: 1' },
+        @{ Name = 'RC nonzero P1'; File = 'Docs/ReleaseEvidence/1.0.0/rc-decision.md'; Before = 'P1 defects: 0'; After = 'P1 defects: 1' },
+        @{ Name = 'RC AAB SHA mismatch'; File = 'Docs/ReleaseEvidence/1.0.0/rc-decision.md'; Before = 'AAB SHA-256: ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789'; After = 'AAB SHA-256: 1111111111111111111111111111111111111111111111111111111111111111' }
+    )
+    foreach ($mutation in $deepEvidenceMutations) {
+        $fixture = New-ConfirmedFixture
+        Replace-Literal $fixture $mutation.File $mutation.Before $mutation.After
+        Expect-Fail $mutation.Name { Invoke-Gate $fixture 'Submission' }
+    }
+
+    foreach ($injection in @(
+        @{ Name = 'machine path injection'; Text = 'Retained log: C:\Users\Fixture\test.log' },
+        @{ Name = 'forward absolute path injection'; Text = 'Retained log: /opt/fixture/test.log' },
+        @{ Name = 'file URI injection'; Text = 'Retained log: file:///C:/Fixture/test.log' },
+        @{ Name = 'credential injection'; Text = 'Access token: ghp_abcdefghijklmnopqrstuvwxyz123456' },
+        @{ Name = 'real AdMob ID injection'; Text = 'Ad unit: ca-app-pub-1234567890123456/1234567890' },
+        @{ Name = 'identity record injection'; Text = 'Government ID: fixture-record' },
+        @{ Name = 'pending evidence injection'; Text = 'Extra verification: PENDING' }
+    )) {
+        $fixture = New-ConfirmedFixture
+        Replace-Literal $fixture 'Docs/ReleaseEvidence/1.0.0/service-validation.md' 'Ad requests before CanRequestAds: 0' "Ad requests before CanRequestAds: 0`n$($injection.Text)"
+        Expect-Fail $injection.Name { Invoke-Gate $fixture 'Submission' }
+    }
+
     $negativePolarity = New-ConfirmedFixture
     Replace-Literal $negativePolarity 'Docs/Store/GalaxyStoreListing.en.md' 'English and Korean are supported.' "English and Korean are supported.`n`nYou do not need to create an account. There is no guaranteed ad availability."
     Expect-Pass 'negative account/ad wording' { Invoke-Gate $negativePolarity 'Submission' }
 
     foreach ($claim in @(
         'Create an account to save progress.',
+        'You can create an account to save progress.',
         'Ads are guaranteed.',
+        'An ad will always be available.',
         'Purchase coins from the store.',
+        'You can buy coins.',
         'Sync your progress to the cloud.',
-        'The game sends gameplay events.'
+        'Your progress syncs to the cloud.',
+        'The game sends gameplay events.',
+        'Gameplay events are sent to the developer.'
     )) {
         $affirmative = New-ConfirmedFixture
         Replace-Literal $affirmative 'Docs/Store/GalaxyStoreListing.en.md' 'English and Korean are supported.' "English and Korean are supported.`n`n$claim"

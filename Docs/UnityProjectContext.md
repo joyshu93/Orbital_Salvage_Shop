@@ -27,13 +27,13 @@
 
 ## Validation
 
-Run all automated tests:
+The human developer runs all automated Unity tests in the current no-MCP workflow and supplies the result for review:
 
 ```powershell
 .\scripts\test-unity.ps1
 ```
 
-Build an Android bundle:
+The human developer builds the Android bundle and supplies the output for review:
 
 ```powershell
 .\scripts\build-android.ps1

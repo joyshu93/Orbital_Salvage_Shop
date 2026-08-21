@@ -20,7 +20,9 @@ Open the repository root as the Unity project. Generated content, localization, 
 - tutorial, daily seed, collection, six desk charms, language/privacy settings, and resilient local JSON saves
 - generated URP 2D project assets, Noto Sans KR, Android icon, EditMode/PlayMode tests, and AAB automation
 
-## Commands
+## Human-run Unity commands
+
+The current project workflow does not enable Unity MCP or other Authorized Agentic Access. The human developer runs Unity tests and builds; Codex prepares repository changes and reviews the supplied output.
 
 ```powershell
 .\scripts\test-unity.ps1
@@ -29,4 +31,4 @@ Open the repository root as the Unity project. Generated content, localization, 
 
 The production SDK adapters deliberately remain disabled until AdMob/Firebase projects and consent messaging exist. Gameplay falls back safely when those SDKs are absent.
 
-See [project context](Docs/UnityProjectContext.md), [service setup](Docs/ServiceSetup.md), [MCP setup](Docs/MCPSetup.md), and the [release checklist](Docs/ReleaseChecklist.md).
+See [project context](Docs/UnityProjectContext.md), [service setup](Docs/ServiceSetup.md), [Unity automation boundary](Docs/MCPSetup.md), [AI provenance policy](Docs/AIAssetProvenance.md), [third-party notices](Docs/ThirdPartyNotices.md), and the [release checklist](Docs/ReleaseChecklist.md).

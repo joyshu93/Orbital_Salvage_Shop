@@ -23,8 +23,10 @@ Read this file before changing the project.
 
 1. Write a failing EditMode or PlayMode test for behavior changes.
 2. Make the smallest implementation that passes it.
-3. Run `scripts/test-unity.ps1`.
-4. Run `ProjectBuilder.BuildAll` after content, localization, scene, font, icon, or player-setting changes.
-5. Run `scripts/build-android.ps1` before a release handoff.
+3. Ask the human developer to run `scripts/test-unity.ps1`; diagnose the supplied output.
+4. Ask the human developer to run `ProjectBuilder.BuildAll` after content, localization, scene, font, icon, or player-setting changes.
+5. Ask the human developer to run `scripts/build-android.ps1` before a release handoff.
 
-When Unity MCP is connected, start with read-only hierarchy, Console, and build-setting checks. Scene writes still require tests and a final batch validation. Never commit service credentials or real ad identifiers to a public branch.
+Unity MCP is currently disabled. AI agents must not launch or control Unity Editor/Hub, call Unity batch/CLI automation, or use a community Unity MCP. If the human developer later authorizes Unity's official MCP under the then-current Unity terms, update `Docs/MCPSetup.md` before using it and start with read-only hierarchy, Console, and build-setting checks. Scene writes still require tests and final human-run validation.
+
+Before adding or changing art, audio, store media, generated text, or third-party assets, update `Docs/AIAssetProvenance.md` and `Docs/ThirdPartyNotices.md`. Never commit service credentials, real ad identifiers, purchase receipts, or tester personal data to a public branch.

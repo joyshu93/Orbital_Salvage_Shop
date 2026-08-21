@@ -1,17 +1,35 @@
 # Release checklist
 
+Current staffing note (2026-08-21): this is a solo project and **0 external testers are currently recruited**. If the Play Console account is a personal account created after 2023-11-13, production access remains blocked until at least 12 testers stay opted in to the closed test continuously for 14 days. Target 15 recruits to absorb dropouts; do not use paid review or fake-tester services.
+
 ## Accounts and listing
 
 - [ ] Play Console personal account registered, US$25 paid, and Android device verified
+- [ ] Confirm whether the account is subject to the new-personal-account closed-test requirement
 - [ ] App name and package ID availability rechecked immediately before permanent app creation
 - [ ] Developer display name, support email, and public privacy-policy URL finalized
-- [ ] 15 real testers recruited so at least 12 remain opted in for 14 continuous days
+- [ ] External tester pool increased from 0 to 15 so at least 12 can remain opted in for 14 continuous days
+- [ ] Tester feedback channel and test instructions prepared; consent/feedback records contain no unnecessary personal data
 - [ ] Store icon, feature graphic, phone screenshots, EN/KO short and full descriptions complete
+
+Official testing requirement: https://support.google.com/googleplay/android-developer/answer/14151465?hl=en
+
+## AI and rights gates
+
+- [ ] Every AI-created or AI-edited asset has a completed entry in `Docs/AIAssetProvenance.md`
+- [ ] Current ImageGen application icon is replaced or receives a documented human creative pass, similarity review, and human release approval
+- [ ] Each uploaded Store listing, Promotional content, and YouTube visual has an individual Play Console AI-declaration decision
+- [ ] The no-runtime-generation classification is still accurate; any new AI/UGC feature has been reassessed against current Play policy
+- [ ] Named-artist/studio styles, protected characters, brands, logos, unauthorized likenesses, and unexplained signatures/watermarks are absent
+- [ ] `Docs/ThirdPartyNotices.md` matches the RC asset/package inventory and all required notices are human-readable in the distribution
+- [ ] The unresolved EmojiOne TMP sample is removed or its exact version and commercial redistribution terms are documented
+
+Official AI declaration guidance: https://support.google.com/googleplay/android-developer/answer/17262077?hl=en
 
 ## Build and services
 
-- [ ] `scripts/test-unity.ps1` passes EditMode and PlayMode
-- [ ] `scripts/build-android.ps1` produces a signed RC AAB and public symbols zip
+- [ ] Human developer runs `scripts/test-unity.ps1`; supplied report passes EditMode and PlayMode
+- [ ] Human developer runs `scripts/build-android.ps1`; supplied output includes a signed RC AAB and public symbols zip
 - [ ] API 29 minimum, API 36 target, ARM64-only, IL2CPP, portrait verified
 - [ ] UMP launch flow and privacy-options re-entry tested
 - [ ] AdMob live IDs replace test IDs only in the signed release configuration

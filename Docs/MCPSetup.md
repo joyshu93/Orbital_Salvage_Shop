@@ -1,20 +1,33 @@
-# Unity MCP setup
+# Unity automation boundary
 
-The project works without MCP through batch tests and Editor automation. MCP adds live hierarchy, component, Console, and build-setting context.
+Last reviewed: 2026-08-21 (KST)
 
-As of 2026-08-20, the official Unity MCP requires Unity 6+, the AI Assistant package, a Unity Cloud-linked project, and an active trial or eligible subscription. The current Codex session does not expose a Unity MCP tool, so connection is not yet claimed.
+## Current decision: no Unity MCP
 
-## Connect the official provider
+Unity MCP is not installed or authorized for this project. Until the developer deliberately enables Unity's official Authorized Agentic Access:
 
-1. Open the project with Unity 6000.3.21f1 and sign in.
-2. Link it to a Unity Cloud project.
-3. Select the AI toolbar button and install the official AI Assistant package.
-4. Open `Edit > Project Settings > AI > Unity MCP`.
-5. Confirm Unity Bridge is green/Running; select Start if needed.
-6. Expand Integrations, choose Codex, and select Configure. If Codex is not listed, configure `%USERPROFILE%\.unity\relay\relay_win.exe --mcp` manually in Codex.
-7. Return to Unity MCP settings and Accept the pending Codex client.
-8. Verify with read-only calls: list the Main hierarchy, read Console warnings/errors, and inspect Android build settings.
+- Codex may edit repository files, tests, documentation, and PowerShell automation without operating Unity.
+- The human developer opens Unity, invokes menu commands, runs `scripts/test-unity.ps1`, and runs `scripts/build-android.ps1`.
+- Codex must not launch or control Unity Editor/Hub, invoke Unity in batch mode or through a command-line interface, read the live Unity Console, or operate Unity through a community MCP.
+- Build and test results are accepted only when the human provides the output or committed report. Codex may then diagnose the supplied result and prepare a patch.
+- ADB/logcat work on a human-built Android artifact is separate from operating Unity, but device access still requires the developer's authorization and must not expose private tester data.
 
-Only after those checks should MCP write a temporary GameObject or edit a Scene. Do not install CoplayDev alongside the official provider. Use the community provider only if the official package is unavailable in this Unity account, and remove one before installing the other.
+This is a conservative project workflow based on Unity Terms of Service section 17.2 and its definition of `Authorized Agentic Access`. It is an operational boundary, not legal advice.
 
-Official reference: https://unity.com/blog/unity-ai-mcp-how-to-get-started
+## If agentic Unity automation is reconsidered
+
+Use only Unity's official MCP path and re-check the current terms and documentation first:
+
+1. Confirm the Unity account, plan, editor version, AI Assistant package, Unity Cloud project, Codex client, relay, and gateway are all currently authorized by Unity.
+2. Record the approval date, Unity terms version, package version, account/plan basis, and authorized client in this file.
+3. Connect through `Edit > Project Settings > AI > Unity MCP` and accept the Codex client in Unity.
+4. Begin with read-only hierarchy, Console, and Android build-setting checks.
+5. Permit scene or prefab writes only after a disposable test and repository review.
+6. Revoke the connection if authorization, subscription, gateway, or allowlist status changes.
+
+Do not use a community MCP as a fallback. No MCP is the fallback.
+
+Official references:
+
+- Unity Terms of Service: https://unity.com/legal/terms-of-service
+- Official Unity MCP setup: https://unity.com/blog/unity-ai-mcp-how-to-get-started

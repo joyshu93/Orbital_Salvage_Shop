@@ -26,4 +26,3 @@ No media is approved or uploaded by this record. Store images must portray the s
 - Samsung, Galaxy Self-Check List: https://developer.samsung.com/galaxy-store/self-check-list-galaxy.html?lang=en — Accessed 2026-08-21. It requires registered names, icons, descriptions, and screenshots to match the app and device UI.
 - Samsung, Intellectual Property Infringement Checklist: https://developer.samsung.com/galaxy-store/ip-infringement.html — Accessed 2026-08-21. It applies rights requirements to app content and registration materials.
 - Samsung, Content Publish API reference: https://developer.samsung.com/galaxy-store/galaxy-store-developer-api/content-publish-api/reference.html — Accessed 2026-08-21. Public parameters describe icons/screenshots, but the developer must confirm the live Seller Portal requirements at upload time.
-

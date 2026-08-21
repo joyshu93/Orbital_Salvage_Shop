@@ -46,4 +46,3 @@ Offline play: Available for all base gameplay.
 - FACT_NO_ACCOUNT
 - FACT_NO_BACKEND_OR_CLOUD_SAVE
 - FACT_NO_IAP
-

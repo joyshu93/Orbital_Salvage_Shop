@@ -1,8 +1,8 @@
 # Galaxy Store review notes — 1.0.0
 
-Package: `com.joyshu93.curioclerknightshift`  
-Version: `1.0.0`  
-Login credentials: not applicable; the game has no account or login.
+- Package: `com.joyshu93.curioclerknightshift`
+- Version: `1.0.0`
+- Login credentials: not applicable; the game has no account or login.
 
 The certification build must use its validated release configuration. Ad availability is not guaranteed, and lack of an ad never blocks base progression.
 

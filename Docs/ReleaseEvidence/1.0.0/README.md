@@ -22,4 +22,3 @@ This directory is a sanitized index and template. It does not claim that a test,
 - Record repository-relative artifact or sanitized log locations only; do not commit machine-absolute paths.
 - Do not invent pass counts, device results, AAB hashes, account status, certification status, or release decisions.
 - Replace a pending state only from developer-supplied evidence for the exact Git SHA and release candidate.
-

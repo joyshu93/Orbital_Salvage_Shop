@@ -30,4 +30,3 @@ This worksheet records current build facts only. It is not a completed Seller Po
 
 - Samsung, Register Your App in Seller Portal: https://developer.samsung.com/galaxy-store/launch.html — Accessed 2026-08-21. Samsung lists age ratings among App Information fields.
 - Samsung, Content Publish API reference: https://developer.samsung.com/galaxy-store/galaxy-store-developer-api/content-publish-api/reference.html — Accessed 2026-08-21. The public reference exposes age-rating values but does not replace the live questionnaire.
-

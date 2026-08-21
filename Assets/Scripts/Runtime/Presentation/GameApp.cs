@@ -8,8 +8,6 @@ using CurioClerk.Core.Progression;
 using CurioClerk.Core.Rules;
 using CurioClerk.Core.Shifts;
 using CurioClerk.Infrastructure.Ads;
-using CurioClerk.Infrastructure.Analytics;
-using CurioClerk.Infrastructure.Diagnostics;
 using CurioClerk.Infrastructure.Privacy;
 using CurioClerk.Infrastructure.Save;
 using CurioClerk.Infrastructure.Time;
@@ -44,9 +42,7 @@ namespace CurioClerk.Presentation
         private PlayerSaveData _save;
         private ISaveStore _saveStore;
         private IAdService _adService;
-        private IAnalyticsService _analytics;
         private IPrivacyService _privacy;
-        private ICrashReporter _crashReporter;
         private IShiftSeedProvider _seedProvider;
         private Localizer _localizer;
         private RectTransform _screenRoot;
@@ -63,6 +59,7 @@ namespace CurioClerk.Presentation
         private int _appliedResultCoins;
         private bool _adConsentResolved;
         private bool _canRequestAds;
+        private string _rewardFeedbackKey;
 
         public AppScreen ActiveScreen { get; private set; }
 
@@ -78,11 +75,7 @@ namespace CurioClerk.Presentation
             _save = _saveStore.LoadOrDefault();
             _localizer = new Localizer(_save.locale);
             _adService = Infrastructure.ServiceFactory.CreateAdService();
-            _analytics = Infrastructure.ServiceFactory.CreateAnalyticsService();
             _privacy = Infrastructure.ServiceFactory.CreatePrivacyService();
-            _crashReporter = Infrastructure.ServiceFactory.CreateCrashReporter();
-            _analytics.SetConsent(_save.analyticsConsent);
-            _crashReporter.SetConsent(_save.crashReportingConsent);
             _seedProvider = new ShiftSeedProvider(new SystemClock());
             BuildShell();
             ShowMenu();
@@ -146,7 +139,7 @@ namespace CurioClerk.Presentation
             _sortedCount = 0;
             _resultApplied = false;
             _appliedResultCoins = 0;
-            _analytics.Track("shift_started", new Dictionary<string, string> { ["band"] = band.ToString() });
+            _rewardFeedbackKey = null;
             BuildShiftScreen();
         }
 
@@ -238,14 +231,12 @@ namespace CurioClerk.Presentation
             CreateButton(page, "EnglishButton", "English", new Vector2(0.14f, 0.62f), new Vector2(0.48f, 0.70f), _localizer.Locale == "en" ? Amber : Wine, _localizer.Locale == "en" ? Ink : Paper, () => SetLocale("en"));
             CreateButton(page, "KoreanButton", "한국어", new Vector2(0.52f, 0.62f), new Vector2(0.86f, 0.70f), _localizer.Locale == "ko" ? Amber : Wine, _localizer.Locale == "ko" ? Ink : Paper, () => SetLocale("ko"));
             CreateText(page, "PrivacyHeader", _localizer.Get("privacy"), 28, Paper, TextAlignmentOptions.Left, new Vector2(0.14f, 0.49f), new Vector2(0.86f, 0.55f), true);
-            CreateButton(page, "AnalyticsConsentButton", _localizer.Get(_save.analyticsConsent ? "analytics_on" : "analytics_off"), new Vector2(0.14f, 0.39f), new Vector2(0.86f, 0.47f), _save.analyticsConsent ? Sage : Wine, Paper, ToggleAnalytics);
-            CreateButton(page, "CrashConsentButton", _localizer.Get(_save.crashReportingConsent ? "crash_on" : "crash_off"), new Vector2(0.14f, 0.29f), new Vector2(0.86f, 0.37f), _save.crashReportingConsent ? Sage : Wine, Paper, ToggleCrashReports);
             if (_privacy.PrivacyOptionsRequired)
             {
-                CreateButton(page, "AdPrivacyOptionsButton", _localizer.Get("privacy_options"), new Vector2(0.14f, 0.19f), new Vector2(0.86f, 0.27f), Wine, Paper, ShowAdPrivacyOptions);
+                CreateButton(page, "AdPrivacyOptionsButton", _localizer.Get("privacy_options"), new Vector2(0.14f, 0.37f), new Vector2(0.86f, 0.45f), Wine, Paper, ShowAdPrivacyOptions);
             }
 
-            CreateText(page, "PrivacyNote", _localizer.Locale == "ko" ? "동의하지 않아도 모든 게임 기능을 이용할 수 있습니다." : "All gameplay remains available without consent.", 22, Paper, TextAlignmentOptions.Top, new Vector2(0.14f, 0.11f), new Vector2(0.86f, 0.18f));
+            CreateText(page, "PrivacyNote", _localizer.Locale == "ko" ? "광고 동의 없이도 모든 게임 기능을 이용할 수 있습니다." : "All gameplay remains available without ad consent.", 22, Paper, TextAlignmentOptions.Top, new Vector2(0.14f, 0.22f), new Vector2(0.86f, 0.34f));
             CreateButton(page, "SettingsBackButton", _localizer.Get("back"), new Vector2(0.30f, 0.03f), new Vector2(0.70f, 0.09f), Paper, Ink, ShowMenu);
         }
 
@@ -325,6 +316,7 @@ namespace CurioClerk.Presentation
             var completed = _session.State == ShiftState.Completed;
             CreateText(page, "ResultTitle", _localizer.Get(completed ? "complete" : "failed"), 58, completed ? Amber : DustyRose, TextAlignmentOptions.Center, new Vector2(0.08f, 0.69f), new Vector2(0.92f, 0.82f), true);
             CreateText(page, "ResultScore", $"{_localizer.Get("score")}  {_session.Score}\n{_localizer.Get("coins")}  {_session.Coins}\n✓ {_session.CorrectSorts}   ✕ {_session.Mistakes}", 33, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.45f), new Vector2(0.85f, 0.66f), true);
+            CreateText(page, "RewardedAdFeedback", string.IsNullOrEmpty(_rewardFeedbackKey) ? string.Empty : _localizer.Get(_rewardFeedbackKey), 22, DustyRose, TextAlignmentOptions.Center, new Vector2(0.12f, 0.41f), new Vector2(0.88f, 0.45f), true);
             var rewardLabel = completed ? _localizer.Get("double") : _localizer.Get("revive");
             if (!CanShowRewarded || _session.RewardClaimed)
             {
@@ -344,13 +336,27 @@ namespace CurioClerk.Presentation
             }
 
             var placement = completed ? "shift_complete_double" : "shift_failed_revive";
+            var completionHandled = false;
             _adService.ShowRewarded(placement, result =>
             {
-                if (result != RewardedAdResult.Earned)
+                if (completionHandled)
                 {
                     return;
                 }
 
+                completionHandled = true;
+                if (result != RewardedAdResult.Earned)
+                {
+                    _rewardFeedbackKey = RewardFeedbackKey(result);
+                    if (_screenRoot != null && ActiveScreen == AppScreen.Results)
+                    {
+                        ShowResults();
+                    }
+
+                    return;
+                }
+
+                _rewardFeedbackKey = null;
                 if (completed && _session.TryDoubleCoins())
                 {
                     PersistAdditionalRewardCoins();
@@ -379,12 +385,6 @@ namespace CurioClerk.Presentation
             _progression.ApplyShift(_save, _session.CreateResult(), _seenThisShift);
             _resultApplied = true;
             _appliedResultCoins = _session.Coins;
-            _analytics.Track("shift_completed", new Dictionary<string, string>
-            {
-                ["score"] = _session.Score.ToString(),
-                ["mistakes"] = _session.Mistakes.ToString(),
-                ["rewarded"] = _session.RewardClaimed.ToString()
-            });
             Save();
         }
 
@@ -453,20 +453,17 @@ namespace CurioClerk.Presentation
             _adService != null &&
             _adService.IsRewardedReady;
 
-        private void ToggleAnalytics()
+        private static string RewardFeedbackKey(RewardedAdResult result)
         {
-            _save.analyticsConsent = !_save.analyticsConsent;
-            _analytics.SetConsent(_save.analyticsConsent);
-            Save();
-            ShowSettings();
-        }
-
-        private void ToggleCrashReports()
-        {
-            _save.crashReportingConsent = !_save.crashReportingConsent;
-            _crashReporter.SetConsent(_save.crashReportingConsent);
-            Save();
-            ShowSettings();
+            switch (result)
+            {
+                case RewardedAdResult.Dismissed:
+                    return "ad_dismissed";
+                case RewardedAdResult.Failed:
+                    return "ad_failed";
+                default:
+                    return "ad_unavailable";
+            }
         }
 
         private void SetLocale(string locale)

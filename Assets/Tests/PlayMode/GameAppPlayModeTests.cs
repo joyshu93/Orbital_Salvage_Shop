@@ -1,6 +1,12 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
+using CurioClerk.Infrastructure;
+using CurioClerk.Infrastructure.Ads;
+using CurioClerk.Infrastructure.Privacy;
+using CurioClerk.Localization;
+using CurioClerk.Presentation;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -9,6 +15,22 @@ namespace CurioClerk.Tests.PlayMode
 {
     public sealed class GameAppPlayModeTests
     {
+        [SetUp]
+        public void SetUp()
+        {
+            ServiceFactory.ResetTestServices();
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            ServiceFactory.ResetTestServices();
+            foreach (var app in UnityEngine.Object.FindObjectsByType<GameApp>(FindObjectsSortMode.None))
+            {
+                UnityEngine.Object.DestroyImmediate(app.gameObject);
+            }
+        }
+
         [UnityTest]
         public IEnumerator App_StartsAtMenuAndBuildsAPlayableShiftLayout()
         {
@@ -103,6 +125,232 @@ namespace CurioClerk.Tests.PlayMode
 
             UnityEngine.Object.Destroy(host);
             yield return null;
+        }
+
+        [Test]
+        public void TestServices_ResetRestoresProductionFactoryBehavior()
+        {
+            var adService = new DeferredAdService();
+            var privacyService = new ControllablePrivacyService();
+            ServiceFactory.SetTestServices(adService, privacyService);
+
+            Assert.That(ServiceFactory.CreateAdService(), Is.SameAs(adService));
+            Assert.That(ServiceFactory.CreatePrivacyService(), Is.SameAs(privacyService));
+
+            ServiceFactory.ResetTestServices();
+
+            Assert.That(ServiceFactory.CreateAdService(), Is.Not.SameAs(adService));
+            Assert.That(ServiceFactory.CreatePrivacyService(), Is.Not.SameAs(privacyService));
+        }
+
+        [UnityTest]
+        public IEnumerator Reward_EarnedCallbackGrantsOnlyOnce()
+        {
+            var adService = new DeferredAdService();
+            var app = CreateApp(adService, new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            CompleteShift(app);
+            var coinsBeforeReward = Coins(app);
+            var baseCoins = SessionCoins(app);
+
+            RequestCompletedShiftReward(app);
+            adService.Emit(RewardedAdResult.Earned);
+            var coinsAfterFirstCallback = Coins(app);
+            adService.Emit(RewardedAdResult.Earned);
+
+            Assert.That(coinsAfterFirstCallback, Is.EqualTo(coinsBeforeReward + baseCoins));
+            Assert.That(Coins(app), Is.EqualTo(coinsAfterFirstCallback),
+                "A duplicate terminal callback must not grant a second bonus.");
+        }
+
+        [UnityTest]
+        public IEnumerator Reward_NonEarnedTerminalResultsPreserveCoinsAndRejectLaterCallbacks()
+        {
+            var adService = new DeferredAdService();
+            var app = CreateApp(adService, new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            CompleteShift(app);
+            var coinsBeforeReward = Coins(app);
+            var cases = new[]
+            {
+                new RewardFeedbackCase(RewardedAdResult.Dismissed, "Ad dismissed. Base reward kept."),
+                new RewardFeedbackCase(RewardedAdResult.Failed, "Ad failed. Base reward kept."),
+                new RewardFeedbackCase(RewardedAdResult.Unavailable, "Rewarded ad unavailable")
+            };
+
+            foreach (var current in cases)
+            {
+                RequestCompletedShiftReward(app);
+                adService.Emit(current.Result);
+                yield return null;
+
+                Assert.That(Coins(app), Is.EqualTo(coinsBeforeReward),
+                    current.Result + " must not add or remove coins.");
+                Assert.That(FeedbackText(), Is.EqualTo(current.ExpectedFeedback));
+
+                adService.Emit(RewardedAdResult.Earned);
+                Assert.That(Coins(app), Is.EqualTo(coinsBeforeReward),
+                    "A later callback after " + current.Result + " must be ignored.");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Settings_ContainsOnlyUmpPrivacyControlAndForwardsCurrentPermission()
+        {
+            var adService = new DeferredAdService();
+            var privacyService = new ControllablePrivacyService
+            {
+                CanRequestAds = true,
+                PrivacyOptionsRequired = true
+            };
+            var app = CreateApp(adService, privacyService);
+            yield return null;
+
+            Assert.That(adService.PermissionHistory, Is.EqualTo(new[] { true }),
+                "The initial UMP result must configure ad request permission.");
+
+            app.ShowSettings();
+            Assert.That(GameObject.Find("AnalyticsConsentButton"), Is.Null);
+            Assert.That(GameObject.Find("CrashConsentButton"), Is.Null);
+            Assert.That(GameObject.Find("AdPrivacyOptionsButton"), Is.Not.Null);
+
+            privacyService.CanRequestAds = false;
+            InvokePrivate(app, "ShowAdPrivacyOptions");
+
+            Assert.That(adService.PermissionHistory, Is.EqualTo(new[] { true, false }),
+                "The privacy-options result must forward the current UMP permission.");
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Settings));
+
+            app.StartNewShift(4242);
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Shift),
+                "Declining ad permission must not block gameplay.");
+        }
+
+        private static GameApp CreateApp(IAdService adService, IPrivacyService privacyService)
+        {
+            ServiceFactory.SetTestServices(adService, privacyService);
+            return new GameObject("GameAppRewardTestHost").AddComponent<GameApp>();
+        }
+
+        private static void SetEnglishLocale(GameApp app)
+        {
+            var localizer = (Localizer)typeof(GameApp)
+                .GetField("_localizer", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app);
+            localizer.SetLocale("en");
+        }
+
+        private static void CompleteShift(GameApp app)
+        {
+            var appType = typeof(GameApp);
+            var ruleEngineType = Type.GetType("CurioClerk.Core.Rules.RuleEngine, CurioClerk.Core");
+            app.StartNewShift(4242);
+            var sessionField = appType.GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic);
+            var rulesField = appType.GetField("_activeRules", BindingFlags.Instance | BindingFlags.NonPublic);
+            var choose = appType.GetMethod("ChooseDestination");
+            var ruleEngine = Activator.CreateInstance(ruleEngineType);
+            var resolve = ruleEngineType.GetMethod("Resolve");
+
+            for (var index = 0; index < 12; index++)
+            {
+                var session = sessionField.GetValue(app);
+                var artifact = session.GetType().GetProperty("CurrentArtifact").GetValue(session);
+                var expected = resolve.Invoke(ruleEngine, new[] { artifact, rulesField.GetValue(app) });
+                choose.Invoke(app, new[] { expected });
+            }
+        }
+
+        private static int Coins(GameApp app)
+        {
+            var save = typeof(GameApp).GetProperty("SaveData").GetValue(app);
+            return (int)save.GetType().GetField("coins").GetValue(save);
+        }
+
+        private static int SessionCoins(GameApp app)
+        {
+            var session = typeof(GameApp)
+                .GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app);
+            return (int)session.GetType().GetProperty("Coins").GetValue(session);
+        }
+
+        private static void RequestCompletedShiftReward(GameApp app)
+        {
+            typeof(GameApp)
+                .GetMethod("RequestReward", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(app, new object[] { true });
+        }
+
+        private static void InvokePrivate(GameApp app, string methodName)
+        {
+            typeof(GameApp)
+                .GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(app, null);
+        }
+
+        private static string FeedbackText()
+        {
+            var textType = Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro");
+            var feedback = GameObject.Find("RewardedAdFeedback");
+            Assert.That(feedback, Is.Not.Null, "A terminal ad result must be visible to the player.");
+            return (string)textType.GetProperty("text").GetValue(feedback.GetComponent(textType));
+        }
+
+        private readonly struct RewardFeedbackCase
+        {
+            public RewardFeedbackCase(RewardedAdResult result, string expectedFeedback)
+            {
+                Result = result;
+                ExpectedFeedback = expectedFeedback;
+            }
+
+            public RewardedAdResult Result { get; }
+
+            public string ExpectedFeedback { get; }
+        }
+
+        private sealed class DeferredAdService : IAdService
+        {
+            private Action<RewardedAdResult> _completed;
+
+            public bool IsRewardedReady => PermissionHistory.Count > 0 && PermissionHistory[PermissionHistory.Count - 1];
+
+            public List<bool> PermissionHistory { get; } = new List<bool>();
+
+            public void SetRequestPermission(bool allowed)
+            {
+                PermissionHistory.Add(allowed);
+            }
+
+            public void ShowRewarded(string placement, Action<RewardedAdResult> completed)
+            {
+                _completed = completed;
+            }
+
+            public void Emit(RewardedAdResult result)
+            {
+                Assert.That(_completed, Is.Not.Null, "No rewarded-ad request is pending.");
+                _completed(result);
+            }
+        }
+
+        private sealed class ControllablePrivacyService : IPrivacyService
+        {
+            public bool CanRequestAds { get; set; } = true;
+
+            public bool PrivacyOptionsRequired { get; set; }
+
+            public void RequestConsent(Action<bool> completed)
+            {
+                completed?.Invoke(CanRequestAds);
+            }
+
+            public void ShowPrivacyOptions(Action<bool> completed)
+            {
+                completed?.Invoke(CanRequestAds);
+            }
         }
     }
 }

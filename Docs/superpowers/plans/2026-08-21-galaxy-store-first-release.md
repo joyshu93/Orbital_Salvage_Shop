@@ -805,11 +805,11 @@ git commit -m "feat: connect consent-aware rewards"
 - Consumes: environment values `CURIO_ADMOB_APP_ID`, `CURIO_ADMOB_REWARDED_ID`, `CURIO_ANDROID_KEYSTORE_PATH`, `CURIO_ANDROID_KEYSTORE_PASS`, `CURIO_ANDROID_KEY_ALIAS`, and `CURIO_ANDROID_KEY_PASS` supplied only to the human-run release process.
 - Produces: `Builds/Android/CurioClerk.aab`, public symbols zip, and `Builds/Android/CurioClerk-build.json` containing non-secret build metadata and SHA-256.
 
-- [ ] **Step 1: Add failing Editor contract tests**
+- [x] **Step 1: Add failing Editor contract tests**
 
 Extend `EditorAutomationContractTests` to require `ProjectBuilder.ValidateServiceIds(string, string)`, `ProjectBuilder.ValidateReleaseEnvironment()`, `ProjectBuilder.BuildAndroid()`, and `ReleaseBuildManifest.Write(string)`. Call only the pure `ValidateServiceIds` method in tests and assert that it rejects blank, malformed, or Google sample IDs without starting a Unity build.
 
-- [ ] **Step 2: Implement local service configuration generation**
+- [x] **Step 2: Implement local service configuration generation**
 
 `ServiceConfiguration` contains one serialized `AndroidRewardedAdUnitId` and is loaded from `Resources`. `ProjectBuilder.ValidateReleaseEnvironment` reads the two AdMob values, validates `ca-app-pub-<digits>~<digits>` for the app and `ca-app-pub-<digits>/<digits>` for rewarded, rejects Google sample IDs, writes the rewarded ID to the ignored Resources asset, and uses `SerializedObject` at `Assets/GoogleMobileAds/Resources/GoogleMobileAdsSettings.asset` to set `adMobAndroidAppId`. Never log either full ID.
 
@@ -817,7 +817,7 @@ In non-development Android builds, `ServiceFactory` loads the generated `Service
 
 Configure the keystore from environment only for the release build and clear the in-memory password fields in a `finally` block after `BuildPipeline.BuildPlayer` returns.
 
-- [ ] **Step 3: Write the build manifest**
+- [x] **Step 3: Write the build manifest**
 
 After a successful AAB build, compute SHA-256 and serialize:
 
@@ -838,7 +838,7 @@ After a successful AAB build, compute SHA-256 and serialize:
 
 No filesystem username, service ID, keystore path, or password may appear.
 
-- [ ] **Step 4: Harden the PowerShell build wrapper**
+- [x] **Step 4: Harden the PowerShell build wrapper**
 
 `scripts/build-android.ps1` must run `scripts/check-no-remote-telemetry.ps1 -Mode Release` and fail before Unity starts if the telemetry boundary fails or any of the six environment values are absent. It must not print secret values. It accepts AdMob configuration only and has no remote-telemetry configuration or upload step. After build, require the AAB, general IL2CPP debugging archive, and JSON manifest; compare the manifest SHA-256 with `Get-FileHash`.
 
@@ -866,7 +866,7 @@ Human-run commands after exporting the six environment values in the current ter
 
 Expected: tests pass, all three build artifacts exist, SHA-256 values match, bundletool validation succeeds, and no secret appears in Git status or logs.
 
-- [ ] **Step 7: Commit build automation without generated artifacts or secrets**
+- [x] **Step 7: Commit build automation without generated artifacts or secrets**
 
 ```powershell
 git add Assets/Scripts/Runtime/Infrastructure/ServiceConfiguration.cs Assets/Scripts/Runtime/Infrastructure/ServiceConfiguration.cs.meta Assets/Scripts/Runtime/Infrastructure/ServiceFactory.cs Assets/Scripts/Editor/ReleaseBuildManifest.cs Assets/Scripts/Editor/ReleaseBuildManifest.cs.meta Assets/Scripts/Editor/ProjectBuilder.cs scripts/build-android.ps1 scripts/inspect-aab.ps1 tools/bundletool/.gitkeep .gitignore Docs/ServiceSetup.md

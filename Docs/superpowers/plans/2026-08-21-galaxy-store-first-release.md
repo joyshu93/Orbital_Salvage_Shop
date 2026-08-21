@@ -892,7 +892,7 @@ git commit -m "build: validate signed Galaxy Store bundles"
 
 - [ ] **Step 1: Expand the release-doc gate before creating store files**
 
-Require every file listed above and make Submission mode fail when any contains unresolved bracketed identity/date tokens, claims an account/backend/IAP, omits rewarded-ad disclosure, declares absent remote gameplay/crash telemetry, or describes AdMob/UMP data types that disagree with `Docs/PrivacyPolicy.md`. The repository no-remote gate remains a separate required release check.
+Require every file listed above and make Submission mode fail when any contains unresolved bracketed identity/date tokens, claims an account/backend/IAP, omits rewarded-ad disclosure, claims collection of the absent remote gameplay/crash telemetry, or describes AdMob/UMP data types that disagree with `Docs/PrivacyPolicy.md`. The repository no-remote gate remains a separate required release check.
 
 - [ ] **Step 2: Run the gate and verify failure**
 
@@ -929,7 +929,7 @@ git add Docs/Store Docs/ReleaseEvidence/1.0.0/README.md Docs/ReleaseChecklist.md
 git commit -m "docs: prepare Galaxy Store submission package"
 ```
 
-Expected: documentation gate passes.
+Expected for agent-completable work: Repository mode passes. Submission mode remains intentionally blocked until the developer supplies the real public identity/date/privacy-hosting values and the separate Release no-remote gate passes after human Unity package resolution.
 
 ### Task 11: Execute the no-tester technical validation matrix
 

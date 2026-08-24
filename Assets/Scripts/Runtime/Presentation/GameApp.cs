@@ -22,6 +22,17 @@ namespace CurioClerk.Presentation
 {
     public sealed class GameApp : MonoBehaviour
     {
+        private enum TutorialStage
+        {
+            None,
+            FirstSort,
+            PrioritySort,
+            Hold,
+            SortAfterHold,
+            FinalSort,
+            Complete
+        }
+
         private static TMP_FontAsset s_InterfaceFont;
         private static readonly Color Plum = Hex("#351B2B");
         private static readonly Color Wine = Hex("#5B2944");
@@ -32,6 +43,7 @@ namespace CurioClerk.Presentation
         private static readonly Color DustyRose = Hex("#B56D78");
 
         private readonly ShiftGenerator _shiftGenerator = new ShiftGenerator();
+        private readonly RuleEngine _ruleEngine = new RuleEngine();
         private readonly ProgressionService _progression = new ProgressionService();
         private readonly HashSet<string> _seenThisShift = new HashSet<string>(StringComparer.Ordinal);
         private IReadOnlyList<ArtifactContent> _artifactContent;
@@ -52,7 +64,12 @@ namespace CurioClerk.Presentation
         private TMP_Text _currentTraits;
         private TMP_Text _heldText;
         private readonly TMP_Text[] _nextTexts = new TMP_Text[2];
+        private TMP_Text _ruleListText;
+        private TMP_Text _tutorialCoach;
+        private Button _holdButton;
+        private readonly Button[] _destinationButtons = new Button[3];
         private readonly Outline[] _destinationHighlights = new Outline[3];
+        private Outline _holdHighlight;
         private Image _sortFeedbackPanel;
         private TMP_Text _statusText;
         private TMP_Text _hudText;
@@ -62,6 +79,7 @@ namespace CurioClerk.Presentation
         private bool _adConsentResolved;
         private bool _canRequestAds;
         private string _rewardFeedbackKey;
+        private TutorialStage _tutorialStage;
 
         public AppScreen ActiveScreen { get; private set; }
 
@@ -118,21 +136,18 @@ namespace CurioClerk.Presentation
 
         public void ShowTutorial()
         {
+            _tutorialStage = TutorialStage.None;
             ActiveScreen = AppScreen.Tutorial;
             var page = CreatePage("TutorialScreen");
             CreateText(page, "TutorialTitle", _localizer.Get("tutorial_title"), 48, Amber, TextAlignmentOptions.Center, new Vector2(0.10f, 0.72f), new Vector2(0.90f, 0.84f), true);
             CreateText(page, "TutorialBody", _localizer.Get("tutorial_body"), 30, Paper, TextAlignmentOptions.Top, new Vector2(0.12f, 0.39f), new Vector2(0.88f, 0.69f));
-            CreateText(page, "TutorialIcons", "[ 1 ]  REPAIR     [ 2 ]  STORAGE     [ 3 ]  VAULT\n\n                        [ HOLD ]", 25, Amber, TextAlignmentOptions.Center, new Vector2(0.08f, 0.24f), new Vector2(0.92f, 0.39f), true);
-            CreateButton(page, "BeginTutorialShiftButton", _localizer.Get("begin"), new Vector2(0.18f, 0.11f), new Vector2(0.82f, 0.20f), Amber, Ink, () =>
-            {
-                _save.tutorialCompleted = true;
-                Save();
-                StartNewShift(1107);
-            });
+            CreateText(page, "TutorialIcons", _localizer.Get("tutorial_controls"), 25, Amber, TextAlignmentOptions.Center, new Vector2(0.08f, 0.24f), new Vector2(0.92f, 0.39f), true);
+            CreateButton(page, "BeginTutorialShiftButton", _localizer.Get("begin"), new Vector2(0.18f, 0.11f), new Vector2(0.82f, 0.20f), Amber, Ink, StartTutorialShift);
         }
 
         public void StartNewShift(int seed)
         {
+            _tutorialStage = TutorialStage.None;
             var band = Mathf.Clamp(1 + _save.completedShifts / 5, 1, 5);
             var artifacts = _artifactContent.Select(item => item.ToArtifact()).ToArray();
             _plannedQueue = _shiftGenerator.GenerateArtifactQueue(seed, artifacts, 12);
@@ -150,6 +165,12 @@ namespace CurioClerk.Presentation
         {
             if (_session == null || _session.State != ShiftState.Active)
             {
+                return;
+            }
+
+            if (IsTutorialActive)
+            {
+                ChooseTutorialDestination(destination);
                 return;
             }
 
@@ -175,6 +196,12 @@ namespace CurioClerk.Presentation
 
         public void HoldCurrent()
         {
+            if (IsTutorialActive)
+            {
+                HoldTutorialArtifact();
+                return;
+            }
+
             if (_session != null && _session.Hold())
             {
                 RefreshShiftView();
@@ -256,11 +283,19 @@ namespace CurioClerk.Presentation
             var page = CreatePage("ShiftScreen");
             _hudText = CreateText(page, "ShiftHud", string.Empty, 26, Paper, TextAlignmentOptions.Center, new Vector2(0.07f, 0.93f), new Vector2(0.93f, 0.98f), true);
             CreateText(page, "RulesHeader", _localizer.Get("rules"), 23, Amber, TextAlignmentOptions.Left, new Vector2(0.07f, 0.84f), new Vector2(0.93f, 0.90f), true);
-            CreateText(page, "RuleList", RulesText(), 22, Paper, TextAlignmentOptions.TopLeft, new Vector2(0.07f, 0.68f), new Vector2(0.93f, 0.85f));
+            _ruleListText = CreateText(page, "RuleList", RulesText(), 22, Paper, TextAlignmentOptions.TopLeft, new Vector2(0.07f, 0.68f), new Vector2(0.93f, 0.85f));
 
             _nextTexts[0] = CreateText(page, "NextPreview0", string.Empty, 19, Paper, TextAlignmentOptions.Center, new Vector2(0.07f, 0.59f), new Vector2(0.34f, 0.66f), true);
             _nextTexts[1] = CreateText(page, "NextPreview1", string.Empty, 19, Paper, TextAlignmentOptions.Center, new Vector2(0.365f, 0.59f), new Vector2(0.635f, 0.66f), true);
             _heldText = CreateText(page, "HeldArtifactText", string.Empty, 19, Amber, TextAlignmentOptions.Center, new Vector2(0.66f, 0.59f), new Vector2(0.94f, 0.66f), true);
+            _tutorialCoach = null;
+            if (IsTutorialActive)
+            {
+                _nextTexts[0].gameObject.SetActive(false);
+                _nextTexts[1].gameObject.SetActive(false);
+                var coachPanel = CreatePanel(page, "TutorialCoachPanel", Wine, new Vector2(0.05f, 0.59f), new Vector2(0.65f, 0.67f));
+                _tutorialCoach = CreateText(coachPanel, "TutorialCoach", string.Empty, 20, Paper, TextAlignmentOptions.Center, new Vector2(0.04f, 0.05f), new Vector2(0.96f, 0.95f), true);
+            }
 
             var card = CreatePanel(page, "CurrentArtifactCard", Paper, new Vector2(0.10f, 0.27f), new Vector2(0.90f, 0.58f));
             _currentSymbol = CreateText(card, "ArtifactSymbol", string.Empty, 84, Wine, TextAlignmentOptions.Center, new Vector2(0.05f, 0.62f), new Vector2(0.28f, 0.94f), true);
@@ -268,7 +303,8 @@ namespace CurioClerk.Presentation
             _currentDescription = CreateText(card, "ArtifactDescription", string.Empty, 24, Ink, TextAlignmentOptions.TopLeft, new Vector2(0.08f, 0.27f), new Vector2(0.92f, 0.68f));
             _currentTraits = CreateText(card, "ArtifactTraits", string.Empty, 20, Wine, TextAlignmentOptions.Center, new Vector2(0.08f, 0.07f), new Vector2(0.92f, 0.24f), true);
 
-            CreateButton(page, "HoldButton", _localizer.Get("hold"), new Vector2(0.36f, 0.21f), new Vector2(0.64f, 0.26f), Wine, Paper, HoldCurrent);
+            _holdButton = CreateButton(page, "HoldButton", _localizer.Get("hold"), new Vector2(0.36f, 0.21f), new Vector2(0.64f, 0.26f), Wine, Paper, HoldCurrent);
+            _holdHighlight = CreateButtonHighlight(_holdButton);
             var feedbackPanel = CreatePanel(page, "SortFeedbackPanel", Color.clear, new Vector2(0.05f, 0.155f), new Vector2(0.95f, 0.205f));
             _sortFeedbackPanel = feedbackPanel.GetComponent<Image>();
             _statusText = CreateText(feedbackPanel, "SortFeedback", string.Empty, 21, Paper, TextAlignmentOptions.Center, Vector2.zero, Vector2.one, true);
@@ -276,9 +312,12 @@ namespace CurioClerk.Presentation
             var repair = CreateButton(page, "RepairButton", _localizer.Get("repair"), new Vector2(0.05f, 0.04f), new Vector2(0.32f, 0.14f), DustyRose, Paper, () => ChooseDestination(Destination.Repair));
             var storage = CreateButton(page, "StorageButton", _localizer.Get("storage"), new Vector2(0.365f, 0.04f), new Vector2(0.635f, 0.14f), Sage, Paper, () => ChooseDestination(Destination.Storage));
             var vault = CreateButton(page, "VaultButton", _localizer.Get("vault"), new Vector2(0.68f, 0.04f), new Vector2(0.95f, 0.14f), Amber, Ink, () => ChooseDestination(Destination.Vault));
-            _destinationHighlights[(int)Destination.Repair] = CreateDestinationHighlight(repair);
-            _destinationHighlights[(int)Destination.Storage] = CreateDestinationHighlight(storage);
-            _destinationHighlights[(int)Destination.Vault] = CreateDestinationHighlight(vault);
+            _destinationButtons[(int)Destination.Repair] = repair;
+            _destinationButtons[(int)Destination.Storage] = storage;
+            _destinationButtons[(int)Destination.Vault] = vault;
+            _destinationHighlights[(int)Destination.Repair] = CreateButtonHighlight(repair);
+            _destinationHighlights[(int)Destination.Storage] = CreateButtonHighlight(storage);
+            _destinationHighlights[(int)Destination.Vault] = CreateButtonHighlight(vault);
             card.gameObject.AddComponent<ArtifactDragHandler>().Configure(
                 new[]
                 {
@@ -288,6 +327,151 @@ namespace CurioClerk.Presentation
                 },
                 index => ChooseDestination((Destination)index));
             RefreshShiftView();
+            RefreshTutorialGuidance();
+        }
+
+        private bool IsTutorialActive =>
+            _tutorialStage >= TutorialStage.FirstSort &&
+            _tutorialStage <= TutorialStage.FinalSort;
+
+        private void StartTutorialShift()
+        {
+            var tutorialIds = new[] { "sleeping-teacup", "mirror-seed", "thimble-storm", "whispering-key" };
+            _plannedQueue = tutorialIds.Select(id => _artifactById[id].ToArtifact()).ToArray();
+            _activeRules = new[]
+            {
+                new SortingRule("tutorial-fragile-repair", ArtifactTraits.Fragile, ArtifactTraits.None, Destination.Repair, false),
+                new SortingRule("tutorial-cursed-vault", ArtifactTraits.Cursed, ArtifactTraits.None, Destination.Vault, false),
+                new SortingRule("tutorial-fallback-storage", ArtifactTraits.None, ArtifactTraits.None, Destination.Storage, true)
+            };
+            _session = new ShiftSession(_plannedQueue, _activeRules);
+            _seenThisShift.Clear();
+            _sortedCount = 0;
+            _resultApplied = false;
+            _appliedResultCoins = 0;
+            _rewardFeedbackKey = null;
+            _tutorialStage = TutorialStage.FirstSort;
+            BuildShiftScreen();
+        }
+
+        private void ChooseTutorialDestination(Destination destination)
+        {
+            if (_tutorialStage == TutorialStage.Hold)
+            {
+                _sortFeedbackPanel.color = Wine;
+                _statusText.text = _localizer.Get("tutorial_hold_first");
+                _statusText.color = Paper;
+                RefreshTutorialGuidance();
+                return;
+            }
+
+            var expected = _ruleEngine.Resolve(_session.CurrentArtifact, _activeRules);
+            if (destination != expected)
+            {
+                ShowSortFeedback(false, destination, expected);
+                return;
+            }
+
+            var outcome = _session.Sort(destination);
+            _sortedCount++;
+            ShowSortFeedback(true, destination, outcome.ExpectedDestination);
+            switch (_tutorialStage)
+            {
+                case TutorialStage.FirstSort:
+                    _tutorialStage = TutorialStage.PrioritySort;
+                    break;
+                case TutorialStage.PrioritySort:
+                    _tutorialStage = TutorialStage.Hold;
+                    break;
+                case TutorialStage.SortAfterHold:
+                    _tutorialStage = TutorialStage.FinalSort;
+                    break;
+                case TutorialStage.FinalSort:
+                    CompleteTutorial();
+                    return;
+            }
+
+            RefreshShiftView();
+            RefreshTutorialGuidance();
+        }
+
+        private void HoldTutorialArtifact()
+        {
+            if (_tutorialStage != TutorialStage.Hold)
+            {
+                _sortFeedbackPanel.color = Wine;
+                _statusText.text = _localizer.Get("tutorial_follow_step");
+                _statusText.color = Paper;
+                return;
+            }
+
+            if (_session.Hold())
+            {
+                _tutorialStage = TutorialStage.SortAfterHold;
+                RefreshShiftView();
+                RefreshTutorialGuidance();
+            }
+        }
+
+        private void RefreshTutorialGuidance()
+        {
+            if (!IsTutorialActive || _tutorialCoach == null)
+            {
+                return;
+            }
+
+            var guidanceKey = "tutorial_step_one";
+            var highlightedRule = -1;
+            var highlightedDestination = -1;
+            var holdEnabled = false;
+            var destinationsEnabled = true;
+            switch (_tutorialStage)
+            {
+                case TutorialStage.FirstSort:
+                    highlightedRule = 0;
+                    highlightedDestination = (int)Destination.Repair;
+                    break;
+                case TutorialStage.PrioritySort:
+                    guidanceKey = "tutorial_step_two";
+                    highlightedRule = 0;
+                    highlightedDestination = (int)Destination.Repair;
+                    break;
+                case TutorialStage.Hold:
+                    guidanceKey = "tutorial_step_hold";
+                    holdEnabled = true;
+                    destinationsEnabled = false;
+                    break;
+                case TutorialStage.SortAfterHold:
+                    guidanceKey = "tutorial_step_after_hold";
+                    highlightedRule = 1;
+                    highlightedDestination = (int)Destination.Vault;
+                    break;
+                case TutorialStage.FinalSort:
+                    guidanceKey = "tutorial_step_final";
+                    break;
+            }
+
+            _tutorialCoach.text = _localizer.Get(guidanceKey);
+            _ruleListText.text = RulesText(highlightedRule);
+            _holdButton.interactable = holdEnabled;
+            _holdHighlight.enabled = holdEnabled;
+            for (var index = 0; index < _destinationButtons.Length; index++)
+            {
+                _destinationButtons[index].interactable = destinationsEnabled;
+                _destinationHighlights[index].enabled = index == highlightedDestination;
+            }
+        }
+
+        private void CompleteTutorial()
+        {
+            _tutorialStage = TutorialStage.Complete;
+            _save.tutorialCompleted = true;
+            Save();
+            ActiveScreen = AppScreen.Tutorial;
+            var page = CreatePage("TutorialCompleteScreen");
+            CreateText(page, "TutorialCompleteTitle", _localizer.Get("tutorial_complete_title"), 58, Amber, TextAlignmentOptions.Center, new Vector2(0.10f, 0.62f), new Vector2(0.90f, 0.76f), true);
+            CreateText(page, "TutorialCompleteBody", _localizer.Get("tutorial_complete_body"), 30, Paper, TextAlignmentOptions.Center, new Vector2(0.14f, 0.39f), new Vector2(0.86f, 0.58f));
+            CreateButton(page, "TutorialStartShiftButton", _localizer.Get("tutorial_start_shift"), new Vector2(0.18f, 0.20f), new Vector2(0.82f, 0.30f), Amber, Ink, () => StartNewShift(_seedProvider.CreateStandardSeed(_save.completedShifts)));
         }
 
         private void ShowSortFeedback(bool wasCorrect, Destination selected, Destination expected)
@@ -667,7 +851,7 @@ namespace CurioClerk.Presentation
             return button;
         }
 
-        private static Outline CreateDestinationHighlight(Button button)
+        private static Outline CreateButtonHighlight(Button button)
         {
             var outline = button.gameObject.AddComponent<Outline>();
             outline.effectColor = Paper;
@@ -685,7 +869,7 @@ namespace CurioClerk.Presentation
             rect.offsetMax = Vector2.zero;
         }
 
-        private string RulesText()
+        private string RulesText(int highlightedRule = -1)
         {
             var lines = new List<string>(_activeRules.Count);
             for (var index = 0; index < _activeRules.Count; index++)
@@ -693,7 +877,8 @@ namespace CurioClerk.Presentation
                 var rule = _activeRules[index];
                 if (rule.IsFallback)
                 {
-                    lines.Add($"{index + 1}. {_localizer.Get("fallback")}");
+                    var fallbackLine = $"{index + 1}. {_localizer.Get("fallback")}";
+                    lines.Add(index == highlightedRule ? HighlightRule(fallbackLine) : fallbackLine);
                     continue;
                 }
 
@@ -704,11 +889,14 @@ namespace CurioClerk.Presentation
                     conditions = conditions.Replace(" · ", joiner);
                 }
 
-                lines.Add($"{index + 1}. {conditions}  →  {DestinationName(rule.Destination)}");
+                var line = $"{index + 1}. {conditions}  →  {DestinationName(rule.Destination)}";
+                lines.Add(index == highlightedRule ? HighlightRule(line) : line);
             }
 
             return string.Join("\n", lines);
         }
+
+        private static string HighlightRule(string line) => "<color=#E0A24B><b>" + line + "</b></color>";
 
         private string TraitsText(ArtifactTraits traits)
         {

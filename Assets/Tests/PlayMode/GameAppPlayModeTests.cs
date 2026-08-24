@@ -133,6 +133,109 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator Tutorial_BeginsFourArtifactGuidedShiftWithoutCompletingSave()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            var tutorialBefore = TutorialCompleted(app);
+            SetTutorialCompleted(app, false);
+            var completedBefore = CompletedShifts(app);
+            var coinsBefore = Coins(app);
+
+            BeginTutorial(app);
+            yield return null;
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Shift));
+            Assert.That(TutorialCompleted(app), Is.False,
+                "Opening the guided shift must not mark the tutorial complete.");
+            Assert.That(PlannedQueue(app).Count, Is.EqualTo(4));
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("sleeping-teacup"));
+            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("1 / 4"));
+            Assert.That(CompletedShifts(app), Is.EqualTo(completedBefore));
+            Assert.That(Coins(app), Is.EqualTo(coinsBefore));
+            SetTutorialCompleted(app, tutorialBefore);
+        }
+
+        [UnityTest]
+        public IEnumerator Tutorial_WrongSortPreservesArtifactAndHearts()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            var tutorialBefore = TutorialCompleted(app);
+            SetTutorialCompleted(app, false);
+            BeginTutorial(app);
+
+            ChooseDestination(app, 1);
+            yield return null;
+
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("sleeping-teacup"));
+            Assert.That(SessionHearts(app), Is.EqualTo(3));
+            Assert.That(ObjectText("SortFeedback"), Does.Contain("REPAIR"));
+            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("1 / 4"));
+            SetTutorialCompleted(app, tutorialBefore);
+        }
+
+        [UnityTest]
+        public IEnumerator Tutorial_ThirdLessonRequiresHoldBeforeSorting()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            var tutorialBefore = TutorialCompleted(app);
+            SetTutorialCompleted(app, false);
+            BeginTutorial(app);
+            ChooseDestination(app, 0);
+            ChooseDestination(app, 0);
+
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("thimble-storm"));
+            ChooseDestination(app, 1);
+            yield return null;
+
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("thimble-storm"));
+            Assert.That(SessionHearts(app), Is.EqualTo(3));
+            Assert.That(ObjectText("TutorialCoach"), Does.Contain("HOLD"));
+
+            app.HoldCurrent();
+            yield return null;
+
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("whispering-key"));
+            Assert.That(HeldArtifactId(app), Is.EqualTo("thimble-storm"));
+            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("3 / 4"));
+            SetTutorialCompleted(app, tutorialBefore);
+        }
+
+        [UnityTest]
+        public IEnumerator Tutorial_CompletionPersistsWithoutAwardingShiftProgression()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            var tutorialBefore = TutorialCompleted(app);
+            SetTutorialCompleted(app, false);
+            var completedBefore = CompletedShifts(app);
+            var coinsBefore = Coins(app);
+            var discoveredBefore = DiscoveredCount(app);
+            BeginTutorial(app);
+
+            ChooseDestination(app, 0);
+            ChooseDestination(app, 0);
+            app.HoldCurrent();
+            ChooseDestination(app, 2);
+            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("4 / 4"));
+            ChooseDestination(app, 1);
+            yield return null;
+
+            Assert.That(TutorialCompleted(app), Is.True);
+            Assert.That(GameObject.Find("TutorialCompleteScreen"), Is.Not.Null);
+            Assert.That(CompletedShifts(app), Is.EqualTo(completedBefore));
+            Assert.That(Coins(app), Is.EqualTo(coinsBefore));
+            Assert.That(DiscoveredCount(app), Is.EqualTo(discoveredBefore));
+            SetTutorialCompleted(app, tutorialBefore);
+        }
+
+        [UnityTest]
         public IEnumerator CorrectSort_ShowsPositiveBannerAndHighlightsSelectedDestination()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
@@ -466,6 +569,26 @@ namespace CurioClerk.Tests.PlayMode
             localizer.SetLocale(locale);
         }
 
+        private static void BeginTutorial(GameApp app)
+        {
+            app.ShowTutorial();
+            ClickButton("BeginTutorialShiftButton");
+        }
+
+        private static void ClickButton(string objectName)
+        {
+            var button = GameObject.Find(objectName);
+            Assert.That(button, Is.Not.Null, objectName + " must exist in the active view.");
+            button.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+        }
+
+        private static void ChooseDestination(GameApp app, int destinationValue)
+        {
+            var destinationType = Type.GetType("CurioClerk.Core.Rules.Destination, CurioClerk.Core");
+            var destination = Enum.ToObject(destinationType, destinationValue);
+            typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { destination });
+        }
+
         private static void CompleteShift(GameApp app)
         {
             var appType = typeof(GameApp);
@@ -580,6 +703,37 @@ namespace CurioClerk.Tests.PlayMode
             return typeof(GameApp)
                 .GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic)
                 .GetValue(app);
+        }
+
+        private static IList PlannedQueue(GameApp app)
+        {
+            return (IList)typeof(GameApp)
+                .GetField("_plannedQueue", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app);
+        }
+
+        private static string CurrentArtifactId(GameApp app)
+        {
+            var artifact = Session(app).GetType().GetProperty("CurrentArtifact").GetValue(Session(app));
+            return (string)artifact.GetType().GetProperty("Id").GetValue(artifact);
+        }
+
+        private static string HeldArtifactId(GameApp app)
+        {
+            var artifact = Session(app).GetType().GetProperty("HeldArtifact").GetValue(Session(app));
+            return artifact == null ? null : (string)artifact.GetType().GetProperty("Id").GetValue(artifact);
+        }
+
+        private static bool TutorialCompleted(GameApp app)
+        {
+            var save = typeof(GameApp).GetProperty("SaveData").GetValue(app);
+            return (bool)save.GetType().GetField("tutorialCompleted").GetValue(save);
+        }
+
+        private static void SetTutorialCompleted(GameApp app, bool completed)
+        {
+            var save = typeof(GameApp).GetProperty("SaveData").GetValue(app);
+            save.GetType().GetField("tutorialCompleted").SetValue(save, completed);
         }
 
         private static int CompletedShifts(GameApp app)

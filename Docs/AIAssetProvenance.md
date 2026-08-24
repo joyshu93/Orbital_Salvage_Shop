@@ -83,6 +83,24 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Store submission decision | Treat the images and any store screenshot prominently containing them as AI-assisted/generated media wherever the selected store asks. Recheck current Samsung submission wording at upload time. |
 | Release status | **Vertical-slice prototype — not approved for RC.** Requires developer visual review in Unity, similarity/trademark review, any desired direct human repaint/composition adjustment, and explicit human release approval. |
 
+### ART-VSLICE-002 — standard-shift curio set
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Assets/Resources/Art/Artifacts/clockwork-moth.png`; `rain-jar.png`; `moon-umbrella.png`; `silent-bell.png` |
+| SHA-256 | Moth `893B752DA3D8BD5BB5A0D4DD9A044BAEC35DBE5D9B5FD90C8BA428A7AA77BAC2`; jar `E485852C8611CC442AAEC371B0E333E6536C887D0345999E7C0621BF8180DE0C`; umbrella `3FFD4A6B696EDA32124AB9193ED6E286AA555B112F3CCA4921FBE07BEB44F454`; bell `273CADF80AE3C961B5C9030A9002A37CD6BBB4EC0F02EE1E14733E203A5813BB` |
+| Dimensions | Each artifact 1254 × 1254, 32-bit ARGB PNG with transparent corners |
+| Tool | Built-in OpenAI ImageGen invoked through Codex |
+| Creation evidence | Generated, background-extracted, technically checked, and selected 2026-08-24 KST. Exact normalized prompts and shared correction constraints are retained in `Docs/VisualSlicePrompts.md`. |
+| Reference inputs | Only the project-owned `sleeping-teacup.png` and `mirror-seed.png` from `ART-VSLICE-001`, used as palette, brushwork, outline, lighting, and mobile-readability references. |
+| Input rights basis | No third-party image, named artist, studio, franchise, brand, person, or private material was supplied. The user approved the Phase 2 subject list and recommended integration scope. |
+| Human direction | Codex translated the approved catalog subjects and traits into composition, material, readability, palette, mood, and negative constraints. The developer approved the product direction and implementation scope. |
+| Human edits | No manual repaint or redraw is claimed. Codex selected the displayed outputs, rejected the opaque checkerboard backgrounds, directed background-only alpha extraction, verified pixel format and corner alpha, named files, and integrated them into the existing resource path. |
+| Similarity and trademark review | Prompts prohibited protected characters, brands, logos, named styles, likenesses, signatures, and watermarks. No intentional protected element or visible mark was identified in the selected outputs. Broader similarity and final human release review remain open. |
+| Intended uses | Standard-shift current, next, and held artifact illustrations in the in-game vertical slice. Store screenshots require the release gate below. |
+| Store submission decision | Treat the images and prominent screenshots containing them as AI-assisted/generated media wherever the selected store asks. Recheck the selected store's current wording at upload time. |
+| Release status | **Vertical-slice prototype — not approved for RC.** Requires in-Unity composition review, similarity/trademark review, any desired human repaint or adjustment, and explicit developer release approval. |
+
 ### DEV-CODE-001 — initial project implementation
 
 | Field | Record |

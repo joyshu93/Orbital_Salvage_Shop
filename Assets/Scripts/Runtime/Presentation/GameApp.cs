@@ -65,6 +65,8 @@ namespace CurioClerk.Presentation
         private Image _artifactIllustration;
         private TMP_Text _heldText;
         private readonly TMP_Text[] _nextTexts = new TMP_Text[2];
+        private Image _heldIllustration;
+        private readonly Image[] _nextIllustrations = new Image[2];
         private TMP_Text _ruleListText;
         private TMP_Text _tutorialCoach;
         private Button _holdButton;
@@ -141,7 +143,7 @@ namespace CurioClerk.Presentation
             ActiveScreen = AppScreen.Tutorial;
             var page = CreatePage("TutorialScreen");
             CreateText(page, "TutorialTitle", _localizer.Get("tutorial_title"), 48, Amber, TextAlignmentOptions.Center, new Vector2(0.10f, 0.72f), new Vector2(0.90f, 0.84f), true);
-            CreateText(page, "TutorialBody", _localizer.Get("tutorial_body"), 30, Paper, TextAlignmentOptions.Top, new Vector2(0.12f, 0.39f), new Vector2(0.88f, 0.69f));
+            CreateText(page, "TutorialBody", _localizer.Get("tutorial_body"), 27, Paper, TextAlignmentOptions.Top, new Vector2(0.07f, 0.39f), new Vector2(0.93f, 0.69f));
             CreateText(page, "TutorialIcons", _localizer.Get("tutorial_controls"), 25, Amber, TextAlignmentOptions.Center, new Vector2(0.08f, 0.24f), new Vector2(0.92f, 0.39f), true);
             CreateButton(page, "BeginTutorialShiftButton", _localizer.Get("begin"), new Vector2(0.18f, 0.11f), new Vector2(0.82f, 0.20f), Amber, Ink, StartTutorialShift);
         }
@@ -203,8 +205,14 @@ namespace CurioClerk.Presentation
                 return;
             }
 
+            var consumesQueuedArtifact = _session?.HeldArtifact == null;
             if (_session != null && _session.Hold())
             {
+                if (consumesQueuedArtifact)
+                {
+                    _sortedCount++;
+                }
+
                 RefreshShiftView();
             }
         }
@@ -288,9 +296,9 @@ namespace CurioClerk.Presentation
             CreateText(rulesPanel, "RulesHeader", _localizer.Get("rules"), 23, Amber, TextAlignmentOptions.Left, new Vector2(0.035f, 0.70f), new Vector2(0.965f, 0.94f), true);
             _ruleListText = CreateText(rulesPanel, "RuleList", RulesText(), 22, Paper, TextAlignmentOptions.TopLeft, new Vector2(0.035f, 0.05f), new Vector2(0.965f, 0.72f));
 
-            _nextTexts[0] = CreateText(page, "NextPreview0", string.Empty, 19, Paper, TextAlignmentOptions.Center, new Vector2(0.07f, 0.59f), new Vector2(0.34f, 0.66f), true);
-            _nextTexts[1] = CreateText(page, "NextPreview1", string.Empty, 19, Paper, TextAlignmentOptions.Center, new Vector2(0.365f, 0.59f), new Vector2(0.635f, 0.66f), true);
-            _heldText = CreateText(page, "HeldArtifactText", string.Empty, 19, Amber, TextAlignmentOptions.Center, new Vector2(0.66f, 0.59f), new Vector2(0.94f, 0.66f), true);
+            _nextIllustrations[0] = CreateArtifactPreview(page, "NextPreviewCard0", "NextPreviewArtwork0", "NextPreview0", Paper, new Vector2(0.05f, 0.59f), new Vector2(0.34f, 0.66f), out _nextTexts[0]);
+            _nextIllustrations[1] = CreateArtifactPreview(page, "NextPreviewCard1", "NextPreviewArtwork1", "NextPreview1", Paper, new Vector2(0.355f, 0.59f), new Vector2(0.645f, 0.66f), out _nextTexts[1]);
+            _heldIllustration = CreateArtifactPreview(page, "HeldPreviewCard", "HeldPreviewArtwork", "HeldArtifactText", Amber, new Vector2(0.66f, 0.59f), new Vector2(0.95f, 0.66f), out _heldText);
             _tutorialCoach = null;
             if (IsTutorialActive)
             {
@@ -414,8 +422,14 @@ namespace CurioClerk.Presentation
                 return;
             }
 
+            var consumesQueuedArtifact = _session.HeldArtifact == null;
             if (_session.Hold())
             {
+                if (consumesQueuedArtifact)
+                {
+                    _sortedCount++;
+                }
+
                 _tutorialStage = TutorialStage.SortAfterHold;
                 RefreshShiftView();
                 RefreshTutorialGuidance();
@@ -518,11 +532,13 @@ namespace CurioClerk.Presentation
             if (_session.HeldArtifact == null)
             {
                 _heldText.text = _localizer.Get("hold") + "\n—";
+                SetPreviewArtwork(_heldIllustration, null);
             }
             else
             {
                 var heldContent = _artifactById[_session.HeldArtifact.Id];
                 _heldText.text = _localizer.Get("hold") + "\n" + heldContent.Symbol + "  " + Name(heldContent);
+                SetPreviewArtwork(_heldIllustration, heldContent.Id);
             }
 
             for (var index = 0; index < _nextTexts.Length; index++)
@@ -532,10 +548,12 @@ namespace CurioClerk.Presentation
                 {
                     var nextContent = _artifactById[_plannedQueue[queueIndex].Id];
                     _nextTexts[index].text = _localizer.Get("next") + " " + (index + 1) + "\n" + nextContent.Symbol + "  " + Name(nextContent);
+                    SetPreviewArtwork(_nextIllustrations[index], nextContent.Id);
                 }
                 else
                 {
                     _nextTexts[index].text = _localizer.Get("next") + " " + (index + 1) + "\n—";
+                    SetPreviewArtwork(_nextIllustrations[index], null);
                 }
             }
 
@@ -871,6 +889,22 @@ namespace CurioClerk.Presentation
             image.preserveAspect = true;
             image.raycastTarget = false;
             return image;
+        }
+
+        private static Image CreateArtifactPreview(Transform parent, string panelName, string artworkName, string labelName, Color accent, Vector2 min, Vector2 max, out TMP_Text label)
+        {
+            var panel = CreatePanel(parent, panelName, new Color(Wine.r, Wine.g, Wine.b, 0.88f), min, max);
+            AddSurfaceChrome(panel, accent, 1f, 0.20f);
+            var artwork = CreateArtworkImage(panel, artworkName, new Vector2(0.035f, 0.08f), new Vector2(0.29f, 0.92f));
+            label = CreateText(panel, labelName, string.Empty, 17, accent, TextAlignmentOptions.Center, new Vector2(0.29f, 0.04f), new Vector2(0.98f, 0.96f), true);
+            return artwork;
+        }
+
+        private static void SetPreviewArtwork(Image preview, string artifactId)
+        {
+            var sprite = VisualAssetLibrary.Artifact(artifactId);
+            preview.sprite = sprite;
+            preview.enabled = sprite != null;
         }
 
         private static Button CreateButton(Transform parent, string name, string label, Vector2 min, Vector2 max, Color background, Color foreground, UnityEngine.Events.UnityAction action)

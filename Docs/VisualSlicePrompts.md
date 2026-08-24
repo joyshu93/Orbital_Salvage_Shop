@@ -90,8 +90,78 @@ Avoid: photorealism, horror, skulls, eyeballs, glossy 3D render, ornate clutter,
 
 ImageGen initially rendered the checkerboard as opaque pixels. A second background-extraction edit used the same preservation constraints as the Thimble Storm correction.
 
+## ART-VSLICE-ARTIFACT-005 — clockwork moth
+
+```text
+Use case: stylized-concept
+Asset type: transparent 2D mobile game artifact sprite
+Input images: project-owned Sleeping Teacup and Mirror Seed are style references only for brushwork, restrained dark-plum outline, warm lamplight, palette, and small-screen readability; do not copy their subjects or composition
+Primary request: an original Clockwork Moth curio for Curio Clerk, a warm occult lost-and-found sorting game
+Subject: exactly one small living clockwork moth, wings open in a calm readable silhouette, antique brass body with subtle wound-spring and gear details, deep-plum velvet wing panels, tiny parchment antennae, and one gentle amber glow in its thorax
+Style/medium: hand-painted gouache mobile-game inventory illustration; crisp silhouette; softly textured; cohesive with the project references
+Composition/framing: centered slight three-quarter top view, entire moth visible, symmetrical enough to read at 128 px, generous transparent padding, square sprite
+Lighting/mood: cozy lamplight, curious and friendly, not cute-childish
+Color palette: tarnished brass, deep plum, parchment highlights, restrained amber glow
+Materials/textures: brushed antique metal, matte velvet wing panels, fine painted gear details
+Constraints: genuinely transparent background; exactly one moth; no text, letters, numbers, logos, signature, watermark, hands, people, scenery, frame, flowers, extra insects, or imitation of any existing franchise, studio, artist, or character
+Avoid: photorealism, horror, steampunk clutter, exposed gore, glossy 3D render, neon, busy micro-details
+```
+
+## ART-VSLICE-ARTIFACT-006 — jar of Tuesday rain
+
+```text
+Use case: stylized-concept
+Asset type: transparent 2D mobile game artifact sprite
+Input images: project-owned Sleeping Teacup and Mirror Seed are style references only for hand-painted gouache texture, dark-plum outline, warm lamplight, palette, and mobile readability; do not copy their subjects
+Primary request: an original Jar of Tuesday Rain curio for Curio Clerk, a warm occult lost-and-found sorting game
+Subject: exactly one small round glass apothecary jar with an antique brass lid, containing a tiny looping rain shower and one suspended crescent of storm-gray cloud; a subtle clock-hand ripple inside suggests that the rain insists it is still Tuesday, without using any letters or numbers
+Style/medium: hand-painted gouache mobile-game inventory illustration; crisp silhouette; softly textured; cohesive with the project references
+Composition/framing: centered three-quarter view, entire closed jar visible, generous transparent padding, square sprite, readable at 128 px
+Lighting/mood: cozy lamplight, wistful and gently uncanny
+Color palette: smoky blue-gray rain, deep plum reflections, parchment glass highlights, tarnished brass, restrained amber glint
+Materials/textures: softly reflective old glass, brushed brass lid, painted cloud and water droplets
+Constraints: genuinely transparent background with alpha; exactly one jar; no label, text, letters, numbers, logos, signature, watermark, hands, people, scenery, frame, extra jars, or imitation of any existing franchise, studio, artist, or character
+Avoid: photorealism, horror, mason-jar branding, glossy 3D render, neon, busy background, opaque checkerboard pattern
+```
+
+## ART-VSLICE-ARTIFACT-007 — moon-mended umbrella
+
+```text
+Use case: stylized-concept
+Asset type: transparent 2D mobile game artifact sprite
+Input images: project-owned Sleeping Teacup and Mirror Seed are style references only for gouache brushwork, restrained plum outline, cozy light, palette, and mobile readability; do not copy their subjects
+Primary request: an original Moon-Mended Umbrella curio for Curio Clerk, a warm occult lost-and-found sorting game
+Subject: exactly one small folded vintage umbrella angled diagonally, deep-plum fabric carefully repaired with two delicate crescent-moon parchment patches that glow softly, a slim antique brass handle, and a few muted blue-gray raindrops clinging to the folds; the fragile repairs must remain readable
+Style/medium: hand-painted gouache mobile-game inventory illustration; crisp compact silhouette; softly textured; cohesive with the project references
+Composition/framing: centered three-quarter view, entire folded umbrella visible from tip to curved handle, generous transparent padding, square sprite, readable at 128 px
+Lighting/mood: cozy lamplight, rainy-night comfort, mysterious and welcoming
+Color palette: deep plum fabric, parchment moon patches, tarnished brass, muted blue-gray water, small amber highlights
+Materials/textures: worn cloth folds, hand-sewn patches, brushed metal handle, delicate wet glints
+Constraints: genuinely transparent background with alpha; exactly one folded umbrella; no text, letters, numbers, logos, signature, watermark, hands, people, scenery, frame, extra props, open umbrella canopy, or imitation of any existing franchise, studio, artist, or character
+Avoid: photorealism, horror, glossy 3D render, neon, busy background, opaque checkerboard pattern
+```
+
+## ART-VSLICE-ARTIFACT-008 — bell without a tongue
+
+```text
+Use case: stylized-concept
+Asset type: transparent 2D mobile game artifact sprite
+Input images: project-owned Sleeping Teacup and Mirror Seed are style references only for hand-painted gouache texture, restrained dark-plum outline, cozy lamplight, palette, and mobile readability; do not copy their subjects
+Primary request: an original Bell Without a Tongue curio for Curio Clerk, a warm occult lost-and-found sorting game
+Subject: exactly one small antique handbell standing upright, tarnished brass with deep-plum enamel accents and a clearly empty interior where the clapper should be; one very subtle parchment-colored sound ripple appears trapped along the rim, suggesting a bell that rings only in forgotten rooms
+Style/medium: hand-painted gouache mobile-game inventory illustration; crisp silhouette; softly textured; cohesive with the project references
+Composition/framing: centered three-quarter view with the hollow underside partly visible, entire bell and handle visible, generous transparent padding, square sprite, readable at 128 px
+Lighting/mood: cozy lamplight, wistful and quietly uncanny, welcoming rather than frightening
+Color palette: tarnished brass, deep plum enamel, parchment highlights, restrained amber reflection
+Materials/textures: worn engraved metal, matte enamel, soft painted spectral ripple
+Constraints: genuinely transparent background with alpha; exactly one bell; no clapper or tongue inside; no text, letters, numbers, logos, signature, watermark, hands, people, scenery, frame, extra bells, skulls, or imitation of any existing franchise, studio, artist, or character
+Avoid: photorealism, horror, church symbols, gore, glossy 3D render, neon, busy background, opaque checkerboard pattern
+```
+
+All four Phase 2 generations initially rendered their transparency preview checkerboard as opaque pixels. Each selected image received one background-extraction edit that removed only the checkerboard and required genuine transparent alpha while preserving the artifact, composition, scale, palette, brush texture, outline, and lighting.
+
 ## Technical validation record
 
-- The four selected sprites were checked as 32-bit ARGB PNGs with a corner alpha value of zero.
+- All eight selected sprites were checked as 32-bit ARGB PNGs with a corner alpha value of zero.
 - The desk background intentionally remains opaque.
 - Unity import compression and resizing are technical processing, not claimed human creative edits.

@@ -276,6 +276,79 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator ShiftPreviews_ShowArtworkForNextAndHeldArtifacts()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            var tutorialBefore = TutorialCompleted(app);
+            SetTutorialCompleted(app, false);
+
+            BeginTutorial(app);
+            yield return null;
+
+            var nextOne = GameObject.Find("NextPreviewArtwork0")?.GetComponent<UnityEngine.UI.Image>();
+            var nextTwo = GameObject.Find("NextPreviewArtwork1")?.GetComponent<UnityEngine.UI.Image>();
+            Assert.That(nextOne, Is.Not.Null, "The first next preview must provide an artwork surface.");
+            Assert.That(nextTwo, Is.Not.Null, "The second next preview must provide an artwork surface.");
+            Assert.That(nextOne.sprite?.name, Is.EqualTo("mirror-seed"));
+            Assert.That(nextTwo.sprite?.name, Is.EqualTo("thimble-storm"));
+
+            ChooseDestination(app, 0);
+            ChooseDestination(app, 0);
+            yield return null;
+
+            Assert.That(nextOne.sprite?.name, Is.EqualTo("whispering-key"));
+            Assert.That(nextTwo.enabled, Is.False);
+
+            app.HoldCurrent();
+            yield return null;
+
+            var held = GameObject.Find("HeldPreviewArtwork")?.GetComponent<UnityEngine.UI.Image>();
+            Assert.That(held, Is.Not.Null, "The hold preview must provide an artwork surface.");
+            Assert.That(held.sprite?.name, Is.EqualTo("thimble-storm"));
+            Assert.That(nextOne.enabled, Is.False,
+                "Holding into the last queued artifact must not also show that current artifact as next.");
+            SetTutorialCompleted(app, tutorialBefore);
+        }
+
+        [UnityTest]
+        public IEnumerator ShiftArtwork_UsesSymbolBadgeWhenIllustrationIsUnavailable()
+        {
+            var illustratedIds = new[]
+            {
+                "clockwork-moth",
+                "rain-jar",
+                "whispering-key",
+                "sleeping-teacup",
+                "moon-umbrella",
+                "silent-bell",
+                "thimble-storm",
+                "mirror-seed"
+            };
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+
+            for (var seed = 1; seed <= 64; seed++)
+            {
+                app.StartNewShift(seed);
+                if (Array.IndexOf(illustratedIds, CurrentArtifactId(app)) < 0)
+                {
+                    break;
+                }
+            }
+
+            Assert.That(Array.IndexOf(illustratedIds, CurrentArtifactId(app)), Is.LessThan(0),
+                "The deterministic seed search must select an artifact without bespoke artwork.");
+            var illustration = GameObject.Find("ArtifactIllustration").GetComponent<UnityEngine.UI.Image>();
+            var symbol = GameObject.Find("ArtifactSymbol");
+            Assert.That(illustration.enabled, Is.False);
+            Assert.That(symbol.activeSelf, Is.True,
+                "Artifacts without bespoke art must retain the readable symbol badge.");
+        }
+
+        [UnityTest]
         public IEnumerator CorrectSort_ShowsPositiveBannerAndHighlightsSelectedDestination()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());

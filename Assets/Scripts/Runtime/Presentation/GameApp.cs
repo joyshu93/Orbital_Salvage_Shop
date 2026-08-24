@@ -77,6 +77,7 @@ namespace CurioClerk.Presentation
             _adService = Infrastructure.ServiceFactory.CreateAdService();
             _privacy = Infrastructure.ServiceFactory.CreatePrivacyService();
             _seedProvider = new ShiftSeedProvider(new SystemClock());
+            EnsureDisplayCamera();
             BuildShell();
             ShowMenu();
             RequestAdConsent();
@@ -484,6 +485,23 @@ namespace CurioClerk.Presentation
             {
                 _saveStore.Save(_save);
             }
+        }
+
+        private void EnsureDisplayCamera()
+        {
+            var hasActiveCamera = FindObjectsByType<Camera>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                .Any(camera => camera.isActiveAndEnabled);
+            if (hasActiveCamera)
+            {
+                return;
+            }
+
+            var cameraObject = new GameObject("CurioClerkDisplayCamera", typeof(Camera));
+            cameraObject.transform.SetParent(transform, false);
+            var displayCamera = cameraObject.GetComponent<Camera>();
+            displayCamera.clearFlags = CameraClearFlags.SolidColor;
+            displayCamera.backgroundColor = Plum;
+            displayCamera.cullingMask = 0;
         }
 
         private void BuildShell()

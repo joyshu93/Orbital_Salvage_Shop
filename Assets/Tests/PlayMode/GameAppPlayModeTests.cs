@@ -70,6 +70,30 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator App_CreatesAnActiveCameraWhenSceneHasNone()
+        {
+            foreach (var camera in UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None))
+            {
+                UnityEngine.Object.DestroyImmediate(camera.gameObject);
+            }
+
+            Assert.That(UnityEngine.Object.FindFirstObjectByType<Camera>(), Is.Null,
+                "The test requires a scene with no camera, matching the generated Main scene.");
+
+            var host = new GameObject("GameAppCameraTestHost");
+            host.AddComponent<GameApp>();
+            yield return null;
+
+            var renderCamera = UnityEngine.Object.FindFirstObjectByType<Camera>();
+            Assert.That(renderCamera, Is.Not.Null,
+                "GameApp must supply a camera so the Game view does not show 'No cameras rendering'.");
+            Assert.That(renderCamera.isActiveAndEnabled, Is.True);
+
+            UnityEngine.Object.Destroy(host);
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator CompletedShift_IsSavedBeforeLeavingResults_AndOnlyCorrectSortsAreDiscovered()
         {
             var appType = Type.GetType("CurioClerk.Presentation.GameApp, CurioClerk.Runtime");

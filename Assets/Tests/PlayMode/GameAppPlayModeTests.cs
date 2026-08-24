@@ -236,6 +236,46 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator VisualSlice_ShowsDeskArtifactAndDestinationArtworkAndRefreshesCurrentArtifact()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            var tutorialBefore = TutorialCompleted(app);
+            SetTutorialCompleted(app, false);
+
+            BeginTutorial(app);
+            yield return null;
+
+            var desk = GameObject.Find("OccultDeskBackground").GetComponent<UnityEngine.UI.Image>();
+            var artifact = GameObject.Find("ArtifactIllustration").GetComponent<UnityEngine.UI.Image>();
+            Assert.That(desk.sprite, Is.Not.Null, "The vertical slice must use the illustrated desk backdrop.");
+            Assert.That(artifact.sprite, Is.Not.Null, "The current artifact card must use release-facing artwork.");
+            Assert.That(artifact.sprite.name, Is.EqualTo("sleeping-teacup"));
+            Assert.That(artifact.preserveAspect, Is.True);
+
+            foreach (var iconName in new[]
+                     {
+                         "RepairButtonIcon",
+                         "StorageButtonIcon",
+                         "VaultButtonIcon",
+                         "HoldButtonIcon"
+                     })
+            {
+                var icon = GameObject.Find(iconName)?.GetComponent<UnityEngine.UI.Image>();
+                Assert.That(icon, Is.Not.Null, iconName + " must exist in the active shift view.");
+                Assert.That(icon.sprite, Is.Not.Null, iconName + " must use a readable sprite.");
+            }
+
+            ChooseDestination(app, 0);
+            yield return null;
+
+            Assert.That(artifact.sprite.name, Is.EqualTo("mirror-seed"),
+                "The artifact illustration must follow the authoritative current artifact.");
+            SetTutorialCompleted(app, tutorialBefore);
+        }
+
+        [UnityTest]
         public IEnumerator CorrectSort_ShowsPositiveBannerAndHighlightsSelectedDestination()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());

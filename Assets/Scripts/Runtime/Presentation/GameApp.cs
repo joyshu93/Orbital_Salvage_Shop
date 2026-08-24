@@ -62,6 +62,7 @@ namespace CurioClerk.Presentation
         private TMP_Text _currentName;
         private TMP_Text _currentDescription;
         private TMP_Text _currentTraits;
+        private Image _artifactIllustration;
         private TMP_Text _heldText;
         private readonly TMP_Text[] _nextTexts = new TMP_Text[2];
         private TMP_Text _ruleListText;
@@ -282,8 +283,10 @@ namespace CurioClerk.Presentation
             ActiveScreen = AppScreen.Shift;
             var page = CreatePage("ShiftScreen");
             _hudText = CreateText(page, "ShiftHud", string.Empty, 26, Paper, TextAlignmentOptions.Center, new Vector2(0.07f, 0.93f), new Vector2(0.93f, 0.98f), true);
-            CreateText(page, "RulesHeader", _localizer.Get("rules"), 23, Amber, TextAlignmentOptions.Left, new Vector2(0.07f, 0.84f), new Vector2(0.93f, 0.90f), true);
-            _ruleListText = CreateText(page, "RuleList", RulesText(), 22, Paper, TextAlignmentOptions.TopLeft, new Vector2(0.07f, 0.68f), new Vector2(0.93f, 0.85f));
+            var rulesPanel = CreatePanel(page, "RulesPanel", new Color(Wine.r, Wine.g, Wine.b, 0.82f), new Vector2(0.045f, 0.675f), new Vector2(0.955f, 0.91f));
+            AddSurfaceChrome(rulesPanel, Amber, 2f, 0.28f);
+            CreateText(rulesPanel, "RulesHeader", _localizer.Get("rules"), 23, Amber, TextAlignmentOptions.Left, new Vector2(0.035f, 0.70f), new Vector2(0.965f, 0.94f), true);
+            _ruleListText = CreateText(rulesPanel, "RuleList", RulesText(), 22, Paper, TextAlignmentOptions.TopLeft, new Vector2(0.035f, 0.05f), new Vector2(0.965f, 0.72f));
 
             _nextTexts[0] = CreateText(page, "NextPreview0", string.Empty, 19, Paper, TextAlignmentOptions.Center, new Vector2(0.07f, 0.59f), new Vector2(0.34f, 0.66f), true);
             _nextTexts[1] = CreateText(page, "NextPreview1", string.Empty, 19, Paper, TextAlignmentOptions.Center, new Vector2(0.365f, 0.59f), new Vector2(0.635f, 0.66f), true);
@@ -297,13 +300,16 @@ namespace CurioClerk.Presentation
                 _tutorialCoach = CreateText(coachPanel, "TutorialCoach", string.Empty, 20, Paper, TextAlignmentOptions.Center, new Vector2(0.04f, 0.05f), new Vector2(0.96f, 0.95f), true);
             }
 
-            var card = CreatePanel(page, "CurrentArtifactCard", Paper, new Vector2(0.10f, 0.27f), new Vector2(0.90f, 0.58f));
-            _currentSymbol = CreateText(card, "ArtifactSymbol", string.Empty, 84, Wine, TextAlignmentOptions.Center, new Vector2(0.05f, 0.62f), new Vector2(0.28f, 0.94f), true);
-            _currentName = CreateText(card, "ArtifactName", string.Empty, 37, Ink, TextAlignmentOptions.Left, new Vector2(0.30f, 0.70f), new Vector2(0.94f, 0.93f), true);
-            _currentDescription = CreateText(card, "ArtifactDescription", string.Empty, 24, Ink, TextAlignmentOptions.TopLeft, new Vector2(0.08f, 0.27f), new Vector2(0.92f, 0.68f));
+            var card = CreatePanel(page, "CurrentArtifactCard", Paper, new Vector2(0.08f, 0.27f), new Vector2(0.92f, 0.58f));
+            AddSurfaceChrome(card, Amber, 3f, 0.34f);
+            _artifactIllustration = CreateArtworkImage(card, "ArtifactIllustration", new Vector2(0.035f, 0.18f), new Vector2(0.39f, 0.92f));
+            _currentSymbol = CreateText(card, "ArtifactSymbol", string.Empty, 84, Wine, TextAlignmentOptions.Center, new Vector2(0.05f, 0.31f), new Vector2(0.37f, 0.83f), true);
+            _currentName = CreateText(card, "ArtifactName", string.Empty, 35, Ink, TextAlignmentOptions.Left, new Vector2(0.41f, 0.68f), new Vector2(0.95f, 0.92f), true);
+            _currentDescription = CreateText(card, "ArtifactDescription", string.Empty, 22, Ink, TextAlignmentOptions.TopLeft, new Vector2(0.41f, 0.25f), new Vector2(0.94f, 0.68f));
             _currentTraits = CreateText(card, "ArtifactTraits", string.Empty, 20, Wine, TextAlignmentOptions.Center, new Vector2(0.08f, 0.07f), new Vector2(0.92f, 0.24f), true);
 
             _holdButton = CreateButton(page, "HoldButton", _localizer.Get("hold"), new Vector2(0.36f, 0.21f), new Vector2(0.64f, 0.26f), Wine, Paper, HoldCurrent);
+            AddButtonIcon(_holdButton, "HoldButtonIcon", VisualAssetLibrary.HoldIcon, Paper);
             _holdHighlight = CreateButtonHighlight(_holdButton);
             var feedbackPanel = CreatePanel(page, "SortFeedbackPanel", Color.clear, new Vector2(0.05f, 0.155f), new Vector2(0.95f, 0.205f));
             _sortFeedbackPanel = feedbackPanel.GetComponent<Image>();
@@ -312,6 +318,9 @@ namespace CurioClerk.Presentation
             var repair = CreateButton(page, "RepairButton", _localizer.Get("repair"), new Vector2(0.05f, 0.04f), new Vector2(0.32f, 0.14f), DustyRose, Paper, () => ChooseDestination(Destination.Repair));
             var storage = CreateButton(page, "StorageButton", _localizer.Get("storage"), new Vector2(0.365f, 0.04f), new Vector2(0.635f, 0.14f), Sage, Paper, () => ChooseDestination(Destination.Storage));
             var vault = CreateButton(page, "VaultButton", _localizer.Get("vault"), new Vector2(0.68f, 0.04f), new Vector2(0.95f, 0.14f), Amber, Ink, () => ChooseDestination(Destination.Vault));
+            AddButtonIcon(repair, "RepairButtonIcon", VisualAssetLibrary.RepairIcon, Paper);
+            AddButtonIcon(storage, "StorageButtonIcon", VisualAssetLibrary.StorageIcon, Paper);
+            AddButtonIcon(vault, "VaultButtonIcon", VisualAssetLibrary.VaultIcon, Ink);
             _destinationButtons[(int)Destination.Repair] = repair;
             _destinationButtons[(int)Destination.Storage] = storage;
             _destinationButtons[(int)Destination.Vault] = vault;
@@ -498,6 +507,10 @@ namespace CurioClerk.Presentation
             }
 
             var content = _artifactById[_session.CurrentArtifact.Id];
+            var artwork = VisualAssetLibrary.Artifact(content.Id);
+            _artifactIllustration.sprite = artwork;
+            _artifactIllustration.enabled = artwork != null;
+            _currentSymbol.gameObject.SetActive(artwork == null);
             _currentSymbol.text = content.Symbol;
             _currentName.text = Name(content);
             _currentDescription.text = Description(content);
@@ -736,6 +749,17 @@ namespace CurioClerk.Presentation
             scaler.matchWidthOrHeight = 0.5f;
 
             var background = CreatePanel(canvasObject.transform, "OccultDeskBackground", Plum, Vector2.zero, Vector2.one);
+            var backgroundImage = background.GetComponent<Image>();
+            var deskBackground = VisualAssetLibrary.DeskBackground;
+            if (deskBackground != null)
+            {
+                backgroundImage.sprite = deskBackground;
+                backgroundImage.color = Color.white;
+            }
+
+            backgroundImage.raycastTarget = false;
+            var deskTint = CreatePanel(background, "DeskTint", new Color(Plum.r, Plum.g, Plum.b, 0.36f), Vector2.zero, Vector2.one);
+            deskTint.GetComponent<Image>().raycastTarget = false;
             var safeArea = CreatePanel(background, "SafeArea", Color.clear, Vector2.zero, Vector2.one);
             safeArea.gameObject.AddComponent<SafeAreaFitter>();
             _screenRoot = CreatePanel(safeArea, "ScreenRoot", Color.clear, Vector2.zero, Vector2.one);
@@ -836,6 +860,19 @@ namespace CurioClerk.Presentation
             return text;
         }
 
+        private static Image CreateArtworkImage(Transform parent, string name, Vector2 min, Vector2 max)
+        {
+            var gameObject = new GameObject(name, typeof(RectTransform), typeof(Image));
+            var rect = gameObject.GetComponent<RectTransform>();
+            rect.SetParent(parent, false);
+            SetAnchors(rect, min, max);
+            var image = gameObject.GetComponent<Image>();
+            image.color = Color.white;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            return image;
+        }
+
         private static Button CreateButton(Transform parent, string name, string label, Vector2 min, Vector2 max, Color background, Color foreground, UnityEngine.Events.UnityAction action)
         {
             var gameObject = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
@@ -847,8 +884,40 @@ namespace CurioClerk.Presentation
             var button = gameObject.GetComponent<Button>();
             button.targetGraphic = image;
             button.onClick.AddListener(action);
+            var colors = button.colors;
+            colors.highlightedColor = Color.Lerp(background, Color.white, 0.12f);
+            colors.pressedColor = Color.Lerp(background, Color.black, 0.12f);
+            colors.selectedColor = colors.highlightedColor;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
             CreateText(rect, "Label", label, 26, foreground, TextAlignmentOptions.Center, Vector2.zero, Vector2.one, true);
+            AddSurfaceChrome(rect, foreground, 1.5f, 0.18f, false);
             return button;
+        }
+
+        private static void AddButtonIcon(Button button, string name, Sprite sprite, Color color)
+        {
+            var icon = CreateArtworkImage(button.transform, name, new Vector2(0.08f, 0.18f), new Vector2(0.30f, 0.82f));
+            icon.sprite = sprite;
+            icon.color = color;
+            var label = button.transform.Find("Label").GetComponent<RectTransform>();
+            SetAnchors(label, new Vector2(0.27f, 0), new Vector2(0.98f, 1));
+        }
+
+        private static void AddSurfaceChrome(RectTransform surface, Color edgeColor, float edgeDistance, float shadowAlpha, bool addOutline = true)
+        {
+            if (addOutline)
+            {
+                var outline = surface.gameObject.AddComponent<Outline>();
+                outline.effectColor = new Color(edgeColor.r, edgeColor.g, edgeColor.b, 0.58f);
+                outline.effectDistance = new Vector2(edgeDistance, -edgeDistance);
+                outline.useGraphicAlpha = false;
+            }
+
+            var shadow = surface.gameObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color(Ink.r, Ink.g, Ink.b, shadowAlpha);
+            shadow.effectDistance = new Vector2(0, -8f);
+            shadow.useGraphicAlpha = false;
         }
 
         private static Outline CreateButtonHighlight(Button button)

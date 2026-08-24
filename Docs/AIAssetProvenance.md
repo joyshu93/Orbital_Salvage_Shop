@@ -1,6 +1,6 @@
 # AI asset provenance and release policy
 
-Last reviewed: 2026-08-21 (KST)
+Last reviewed: 2026-08-24 (KST)
 
 This document is the release evidence ledger for AI-assisted work in **Curio Clerk: Night Shift**. It is an internal risk-control record, not legal advice. Update it whenever an AI tool creates or edits source code, art, audio, text, video, localization, or store material.
 
@@ -63,6 +63,25 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Intended uses | Prototype launcher icon. It may become a Store listing icon only after release approval. |
 | Store submission decision | For any selected store, determine its current AI-asset disclosure requirement before submission. Historic Google Play reference: **Declare as AI-generated** if this file or an AI-edited derivative is submitted. Re-evaluate only if replaced with a separately documented human-created asset. |
 | Release status | **Prototype only — not approved for RC.** Replace it or complete a documented human creative pass, similarity review, and explicit human approval. |
+
+### ART-VSLICE-001 — warm occult desk and tutorial curios
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Assets/Resources/Art/Desk/occult-desk-background.png`; `Assets/Resources/Art/Artifacts/sleeping-teacup.png`; `mirror-seed.png`; `thimble-storm.png`; `whispering-key.png` |
+| SHA-256 | Desk `5F1F207A22038A6EA43C931AC5433A8A7A2E69F5A49239A7F0042B6EAFD2A0F1`; teacup `D0DD8ED8D46CF26BE5B070A7FD653C09C1E82A7B60CB263163C2B23361F3B8BF`; seed `B33C74D1879EAD0C90EF60DB6CC9515B9915E63B810E37D0283C6A43F5A3211F`; thimble `BDC792E798AFAFD471F63D69235F3875B6B3374AE45A256C701232605F8C5DC8`; key `6962D1C5733BD1FC914736CE2A295AD45867207F2DC0CBAD3D161DDE9CA2CAB4` |
+| Dimensions | Desk 1024 × 1536 PNG; each artifact 1254 × 1254 PNG |
+| Tool | Built-in OpenAI ImageGen invoked through Codex |
+| Creation evidence | Generated and selected 2026-08-24 KST. Exact normalized prompts and transparency-correction records are retained in `Docs/VisualSlicePrompts.md`. |
+| Reference inputs | No third-party inputs. Later generations used only the project-owned desk and earlier artifact outputs from this same prompt set as palette/brushwork references. |
+| Input rights basis | The user approved the original warm-occult product direction. No named artist, studio, franchise, brand, person, private file, or third-party image was supplied. |
+| Human direction | The developer approved the warm-occult commercial vertical-slice scope, four tutorial subjects, bilingual mobile use, and provenance workflow. Codex specified the composition, palette, readability constraints, subject details, and negative constraints within that approved direction. |
+| Human edits | No manual repaint or redraw is claimed. Codex selected the displayed outputs, rejected opaque checkerboard results for two sprites, directed background-only alpha corrections, verified PNG alpha, named files, and integrated them into the UI. Unity resizing/compression is technical processing only. |
+| Similarity and trademark review | Prompts excluded protected characters, brands, logos, named styles, likenesses, signatures, and watermarks. No intentional protected element or visible mark was identified in the selected outputs. Broader visual-similarity search and final human release review remain open. |
+| Third-party elements | None intentionally requested or identified. No attribution is currently required for these ImageGen outputs; provider terms and third-party-rights caveats still apply. |
+| Intended uses | In-game prototype/vertical-slice background and tutorial artifact illustrations. They may appear incidentally in store screenshots only after the release gate below is completed. |
+| Store submission decision | Treat the images and any store screenshot prominently containing them as AI-assisted/generated media wherever the selected store asks. Recheck current Samsung submission wording at upload time. |
+| Release status | **Vertical-slice prototype — not approved for RC.** Requires developer visual review in Unity, similarity/trademark review, any desired direct human repaint/composition adjustment, and explicit human release approval. |
 
 ### DEV-CODE-001 — initial project implementation
 

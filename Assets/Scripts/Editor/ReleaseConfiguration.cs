@@ -26,14 +26,14 @@ namespace CurioClerk.Editor
             PlayerSettings.Android.minSdkVersion = (AndroidSdkVersions)MinimumApi;
             PlayerSettings.Android.targetSdkVersion = (AndroidSdkVersions)TargetApi;
             PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
-            PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+            PlayerSettings.Android.targetArchitectures = UnityEditor.AndroidArchitecture.ARM64;
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
             PlayerSettings.allowedAutorotateToPortrait = false;
             PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
             PlayerSettings.allowedAutorotateToLandscapeLeft = false;
             PlayerSettings.allowedAutorotateToLandscapeRight = false;
             PlayerSettings.colorSpace = ColorSpace.Linear;
-            EditorUserBuildSettings.androidBuildSystem = AndroidBuildSystem.Gradle;
+            EditorUserBuildSettings.androidBuildSystem = UnityEditor.AndroidBuildSystem.Gradle;
             EditorUserBuildSettings.buildAppBundle = true;
             UserBuildSettings.DebugSymbols.level = DebugSymbolLevel.SymbolTable;
             UserBuildSettings.DebugSymbols.format = DebugSymbolFormat.Zip | DebugSymbolFormat.LegacyExtensions;

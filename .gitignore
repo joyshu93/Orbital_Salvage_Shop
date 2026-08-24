@@ -5,6 +5,7 @@
 [Bb]uild/
 [Bb]uilds/
 [Ll]ogs/
+TestResults_*.xml
 [Uu]ser[Ss]ettings/
 [Mm]emoryCaptures/
 [Rr]ecordings/

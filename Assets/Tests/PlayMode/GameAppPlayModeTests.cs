@@ -79,8 +79,8 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(ruleEngineType, Is.Not.Null);
             Assert.That(destinationType, Is.Not.Null);
 
-            var host = new GameObject("GameAppResultPersistenceTestHost");
-            var app = host.AddComponent(appType);
+            var adService = new DeferredAdService();
+            var app = CreateApp(adService, new ControllablePrivacyService());
             yield return null;
 
             var save = appType.GetProperty("SaveData").GetValue(app);
@@ -120,10 +120,11 @@ namespace CurioClerk.Tests.PlayMode
             var completedSession = sessionField.GetValue(app);
             var baseShiftCoins = (int)completedSession.GetType().GetProperty("Coins").GetValue(completedSession);
             appType.GetMethod("RequestReward", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(app, new object[] { true });
+            adService.Emit(RewardedAdResult.Earned);
             Assert.That((int)coinsField.GetValue(save), Is.EqualTo(coinsBeforeReward + baseShiftCoins),
                 "A successful double-coins reward must persist only the bonus delta immediately.");
 
-            UnityEngine.Object.Destroy(host);
+            UnityEngine.Object.Destroy(app.gameObject);
             yield return null;
         }
 

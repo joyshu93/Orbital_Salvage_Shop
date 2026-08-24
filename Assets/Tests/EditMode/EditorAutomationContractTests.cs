@@ -46,12 +46,12 @@ namespace CurioClerk.Tests.EditMode
         {
             var exception = Assert.Throws<TargetInvocationException>(() => ValidateServiceIds(appId, rewardedId));
             Assert.That(exception.InnerException, Is.Not.Null);
-            if (!string.IsNullOrEmpty(appId))
+            if (!string.IsNullOrWhiteSpace(appId))
             {
                 Assert.That(exception.InnerException.Message, Does.Not.Contain(appId));
             }
 
-            if (!string.IsNullOrEmpty(rewardedId))
+            if (!string.IsNullOrWhiteSpace(rewardedId))
             {
                 Assert.That(exception.InnerException.Message, Does.Not.Contain(rewardedId));
             }

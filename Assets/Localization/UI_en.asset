@@ -203,6 +203,14 @@ MonoBehaviour:
     m_Localized: Ad privacy options
     m_Metadata:
       m_Items: []
+  - m_Id: 1349456746229760
+    m_Localized: Ad dismissed. No changes were made.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1349456796561408
+    m_Localized: Ad failed. No changes were made.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

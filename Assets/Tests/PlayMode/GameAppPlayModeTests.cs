@@ -133,6 +133,46 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator CorrectSort_ShowsPositiveBannerAndHighlightsSelectedDestination()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            app.StartNewShift(4242);
+
+            var expected = ExpectedDestination(app);
+            typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { expected });
+            yield return null;
+
+            Assert.That(GameObject.Find("SortFeedbackPanel"), Is.Not.Null);
+            Assert.That(ObjectText("SortFeedback"), Does.StartWith("CORRECT · "));
+            Assert.That(HasEnabledOutline(DestinationButtonName(expected)), Is.True,
+                "A correct sort must highlight the selected destination.");
+        }
+
+        [UnityTest]
+        public IEnumerator WrongSort_ShowsCorrectionBannerAndHighlightsExpectedDestination()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            app.StartNewShift(4242);
+
+            var expected = ExpectedDestination(app);
+            var incorrect = Enum.ToObject(expected.GetType(), (Convert.ToInt32(expected) + 1) % 3);
+            typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { incorrect });
+            yield return null;
+
+            Assert.That(GameObject.Find("SortFeedbackPanel"), Is.Not.Null);
+            Assert.That(ObjectText("SortFeedback"), Does.StartWith("WRONG · "));
+            Assert.That(ObjectText("SortFeedback"), Does.Contain(EnglishDestinationName(expected)));
+            Assert.That(HasEnabledOutline(DestinationButtonName(expected)), Is.True,
+                "An incorrect sort must highlight the correct destination.");
+            Assert.That(HasEnabledOutline(DestinationButtonName(incorrect)), Is.False,
+                "The incorrect selection must not remain highlighted as the answer.");
+        }
+
+        [UnityTest]
         public IEnumerator CompletedShift_IsSavedBeforeLeavingResults_AndOnlyCorrectSortsAreDiscovered()
         {
             var appType = Type.GetType("CurioClerk.Presentation.GameApp, CurioClerk.Runtime");
@@ -145,6 +185,7 @@ namespace CurioClerk.Tests.PlayMode
             var adService = new DeferredAdService();
             var app = CreateApp(adService, new ControllablePrivacyService());
             yield return null;
+            SetEnglishLocale(app);
 
             var save = appType.GetProperty("SaveData").GetValue(app);
             var saveType = save.GetType();
@@ -173,6 +214,10 @@ namespace CurioClerk.Tests.PlayMode
 
             yield return null;
             Assert.That(appType.GetProperty("ActiveScreen").GetValue(app).ToString(), Is.EqualTo("Results"));
+            Assert.That(ObjectText("ResultScore"), Does.Contain("CORRECT"));
+            Assert.That(ObjectText("ResultScore"), Does.Contain("MISTAKES"));
+            Assert.That(ObjectText("ResultScore"), Does.Not.Contain("✓").And.Not.Contain("✕"),
+                "The result summary must avoid symbols that are missing from the release font atlas.");
             Assert.That((int)completedField.GetValue(save), Is.EqualTo(completedBefore + 1),
                 "A completed result must be durable before the player leaves the results screen.");
             Assert.That(discovered.Count, Is.EqualTo(11),
@@ -452,6 +497,13 @@ namespace CurioClerk.Tests.PlayMode
 
         private static void SortCurrentIncorrectly(GameApp app)
         {
+            var expected = ExpectedDestination(app);
+            var incorrect = Enum.ToObject(expected.GetType(), (Convert.ToInt32(expected) + 1) % 3);
+            typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { incorrect });
+        }
+
+        private static object ExpectedDestination(GameApp app)
+        {
             var appType = typeof(GameApp);
             var session = appType
                 .GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic)
@@ -462,9 +514,36 @@ namespace CurioClerk.Tests.PlayMode
             var artifact = session.GetType().GetProperty("CurrentArtifact").GetValue(session);
             var ruleEngineType = Type.GetType("CurioClerk.Core.Rules.RuleEngine, CurioClerk.Core");
             var ruleEngine = Activator.CreateInstance(ruleEngineType);
-            var expected = ruleEngineType.GetMethod("Resolve").Invoke(ruleEngine, new[] { artifact, rules });
-            var incorrect = Enum.ToObject(expected.GetType(), (Convert.ToInt32(expected) + 1) % 3);
-            appType.GetMethod("ChooseDestination").Invoke(app, new[] { incorrect });
+            return ruleEngineType.GetMethod("Resolve").Invoke(ruleEngine, new[] { artifact, rules });
+        }
+
+        private static string DestinationButtonName(object destination)
+        {
+            switch (Convert.ToInt32(destination))
+            {
+                case 0: return "RepairButton";
+                case 2: return "VaultButton";
+                default: return "StorageButton";
+            }
+        }
+
+        private static string EnglishDestinationName(object destination)
+        {
+            switch (Convert.ToInt32(destination))
+            {
+                case 0: return "REPAIR";
+                case 2: return "VAULT";
+                default: return "STORAGE";
+            }
+        }
+
+        private static bool HasEnabledOutline(string objectName)
+        {
+            var outlineType = Type.GetType("UnityEngine.UI.Outline, UnityEngine.UI");
+            var target = GameObject.Find(objectName);
+            Assert.That(target, Is.Not.Null, objectName + " must exist in the active shift view.");
+            var outline = target.GetComponent(outlineType) as Behaviour;
+            return outline != null && outline.enabled;
         }
 
         private static int Coins(GameApp app)

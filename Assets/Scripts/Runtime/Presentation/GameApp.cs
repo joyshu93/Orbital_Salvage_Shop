@@ -52,6 +52,8 @@ namespace CurioClerk.Presentation
         private TMP_Text _currentTraits;
         private TMP_Text _heldText;
         private readonly TMP_Text[] _nextTexts = new TMP_Text[2];
+        private readonly Outline[] _destinationHighlights = new Outline[3];
+        private Image _sortFeedbackPanel;
         private TMP_Text _statusText;
         private TMP_Text _hudText;
         private int _sortedCount;
@@ -157,14 +159,9 @@ namespace CurioClerk.Presentation
             if (outcome.WasCorrect)
             {
                 _seenThisShift.Add(artifactId);
-                _statusText.text = _localizer.Get("correct");
-                _statusText.color = Sage;
             }
-            else
-            {
-                _statusText.text = _localizer.Get("wrong", DestinationName(outcome.ExpectedDestination));
-                _statusText.color = DustyRose;
-            }
+
+            ShowSortFeedback(outcome.WasCorrect, destination, outcome.ExpectedDestination);
 
             if (_session.State == ShiftState.Active)
             {
@@ -271,10 +268,17 @@ namespace CurioClerk.Presentation
             _currentDescription = CreateText(card, "ArtifactDescription", string.Empty, 24, Ink, TextAlignmentOptions.TopLeft, new Vector2(0.08f, 0.27f), new Vector2(0.92f, 0.68f));
             _currentTraits = CreateText(card, "ArtifactTraits", string.Empty, 20, Wine, TextAlignmentOptions.Center, new Vector2(0.08f, 0.07f), new Vector2(0.92f, 0.24f), true);
 
-            CreateButton(page, "HoldButton", _localizer.Get("hold"), new Vector2(0.36f, 0.20f), new Vector2(0.64f, 0.26f), Wine, Paper, HoldCurrent);
-            var repair = CreateButton(page, "RepairButton", _localizer.Get("repair"), new Vector2(0.05f, 0.08f), new Vector2(0.32f, 0.18f), DustyRose, Paper, () => ChooseDestination(Destination.Repair));
-            var storage = CreateButton(page, "StorageButton", _localizer.Get("storage"), new Vector2(0.365f, 0.08f), new Vector2(0.635f, 0.18f), Sage, Paper, () => ChooseDestination(Destination.Storage));
-            var vault = CreateButton(page, "VaultButton", _localizer.Get("vault"), new Vector2(0.68f, 0.08f), new Vector2(0.95f, 0.18f), Amber, Ink, () => ChooseDestination(Destination.Vault));
+            CreateButton(page, "HoldButton", _localizer.Get("hold"), new Vector2(0.36f, 0.21f), new Vector2(0.64f, 0.26f), Wine, Paper, HoldCurrent);
+            var feedbackPanel = CreatePanel(page, "SortFeedbackPanel", Color.clear, new Vector2(0.05f, 0.155f), new Vector2(0.95f, 0.205f));
+            _sortFeedbackPanel = feedbackPanel.GetComponent<Image>();
+            _statusText = CreateText(feedbackPanel, "SortFeedback", string.Empty, 21, Paper, TextAlignmentOptions.Center, Vector2.zero, Vector2.one, true);
+
+            var repair = CreateButton(page, "RepairButton", _localizer.Get("repair"), new Vector2(0.05f, 0.04f), new Vector2(0.32f, 0.14f), DustyRose, Paper, () => ChooseDestination(Destination.Repair));
+            var storage = CreateButton(page, "StorageButton", _localizer.Get("storage"), new Vector2(0.365f, 0.04f), new Vector2(0.635f, 0.14f), Sage, Paper, () => ChooseDestination(Destination.Storage));
+            var vault = CreateButton(page, "VaultButton", _localizer.Get("vault"), new Vector2(0.68f, 0.04f), new Vector2(0.95f, 0.14f), Amber, Ink, () => ChooseDestination(Destination.Vault));
+            _destinationHighlights[(int)Destination.Repair] = CreateDestinationHighlight(repair);
+            _destinationHighlights[(int)Destination.Storage] = CreateDestinationHighlight(storage);
+            _destinationHighlights[(int)Destination.Vault] = CreateDestinationHighlight(vault);
             card.gameObject.AddComponent<ArtifactDragHandler>().Configure(
                 new[]
                 {
@@ -283,8 +287,23 @@ namespace CurioClerk.Presentation
                     vault.GetComponent<RectTransform>()
                 },
                 index => ChooseDestination((Destination)index));
-            _statusText = CreateText(page, "SortFeedback", string.Empty, 22, Paper, TextAlignmentOptions.Center, new Vector2(0.07f, 0.01f), new Vector2(0.93f, 0.07f), true);
             RefreshShiftView();
+        }
+
+        private void ShowSortFeedback(bool wasCorrect, Destination selected, Destination expected)
+        {
+            _sortFeedbackPanel.color = wasCorrect ? Sage : DustyRose;
+            _statusText.text = wasCorrect
+                ? _localizer.Get("feedback_correct_label") + " · " + _localizer.Get("correct")
+                : _localizer.Get("feedback_wrong_label") + " · " + _localizer.Get("wrong", DestinationName(expected));
+            _statusText.color = Paper;
+
+            var highlighted = wasCorrect ? selected : expected;
+            for (var index = 0; index < _destinationHighlights.Length; index++)
+            {
+                var outline = _destinationHighlights[index];
+                outline.enabled = index == (int)highlighted;
+            }
         }
 
         private void RefreshShiftView()
@@ -333,7 +352,7 @@ namespace CurioClerk.Presentation
             var page = CreatePage("ResultsScreen");
             var completed = _session.State == ShiftState.Completed;
             CreateText(page, "ResultTitle", _localizer.Get(completed ? "complete" : "failed"), 58, completed ? Amber : DustyRose, TextAlignmentOptions.Center, new Vector2(0.08f, 0.69f), new Vector2(0.92f, 0.82f), true);
-            CreateText(page, "ResultScore", $"{_localizer.Get("score")}  {_session.Score}\n{_localizer.Get("coins")}  {_session.Coins}\n✓ {_session.CorrectSorts}   ✕ {_session.Mistakes}", 33, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.45f), new Vector2(0.85f, 0.66f), true);
+            CreateText(page, "ResultScore", $"{_localizer.Get("score")}  {_session.Score}\n{_localizer.Get("coins")}  {_session.Coins}\n{_localizer.Get("result_correct_label")}  {_session.CorrectSorts}   ·   {_localizer.Get("result_mistakes_label")}  {_session.Mistakes}", 33, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.45f), new Vector2(0.85f, 0.66f), true);
             CreateText(page, "RewardedAdFeedback", string.IsNullOrEmpty(_rewardFeedbackKey) ? string.Empty : _localizer.Get(_rewardFeedbackKey), 22, DustyRose, TextAlignmentOptions.Center, new Vector2(0.12f, 0.41f), new Vector2(0.88f, 0.45f), true);
             var rewardLabel = completed ? _localizer.Get("double") : _localizer.Get("revive");
             if (!CanShowRewarded || _session.RewardClaimed)
@@ -646,6 +665,16 @@ namespace CurioClerk.Presentation
             button.onClick.AddListener(action);
             CreateText(rect, "Label", label, 26, foreground, TextAlignmentOptions.Center, Vector2.zero, Vector2.one, true);
             return button;
+        }
+
+        private static Outline CreateDestinationHighlight(Button button)
+        {
+            var outline = button.gameObject.AddComponent<Outline>();
+            outline.effectColor = Paper;
+            outline.effectDistance = new Vector2(5f, -5f);
+            outline.useGraphicAlpha = false;
+            outline.enabled = false;
+            return outline;
         }
 
         private static void SetAnchors(RectTransform rect, Vector2 min, Vector2 max)

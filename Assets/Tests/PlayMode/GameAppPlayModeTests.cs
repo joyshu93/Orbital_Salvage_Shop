@@ -94,6 +94,45 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator ShiftPreviews_IncludeLocalizedNamesForNextAndHeldArtifacts()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+
+            foreach (var locale in new[] { "ko", "en" })
+            {
+                SetLocale(app, locale);
+                app.StartNewShift(4242);
+                yield return null;
+
+                var queue = (IList)typeof(GameApp)
+                    .GetField("_plannedQueue", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .GetValue(app);
+                var contentById = (IDictionary)typeof(GameApp)
+                    .GetField("_artifactById", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .GetValue(app);
+                var nextArtifact = queue[1];
+                var nextId = (string)nextArtifact.GetType().GetProperty("Id").GetValue(nextArtifact);
+                var nextContent = contentById[nextId];
+                var nextNameProperty = locale == "ko" ? "NameKorean" : "NameEnglish";
+                var expectedNextName = (string)nextContent.GetType().GetProperty(nextNameProperty).GetValue(nextContent);
+
+                Assert.That(ObjectText("NextPreview0"), Does.Contain(expectedNextName),
+                    locale + " next preview must identify the upcoming artifact by name.");
+
+                app.HoldCurrent();
+                yield return null;
+
+                var heldArtifact = Session(app).GetType().GetProperty("HeldArtifact").GetValue(Session(app));
+                var heldId = (string)heldArtifact.GetType().GetProperty("Id").GetValue(heldArtifact);
+                var heldContent = contentById[heldId];
+                var expectedHeldName = (string)heldContent.GetType().GetProperty(nextNameProperty).GetValue(heldContent);
+                Assert.That(ObjectText("HeldArtifactText"), Does.Contain(expectedHeldName),
+                    locale + " hold preview must identify the held artifact by name.");
+            }
+        }
+
+        [UnityTest]
         public IEnumerator CompletedShift_IsSavedBeforeLeavingResults_AndOnlyCorrectSortsAreDiscovered()
         {
             var appType = Type.GetType("CurioClerk.Presentation.GameApp, CurioClerk.Runtime");
@@ -371,10 +410,15 @@ namespace CurioClerk.Tests.PlayMode
 
         private static void SetEnglishLocale(GameApp app)
         {
+            SetLocale(app, "en");
+        }
+
+        private static void SetLocale(GameApp app, string locale)
+        {
             var localizer = (Localizer)typeof(GameApp)
                 .GetField("_localizer", BindingFlags.Instance | BindingFlags.NonPublic)
                 .GetValue(app);
-            localizer.SetLocale("en");
+            localizer.SetLocale(locale);
         }
 
         private static void CompleteShift(GameApp app)
@@ -496,10 +540,15 @@ namespace CurioClerk.Tests.PlayMode
 
         private static string FeedbackText()
         {
+            return ObjectText("RewardedAdFeedback");
+        }
+
+        private static string ObjectText(string objectName)
+        {
             var textType = Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro");
-            var feedback = GameObject.Find("RewardedAdFeedback");
-            Assert.That(feedback, Is.Not.Null, "A terminal ad result must be visible to the player.");
-            return (string)textType.GetProperty("text").GetValue(feedback.GetComponent(textType));
+            var textObject = GameObject.Find(objectName);
+            Assert.That(textObject, Is.Not.Null, objectName + " must exist in the active view.");
+            return (string)textType.GetProperty("text").GetValue(textObject.GetComponent(textType));
         }
 
         private readonly struct RewardFeedbackCase

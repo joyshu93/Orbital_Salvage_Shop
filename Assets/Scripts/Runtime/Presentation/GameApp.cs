@@ -261,9 +261,9 @@ namespace CurioClerk.Presentation
             CreateText(page, "RulesHeader", _localizer.Get("rules"), 23, Amber, TextAlignmentOptions.Left, new Vector2(0.07f, 0.84f), new Vector2(0.93f, 0.90f), true);
             CreateText(page, "RuleList", RulesText(), 22, Paper, TextAlignmentOptions.TopLeft, new Vector2(0.07f, 0.68f), new Vector2(0.93f, 0.85f));
 
-            _nextTexts[0] = CreateText(page, "NextPreview0", string.Empty, 21, Paper, TextAlignmentOptions.Center, new Vector2(0.08f, 0.59f), new Vector2(0.42f, 0.66f), true);
-            _nextTexts[1] = CreateText(page, "NextPreview1", string.Empty, 21, Paper, TextAlignmentOptions.Center, new Vector2(0.44f, 0.59f), new Vector2(0.78f, 0.66f), true);
-            _heldText = CreateText(page, "HeldArtifactText", string.Empty, 20, Amber, TextAlignmentOptions.Center, new Vector2(0.80f, 0.59f), new Vector2(0.94f, 0.66f), true);
+            _nextTexts[0] = CreateText(page, "NextPreview0", string.Empty, 19, Paper, TextAlignmentOptions.Center, new Vector2(0.07f, 0.59f), new Vector2(0.34f, 0.66f), true);
+            _nextTexts[1] = CreateText(page, "NextPreview1", string.Empty, 19, Paper, TextAlignmentOptions.Center, new Vector2(0.365f, 0.59f), new Vector2(0.635f, 0.66f), true);
+            _heldText = CreateText(page, "HeldArtifactText", string.Empty, 19, Amber, TextAlignmentOptions.Center, new Vector2(0.66f, 0.59f), new Vector2(0.94f, 0.66f), true);
 
             var card = CreatePanel(page, "CurrentArtifactCard", Paper, new Vector2(0.10f, 0.27f), new Vector2(0.90f, 0.58f));
             _currentSymbol = CreateText(card, "ArtifactSymbol", string.Empty, 84, Wine, TextAlignmentOptions.Center, new Vector2(0.05f, 0.62f), new Vector2(0.28f, 0.94f), true);
@@ -299,11 +299,28 @@ namespace CurioClerk.Presentation
             _currentName.text = Name(content);
             _currentDescription.text = Description(content);
             _currentTraits.text = TraitsText(content.Traits);
-            _heldText.text = _session.HeldArtifact == null ? "—" : _artifactById[_session.HeldArtifact.Id].Symbol + "\n" + _localizer.Get("hold");
+            if (_session.HeldArtifact == null)
+            {
+                _heldText.text = _localizer.Get("hold") + "\n—";
+            }
+            else
+            {
+                var heldContent = _artifactById[_session.HeldArtifact.Id];
+                _heldText.text = _localizer.Get("hold") + "\n" + heldContent.Symbol + "  " + Name(heldContent);
+            }
+
             for (var index = 0; index < _nextTexts.Length; index++)
             {
                 var queueIndex = _sortedCount + index + 1;
-                _nextTexts[index].text = queueIndex < _plannedQueue.Count ? "NEXT  " + _artifactById[_plannedQueue[queueIndex].Id].Symbol : "NEXT  —";
+                if (queueIndex < _plannedQueue.Count)
+                {
+                    var nextContent = _artifactById[_plannedQueue[queueIndex].Id];
+                    _nextTexts[index].text = _localizer.Get("next") + " " + (index + 1) + "\n" + nextContent.Symbol + "  " + Name(nextContent);
+                }
+                else
+                {
+                    _nextTexts[index].text = _localizer.Get("next") + " " + (index + 1) + "\n—";
+                }
             }
 
             _hudText.text = $"♥ {_session.Hearts}     COMBO {_session.Combo}     {_localizer.Get("coins")} {_session.Coins}";

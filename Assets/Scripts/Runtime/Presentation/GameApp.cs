@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using CurioClerk.Content;
@@ -63,6 +64,7 @@ namespace CurioClerk.Presentation
         private IAdService _adService;
         private IPrivacyService _privacy;
         private IPlayerFeedbackService _feedbackService;
+        private IClock _clock;
         private IShiftSeedProvider _seedProvider;
         private Localizer _localizer;
         private RectTransform _screenRoot;
@@ -94,6 +96,8 @@ namespace CurioClerk.Presentation
         private TutorialStage _tutorialStage;
         private CollectionTab _collectionTab;
         private string _cosmeticFeedback;
+        private bool _isDailyShift;
+        private string _dailyDateKey = string.Empty;
 
         public AppScreen ActiveScreen { get; private set; }
 
@@ -112,7 +116,8 @@ namespace CurioClerk.Presentation
             _privacy = Infrastructure.ServiceFactory.CreatePrivacyService();
             _feedbackService = Infrastructure.ServiceFactory.CreatePlayerFeedbackService(gameObject);
             ConfigureFeedback();
-            _seedProvider = new ShiftSeedProvider(new SystemClock());
+            _clock = new SystemClock();
+            _seedProvider = new ShiftSeedProvider(_clock);
             EnsureDisplayCamera();
             BuildShell();
             ShowMenu();
@@ -141,7 +146,7 @@ namespace CurioClerk.Presentation
             CreateText(page, "Title", _localizer.Get("title"), 72, Paper, TextAlignmentOptions.Center, new Vector2(0.08f, 0.64f), new Vector2(0.92f, 0.80f), true);
             CreateText(page, "WelcomeNote", _localizer.Locale == "ko" ? "밤새 들어오는 기묘한 물건을 규칙대로 정리하세요." : "File strange arrivals by lamplight until morning.", 27, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.54f), new Vector2(0.85f, 0.64f));
             CreateButton(page, "StartShiftButton", _localizer.Get("start"), new Vector2(0.15f, 0.40f), new Vector2(0.85f, 0.49f), Amber, Ink, OnStartPressed);
-            CreateButton(page, "DailyShiftButton", _localizer.Get("daily"), new Vector2(0.15f, 0.30f), new Vector2(0.85f, 0.38f), Paper, Ink, () => StartNewShift(_seedProvider.CreateDailySeed(ContentCatalog.ContentVersion)));
+            CreateButton(page, "DailyShiftButton", DailyButtonText(), new Vector2(0.15f, 0.30f), new Vector2(0.85f, 0.38f), Paper, Ink, StartDailyShift);
             CreateButton(page, "CollectionButton", _localizer.Get("collection"), new Vector2(0.15f, 0.20f), new Vector2(0.49f, 0.28f), Wine, Paper, ShowCollection);
             CreateButton(page, "SettingsButton", _localizer.Get("settings"), new Vector2(0.51f, 0.20f), new Vector2(0.85f, 0.28f), Wine, Paper, ShowSettings);
             CreateText(page, "Progress", $"{_localizer.Get("coins")}: {_save.coins}   •   {_save.completedShifts}/∞", 23, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.10f), new Vector2(0.85f, 0.17f));
@@ -168,6 +173,22 @@ namespace CurioClerk.Presentation
         {
             _tutorialStage = TutorialStage.None;
             var band = Mathf.Clamp(1 + _save.completedShifts / 5, 1, 5);
+            StartShift(seed, band, false, string.Empty);
+        }
+
+        public void StartDailyShift()
+        {
+            _tutorialStage = TutorialStage.None;
+            var localNow = _clock.LocalNow;
+            var dateKey = localNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var seed = DailySeedProvider.ForDate(localNow, ContentCatalog.ContentVersion);
+            StartShift(seed, 3, true, dateKey);
+        }
+
+        private void StartShift(int seed, int band, bool isDailyShift, string dailyDateKey)
+        {
+            _isDailyShift = isDailyShift;
+            _dailyDateKey = dailyDateKey ?? string.Empty;
             var artifacts = _artifactContent.Select(item => item.ToArtifact()).ToArray();
             _plannedQueue = _shiftGenerator.GenerateArtifactQueue(seed, artifacts, 12);
             _activeRules = ContentCatalog.CreateRulesForBand(band, seed);
@@ -382,7 +403,12 @@ namespace CurioClerk.Presentation
             ActiveScreen = AppScreen.Shift;
             var page = CreatePage("ShiftScreen");
             var equipped = ContentCatalog.CreateCosmetics().FirstOrDefault(item => item.Id == _save.equippedCosmeticId);
-            _hudText = CreateText(page, "ShiftHud", string.Empty, 26, Paper, TextAlignmentOptions.Center, new Vector2(0.07f, 0.93f), new Vector2(0.93f, 0.98f), true);
+            var hudMinimum = _isDailyShift ? new Vector2(0.36f, 0.93f) : new Vector2(0.07f, 0.93f);
+            _hudText = CreateText(page, "ShiftHud", string.Empty, 26, Paper, TextAlignmentOptions.Center, hudMinimum, new Vector2(0.93f, 0.98f), true);
+            if (_isDailyShift)
+            {
+                CreateText(page, "DailyChallengeBadge", _localizer.Get("daily_badge", _dailyDateKey), 18, Amber, TextAlignmentOptions.Left, new Vector2(0.05f, 0.93f), new Vector2(0.38f, 0.98f), true);
+            }
             var rulesPanel = CreatePanel(page, "RulesPanel", new Color(Wine.r, Wine.g, Wine.b, 0.82f), new Vector2(0.045f, 0.675f), new Vector2(0.955f, 0.91f));
             AddSurfaceChrome(rulesPanel, Amber, 2f, 0.28f);
             CreateText(rulesPanel, "RulesHeader", _localizer.Get("rules"), 23, Amber, TextAlignmentOptions.Left, new Vector2(0.035f, 0.70f), new Vector2(0.965f, 0.94f), true);
@@ -451,6 +477,8 @@ namespace CurioClerk.Presentation
 
         private void StartTutorialShift()
         {
+            _isDailyShift = false;
+            _dailyDateKey = string.Empty;
             var tutorialIds = new[] { "sleeping-teacup", "mirror-seed", "thimble-storm", "whispering-key" };
             _plannedQueue = tutorialIds.Select(id => _artifactById[id].ToArtifact()).ToArray();
             _activeRules = new[]
@@ -686,6 +714,10 @@ namespace CurioClerk.Presentation
             var completed = _session.State == ShiftState.Completed;
             var resultTitle = CreateText(page, "ResultTitle", _localizer.Get(completed ? "complete" : "failed"), 58, completed ? Amber : DustyRose, TextAlignmentOptions.Center, new Vector2(0.08f, 0.69f), new Vector2(0.92f, 0.82f), true);
             var resultScore = CreateText(page, "ResultScore", $"{_localizer.Get("score")}  {_session.Score}\n{_localizer.Get("coins")}  {_session.Coins}\n{_localizer.Get("result_correct_label")}  {_session.CorrectSorts}   ·   {_localizer.Get("result_mistakes_label")}  {_session.Mistakes}", 33, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.45f), new Vector2(0.85f, 0.66f), true);
+            if (_isDailyShift && completed)
+            {
+                CreateText(page, "DailyResultStatus", _localizer.Get("daily_result_best", _save.dailyBestScore), 23, Amber, TextAlignmentOptions.Center, new Vector2(0.15f, 0.405f), new Vector2(0.85f, 0.455f), true);
+            }
             var resultAnimator = page.gameObject.AddComponent<ShiftFeedbackAnimator>();
             resultAnimator.Configure(resultTitle.rectTransform, resultScore.rectTransform);
             resultAnimator.PlayArtifactEntrance();
@@ -756,9 +788,23 @@ namespace CurioClerk.Presentation
             }
 
             _progression.ApplyShift(_save, _session.CreateResult(), _seenThisShift);
+            if (_isDailyShift)
+            {
+                _progression.RecordDailyCompletion(_save, _dailyDateKey, _session.Score);
+            }
+
             _resultApplied = true;
             _appliedResultCoins = _session.Coins;
             Save();
+        }
+
+        private string DailyButtonText()
+        {
+            var dateKey = _clock.LocalNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var status = string.Equals(_save.lastDailyCompletedDate, dateKey, StringComparison.Ordinal)
+                ? _localizer.Get("daily_completed", _save.dailyBestScore)
+                : _localizer.Get("daily_available");
+            return $"{_localizer.Get("daily")}\n{dateKey} · {status}";
         }
 
         private void SelectCosmetic(CosmeticContent cosmetic)

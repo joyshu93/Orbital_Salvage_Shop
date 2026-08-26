@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace CurioClerk.Core.Progression
 {
     [Serializable]
     public sealed class PlayerSaveData
     {
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
 
         public int version = CurrentVersion;
         public int coins;
@@ -20,6 +21,8 @@ namespace CurioClerk.Core.Progression
         public List<string> discoveredArtifactIds = new List<string>();
         public List<string> unlockedCosmeticIds = new List<string>();
         public string equippedCosmeticId = string.Empty;
+        public string lastDailyCompletedDate = string.Empty;
+        public int dailyBestScore;
 
         public void Sanitize()
         {
@@ -36,6 +39,21 @@ namespace CurioClerk.Core.Progression
             discoveredArtifactIds = discoveredArtifactIds ?? new List<string>();
             unlockedCosmeticIds = unlockedCosmeticIds ?? new List<string>();
             equippedCosmeticId = equippedCosmeticId ?? string.Empty;
+            dailyBestScore = Math.Max(0, dailyBestScore);
+            if (!DateTime.TryParseExact(
+                    lastDailyCompletedDate,
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var dailyDate))
+            {
+                lastDailyCompletedDate = string.Empty;
+                dailyBestScore = 0;
+            }
+            else
+            {
+                lastDailyCompletedDate = dailyDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            }
         }
     }
 }

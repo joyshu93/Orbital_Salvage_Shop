@@ -17,7 +17,7 @@ Open the repository root as the Unity project. Generated content, localization, 
 - 24 bilingual curios with six traits
 - first-match rule engine, five deterministic difficulty bands, and 12-item shifts
 - drag-to-destination and button sorting, one Hold slot, combo/coins/hearts, revive or double-coins rewarded placement
-- tutorial, daily seed, collection, six desk charms, language/privacy settings, and resilient local JSON saves
+- tutorial, a replayable daily challenge with local completion/best-score tracking, collection, six desk charms, language/privacy settings, and resilient local JSON saves
 - generated URP 2D project assets, Noto Sans KR, Android icon, EditMode/PlayMode tests, and AAB automation
 
 ## Human-run Unity commands

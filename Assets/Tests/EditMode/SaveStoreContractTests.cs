@@ -41,6 +41,20 @@ namespace CurioClerk.Tests.EditMode
         }
 
         [Test]
+        public void SaveAndLoad_RoundTripsDailyChallengeProgress()
+        {
+            var api = SaveApi.Create(_path);
+            api.Set("lastDailyCompletedDate", "2026-08-26");
+            api.Set("dailyBestScore", 525);
+
+            api.Save();
+            var loaded = api.Load();
+
+            Assert.That(api.String(loaded, "lastDailyCompletedDate"), Is.EqualTo("2026-08-26"));
+            Assert.That(api.Int(loaded, "dailyBestScore"), Is.EqualTo(525));
+        }
+
+        [Test]
         public void Load_UsesBackupWhenPrimarySaveIsCorrupt()
         {
             var api = SaveApi.Create(_path);
@@ -64,7 +78,7 @@ namespace CurioClerk.Tests.EditMode
 
             var loaded = api.Load();
 
-            Assert.That(api.Int(loaded, "version"), Is.EqualTo(2));
+            Assert.That(api.Int(loaded, "version"), Is.EqualTo(3));
             Assert.That(api.Int(loaded, "coins"), Is.Zero);
         }
 
@@ -76,7 +90,7 @@ namespace CurioClerk.Tests.EditMode
 
             var loaded = api.Load();
 
-            Assert.That(api.Int(loaded, "version"), Is.EqualTo(2));
+            Assert.That(api.Int(loaded, "version"), Is.EqualTo(3));
             Assert.That(api.Bool(loaded, "soundEnabled"), Is.True,
                 "Players upgrading from v1 must not silently lose sound because missing JSON booleans deserialize false.");
             Assert.That(api.Bool(loaded, "hapticsEnabled"), Is.True);
@@ -92,6 +106,21 @@ namespace CurioClerk.Tests.EditMode
 
             Assert.That(api.Bool(loaded, "soundEnabled"), Is.False,
                 "A deliberate v2 opt-out must survive load and sanitization.");
+            Assert.That(api.Bool(loaded, "hapticsEnabled"), Is.False);
+        }
+
+        [Test]
+        public void Load_MigratesVersionTwoDailyProgressToSafeDefaults()
+        {
+            var api = SaveApi.Create(_path);
+            File.WriteAllText(_path, "{\"version\":2,\"coins\":12,\"soundEnabled\":false,\"hapticsEnabled\":false}");
+
+            var loaded = api.Load();
+
+            Assert.That(api.Int(loaded, "version"), Is.EqualTo(3));
+            Assert.That(api.String(loaded, "lastDailyCompletedDate"), Is.Empty);
+            Assert.That(api.Int(loaded, "dailyBestScore"), Is.Zero);
+            Assert.That(api.Bool(loaded, "soundEnabled"), Is.False);
             Assert.That(api.Bool(loaded, "hapticsEnabled"), Is.False);
         }
 
@@ -121,6 +150,8 @@ namespace CurioClerk.Tests.EditMode
 
             public void Set(string field, int value) => _saveType.GetField(field).SetValue(_save, value);
 
+            public void Set(string field, string value) => _saveType.GetField(field).SetValue(_save, value);
+
             public void Save() => _storeType.GetMethod("Save").Invoke(_store, new[] { _save });
 
             public object Load() => _storeType.GetMethod("LoadOrDefault").Invoke(_store, null);
@@ -128,6 +159,8 @@ namespace CurioClerk.Tests.EditMode
             public int Int(object save, string field) => (int)_saveType.GetField(field).GetValue(save);
 
             public bool Bool(object save, string field) => (bool)_saveType.GetField(field).GetValue(save);
+
+            public string String(object save, string field) => (string)_saveType.GetField(field).GetValue(save);
 
             private static Type Require(string fullName, string assembly)
             {

@@ -7,6 +7,7 @@ using CurioClerk.Infrastructure;
 using CurioClerk.Infrastructure.Ads;
 using CurioClerk.Infrastructure.Feedback;
 using CurioClerk.Infrastructure.Privacy;
+using CurioClerk.Infrastructure.Time;
 using CurioClerk.Localization;
 using CurioClerk.Presentation;
 using NUnit.Framework;
@@ -69,6 +70,72 @@ namespace CurioClerk.Tests.PlayMode
 
             UnityEngine.Object.Destroy(host);
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator DailyFile_ShowsAvailabilityAndStartsDatedChallenge()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            SetClock(app, new DateTime(2026, 8, 26, 21, 30, 0));
+            SetSaveString(app, "lastDailyCompletedDate", string.Empty);
+            SetSaveInt(app, "dailyBestScore", 0);
+
+            app.ShowMenu();
+
+            Assert.That(ObjectText("DailyShiftButton"), Does.Contain("2026-08-26"));
+            Assert.That(ObjectText("DailyShiftButton"), Does.Contain("Available"));
+
+            ClickButton("DailyShiftButton");
+            yield return null;
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Shift));
+            Assert.That(ObjectText("DailyChallengeBadge"), Is.EqualTo("DAILY FILE · 2026-08-26"));
+        }
+
+        [UnityTest]
+        public IEnumerator DailyCompletion_PersistsBestAndRefreshesMenuStatus()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            SetClock(app, new DateTime(2026, 8, 26, 21, 30, 0));
+            SetSaveString(app, "lastDailyCompletedDate", string.Empty);
+            SetSaveInt(app, "dailyBestScore", 0);
+
+            StartDailyShift(app);
+            CompleteActiveShift(app);
+            yield return null;
+
+            var completedScore = SessionScore(app);
+            Assert.That(SaveString(app, "lastDailyCompletedDate"), Is.EqualTo("2026-08-26"));
+            Assert.That(SaveInt(app, "dailyBestScore"), Is.EqualTo(completedScore));
+            Assert.That(ObjectText("DailyResultStatus"), Is.EqualTo($"Today's best: {completedScore}"));
+
+            app.ShowMenu();
+            Assert.That(ObjectText("DailyShiftButton"), Does.Contain($"Completed · Best {completedScore}"));
+        }
+
+        [UnityTest]
+        public IEnumerator FailedDailyChallenge_DoesNotMarkTheDateComplete()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            SetClock(app, new DateTime(2026, 8, 26, 21, 30, 0));
+            SetSaveString(app, "lastDailyCompletedDate", string.Empty);
+            SetSaveInt(app, "dailyBestScore", 0);
+
+            StartDailyShift(app);
+            for (var index = 0; index < 3; index++)
+            {
+                SortCurrentIncorrectly(app);
+            }
+
+            Assert.That(SessionState(app), Is.EqualTo("Failed"));
+            Assert.That(SaveString(app, "lastDailyCompletedDate"), Is.Empty);
+            Assert.That(SaveInt(app, "dailyBestScore"), Is.Zero);
         }
 
         [UnityTest]
@@ -907,6 +974,40 @@ namespace CurioClerk.Tests.PlayMode
             }
         }
 
+        private static void CompleteActiveShift(GameApp app)
+        {
+            var appType = typeof(GameApp);
+            var ruleEngineType = Type.GetType("CurioClerk.Core.Rules.RuleEngine, CurioClerk.Core");
+            var sessionField = appType.GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic);
+            var rulesField = appType.GetField("_activeRules", BindingFlags.Instance | BindingFlags.NonPublic);
+            var choose = appType.GetMethod("ChooseDestination");
+            var ruleEngine = Activator.CreateInstance(ruleEngineType);
+            var resolve = ruleEngineType.GetMethod("Resolve");
+
+            for (var index = 0; index < 12; index++)
+            {
+                var session = sessionField.GetValue(app);
+                var artifact = session.GetType().GetProperty("CurrentArtifact").GetValue(session);
+                var expected = resolve.Invoke(ruleEngine, new[] { artifact, rulesField.GetValue(app) });
+                choose.Invoke(app, new[] { expected });
+            }
+        }
+
+        private static void StartDailyShift(GameApp app)
+        {
+            var method = typeof(GameApp).GetMethod("StartDailyShift");
+            Assert.That(method, Is.Not.Null, "GameApp must expose the daily challenge entry point.");
+            method.Invoke(app, null);
+        }
+
+        private static void SetClock(GameApp app, DateTime localNow)
+        {
+            var clock = new FixedClock(localNow);
+            typeof(GameApp).GetField("_clock", BindingFlags.Instance | BindingFlags.NonPublic)?.SetValue(app, clock);
+            typeof(GameApp).GetField("_seedProvider", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(app, new ShiftSeedProvider(clock));
+        }
+
         private static void FailShift(GameApp app)
         {
             app.StartNewShift(4242);
@@ -979,6 +1080,18 @@ namespace CurioClerk.Tests.PlayMode
             save.GetType().GetField(fieldName).SetValue(save, value);
         }
 
+        private static int SaveInt(GameApp app, string fieldName)
+        {
+            var save = typeof(GameApp).GetProperty("SaveData").GetValue(app);
+            return (int)save.GetType().GetField(fieldName).GetValue(save);
+        }
+
+        private static void SetSaveString(GameApp app, string fieldName, string value)
+        {
+            var save = typeof(GameApp).GetProperty("SaveData").GetValue(app);
+            save.GetType().GetField(fieldName).SetValue(save, value);
+        }
+
         private static IList SaveStringList(GameApp app, string fieldName)
         {
             var save = typeof(GameApp).GetProperty("SaveData").GetValue(app);
@@ -1002,6 +1115,11 @@ namespace CurioClerk.Tests.PlayMode
         private static int SessionHearts(GameApp app)
         {
             return (int)Session(app).GetType().GetProperty("Hearts").GetValue(Session(app));
+        }
+
+        private static int SessionScore(GameApp app)
+        {
+            return (int)Session(app).GetType().GetProperty("Score").GetValue(Session(app));
         }
 
         private static string SessionState(GameApp app)
@@ -1153,6 +1271,16 @@ namespace CurioClerk.Tests.PlayMode
                 Assert.That(_completed, Is.Not.Null, "No rewarded-ad request is pending.");
                 _completed(result);
             }
+        }
+
+        private sealed class FixedClock : IClock
+        {
+            public FixedClock(DateTime localNow)
+            {
+                LocalNow = localNow;
+            }
+
+            public DateTime LocalNow { get; }
         }
 
         private sealed class RecordingPlayerFeedbackService : IPlayerFeedbackService

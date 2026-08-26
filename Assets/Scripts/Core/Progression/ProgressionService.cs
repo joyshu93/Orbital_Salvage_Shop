@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using CurioClerk.Core.Shifts;
 
 namespace CurioClerk.Core.Progression
@@ -91,6 +92,36 @@ namespace CurioClerk.Core.Progression
 
             save.equippedCosmeticId = cosmeticId;
             return true;
+        }
+
+        public void RecordDailyCompletion(PlayerSaveData save, string localDateKey, int score)
+        {
+            if (save == null)
+            {
+                throw new ArgumentNullException(nameof(save));
+            }
+
+            if (!DateTime.TryParseExact(
+                    localDateKey,
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var localDate))
+            {
+                throw new ArgumentException("Daily date must use yyyy-MM-dd.", nameof(localDateKey));
+            }
+
+            save.Sanitize();
+            var normalizedDate = localDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var safeScore = Math.Max(0, score);
+            if (string.Equals(save.lastDailyCompletedDate, normalizedDate, StringComparison.Ordinal))
+            {
+                save.dailyBestScore = Math.Max(save.dailyBestScore, safeScore);
+                return;
+            }
+
+            save.lastDailyCompletedDate = normalizedDate;
+            save.dailyBestScore = safeScore;
         }
     }
 }

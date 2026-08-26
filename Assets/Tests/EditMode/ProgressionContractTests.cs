@@ -67,6 +67,40 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(Field<string>(save, "equippedCosmeticId"), Is.EqualTo("moth-mobile"));
         }
 
+        [Test]
+        public void DailyCompletion_KeepsHighestScoreForSameDate()
+        {
+            var saveType = Require("CurioClerk.Core.Progression.PlayerSaveData");
+            var serviceType = Require("CurioClerk.Core.Progression.ProgressionService");
+            var save = Activator.CreateInstance(saveType);
+            var service = Activator.CreateInstance(serviceType);
+            var method = serviceType.GetMethod("RecordDailyCompletion");
+
+            Assert.That(method, Is.Not.Null, "Progression must record a completed daily challenge.");
+            method.Invoke(service, new object[] { save, "2026-08-26", 440 });
+            method.Invoke(service, new object[] { save, "2026-08-26", 310 });
+
+            Assert.That(Field<string>(save, "lastDailyCompletedDate"), Is.EqualTo("2026-08-26"));
+            Assert.That(Field<int>(save, "dailyBestScore"), Is.EqualTo(440));
+        }
+
+        [Test]
+        public void DailyCompletion_NewDateStartsANewBestScore()
+        {
+            var saveType = Require("CurioClerk.Core.Progression.PlayerSaveData");
+            var serviceType = Require("CurioClerk.Core.Progression.ProgressionService");
+            var save = Activator.CreateInstance(saveType);
+            var service = Activator.CreateInstance(serviceType);
+            var method = serviceType.GetMethod("RecordDailyCompletion");
+
+            Assert.That(method, Is.Not.Null, "Progression must record a completed daily challenge.");
+            method.Invoke(service, new object[] { save, "2026-08-26", 440 });
+            method.Invoke(service, new object[] { save, "2026-08-27", 250 });
+
+            Assert.That(Field<string>(save, "lastDailyCompletedDate"), Is.EqualTo("2026-08-27"));
+            Assert.That(Field<int>(save, "dailyBestScore"), Is.EqualTo(250));
+        }
+
         private static T Field<T>(object instance, string name)
         {
             return (T)instance.GetType().GetField(name, BindingFlags.Public | BindingFlags.Instance).GetValue(instance);

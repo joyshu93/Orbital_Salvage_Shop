@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using CurioClerk.Infrastructure;
 using CurioClerk.Infrastructure.Ads;
+using CurioClerk.Infrastructure.Feedback;
 using CurioClerk.Infrastructure.Privacy;
 using CurioClerk.Localization;
 using CurioClerk.Presentation;
@@ -88,6 +89,8 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(renderCamera, Is.Not.Null,
                 "GameApp must supply a camera so the Game view does not show 'No cameras rendering'.");
             Assert.That(renderCamera.isActiveAndEnabled, Is.True);
+            Assert.That(UnityEngine.Object.FindFirstObjectByType<AudioListener>(), Is.Not.Null,
+                "Runtime-generated feedback audio requires an active listener on the display camera.");
 
             UnityEngine.Object.Destroy(host);
             yield return null;
@@ -577,6 +580,111 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator Settings_TogglesPersistedFeedbackPreferencesAndReconfiguresService()
+        {
+            var feedback = new RecordingPlayerFeedbackService();
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService(), feedback);
+            yield return null;
+            SetEnglishLocale(app);
+            SetSaveBool(app, "soundEnabled", true);
+            SetSaveBool(app, "hapticsEnabled", true);
+
+            app.ShowSettings();
+            Assert.That(ObjectText("SoundToggleButton"), Is.EqualTo("Sound: On"));
+            Assert.That(ObjectText("HapticsToggleButton"), Is.EqualTo("Haptics: On"));
+
+            ClickButton("SoundToggleButton");
+            Assert.That(SaveBool(app, "soundEnabled"), Is.False);
+            Assert.That(ObjectText("SoundToggleButton"), Is.EqualTo("Sound: Off"));
+            Assert.That(feedback.SoundEnabled, Is.False);
+            Assert.That(feedback.HapticsEnabled, Is.True);
+
+            ClickButton("HapticsToggleButton");
+            Assert.That(SaveBool(app, "hapticsEnabled"), Is.False);
+            Assert.That(ObjectText("HapticsToggleButton"), Is.EqualTo("Haptics: Off"));
+            Assert.That(feedback.SoundEnabled, Is.False);
+            Assert.That(feedback.HapticsEnabled, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator ShiftFeedback_PlaysInteractionCuesAndAnimatesArtifactEntrance()
+        {
+            var feedback = new RecordingPlayerFeedbackService();
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService(), feedback);
+            yield return null;
+            SetSaveBool(app, "soundEnabled", true);
+            SetSaveBool(app, "hapticsEnabled", true);
+            app.StartNewShift(4242);
+
+            var card = GameObject.Find("CurrentArtifactCard").GetComponent<RectTransform>();
+            Assert.That(card.localScale.x, Is.LessThan(0.99f),
+                "A newly displayed artifact must begin with a subtle entrance transition.");
+            yield return new WaitForSecondsRealtime(0.25f);
+            Assert.That(card.localScale.x, Is.EqualTo(1f).Within(0.01f));
+
+            feedback.Cues.Clear();
+            app.HoldCurrent();
+            Assert.That(feedback.Cues, Does.Contain(PlayerFeedbackCue.Hold));
+
+            var expected = ExpectedDestination(app);
+            typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { expected });
+            Assert.That(feedback.Cues, Does.Contain(PlayerFeedbackCue.Correct));
+
+            SortCurrentIncorrectly(app);
+            Assert.That(feedback.Cues, Does.Contain(PlayerFeedbackCue.Wrong));
+        }
+
+        [UnityTest]
+        public IEnumerator TerminalCorrectSort_UsesCompletionCueAndAnimatesResultInsteadOfOverlappingCues()
+        {
+            var feedback = new RecordingPlayerFeedbackService();
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService(), feedback);
+            yield return null;
+            app.StartNewShift(4242);
+
+            for (var index = 0; index < 11; index++)
+            {
+                var expected = ExpectedDestination(app);
+                typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { expected });
+            }
+
+            feedback.Cues.Clear();
+            var finalDestination = ExpectedDestination(app);
+            typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { finalDestination });
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Results));
+            Assert.That(feedback.Cues, Is.EqualTo(new[] { PlayerFeedbackCue.ShiftComplete }),
+                "The terminal correct tone must not overlap the distinct completion cue.");
+            var resultTitle = GameObject.Find("ResultTitle").GetComponent<RectTransform>();
+            Assert.That(resultTitle.localScale.x, Is.LessThan(0.99f),
+                "An immediate result transition must provide its own visible entrance feedback.");
+            yield return new WaitForSecondsRealtime(0.25f);
+            Assert.That(resultTitle.localScale.x, Is.EqualTo(1f).Within(0.01f));
+        }
+
+        [UnityTest]
+        public IEnumerator TerminalWrongSort_PrioritizesWrongCueAndHapticOverCompletionTone()
+        {
+            var feedback = new RecordingPlayerFeedbackService();
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService(), feedback);
+            yield return null;
+            app.StartNewShift(4242);
+
+            for (var index = 0; index < 11; index++)
+            {
+                var expected = ExpectedDestination(app);
+                typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { expected });
+            }
+
+            feedback.Cues.Clear();
+            SortCurrentIncorrectly(app);
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Results));
+            Assert.That(feedback.Cues, Is.EqualTo(new[] { PlayerFeedbackCue.Wrong }),
+                "A final wrong sort must retain its corrective tone and haptic without overlapping the completion tone.");
+        }
+
+        [UnityTest]
         public IEnumerator FailedShift_EarnedRewardRevivesOnceAndDuplicateCallbacksDoNothing()
         {
             var adService = new DeferredAdService();
@@ -663,9 +771,12 @@ namespace CurioClerk.Tests.PlayMode
             }
         }
 
-        private static GameApp CreateApp(IAdService adService, IPrivacyService privacyService)
+        private static GameApp CreateApp(
+            IAdService adService,
+            IPrivacyService privacyService,
+            IPlayerFeedbackService feedbackService = null)
         {
-            ServiceFactory.SetTestServices(adService, privacyService);
+            ServiceFactory.SetTestServices(adService, privacyService, feedbackService);
             return new GameObject("GameAppRewardTestHost").AddComponent<GameApp>();
         }
 
@@ -861,6 +972,18 @@ namespace CurioClerk.Tests.PlayMode
             return ((IList)save.GetType().GetField("discoveredArtifactIds").GetValue(save)).Count;
         }
 
+        private static bool SaveBool(GameApp app, string fieldName)
+        {
+            var save = typeof(GameApp).GetProperty("SaveData").GetValue(app);
+            return (bool)save.GetType().GetField(fieldName).GetValue(save);
+        }
+
+        private static void SetSaveBool(GameApp app, string fieldName, bool value)
+        {
+            var save = typeof(GameApp).GetProperty("SaveData").GetValue(app);
+            save.GetType().GetField(fieldName).SetValue(save, value);
+        }
+
         private static void RequestCompletedShiftReward(GameApp app)
         {
             typeof(GameApp)
@@ -894,7 +1017,9 @@ namespace CurioClerk.Tests.PlayMode
             var textType = Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro");
             var textObject = GameObject.Find(objectName);
             Assert.That(textObject, Is.Not.Null, objectName + " must exist in the active view.");
-            return (string)textType.GetProperty("text").GetValue(textObject.GetComponent(textType));
+            var textComponent = textObject.GetComponent(textType) ?? textObject.GetComponentInChildren(textType);
+            Assert.That(textComponent, Is.Not.Null, objectName + " must expose visible TMP text.");
+            return (string)textType.GetProperty("text").GetValue(textComponent);
         }
 
         private readonly struct RewardFeedbackCase
@@ -935,6 +1060,30 @@ namespace CurioClerk.Tests.PlayMode
             {
                 Assert.That(_completed, Is.Not.Null, "No rewarded-ad request is pending.");
                 _completed(result);
+            }
+        }
+
+        private sealed class RecordingPlayerFeedbackService : IPlayerFeedbackService
+        {
+            public List<PlayerFeedbackCue> Cues { get; } = new List<PlayerFeedbackCue>();
+
+            public bool SoundEnabled { get; private set; }
+
+            public bool HapticsEnabled { get; private set; }
+
+            public void Configure(bool soundEnabled, bool hapticsEnabled)
+            {
+                SoundEnabled = soundEnabled;
+                HapticsEnabled = hapticsEnabled;
+            }
+
+            public void Play(PlayerFeedbackCue cue)
+            {
+                Cues.Add(cue);
+            }
+
+            public void Dispose()
+            {
             }
         }
 

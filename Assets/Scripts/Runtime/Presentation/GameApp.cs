@@ -8,6 +8,7 @@ using CurioClerk.Core.Progression;
 using CurioClerk.Core.Rules;
 using CurioClerk.Core.Shifts;
 using CurioClerk.Infrastructure.Ads;
+using CurioClerk.Infrastructure.Feedback;
 using CurioClerk.Infrastructure.Privacy;
 using CurioClerk.Infrastructure.Save;
 using CurioClerk.Infrastructure.Time;
@@ -55,6 +56,7 @@ namespace CurioClerk.Presentation
         private ISaveStore _saveStore;
         private IAdService _adService;
         private IPrivacyService _privacy;
+        private IPlayerFeedbackService _feedbackService;
         private IShiftSeedProvider _seedProvider;
         private Localizer _localizer;
         private RectTransform _screenRoot;
@@ -76,6 +78,7 @@ namespace CurioClerk.Presentation
         private Image _sortFeedbackPanel;
         private TMP_Text _statusText;
         private TMP_Text _hudText;
+        private ShiftFeedbackAnimator _feedbackAnimator;
         private int _sortedCount;
         private bool _resultApplied;
         private int _appliedResultCoins;
@@ -99,6 +102,8 @@ namespace CurioClerk.Presentation
             _localizer = new Localizer(_save.locale);
             _adService = Infrastructure.ServiceFactory.CreateAdService();
             _privacy = Infrastructure.ServiceFactory.CreatePrivacyService();
+            _feedbackService = Infrastructure.ServiceFactory.CreatePlayerFeedbackService(gameObject);
+            ConfigureFeedback();
             _seedProvider = new ShiftSeedProvider(new SystemClock());
             EnsureDisplayCamera();
             BuildShell();
@@ -114,7 +119,11 @@ namespace CurioClerk.Presentation
             }
         }
 
-        private void OnDestroy() => Save();
+        private void OnDestroy()
+        {
+            Save();
+            _feedbackService?.Dispose();
+        }
 
         public void ShowMenu()
         {
@@ -185,7 +194,9 @@ namespace CurioClerk.Presentation
                 _seenThisShift.Add(artifactId);
             }
 
-            ShowSortFeedback(outcome.WasCorrect, destination, outcome.ExpectedDestination);
+            var completedShift = _session.State == ShiftState.Completed;
+            var terminalCorrectSort = completedShift && outcome.WasCorrect;
+            ShowSortFeedback(outcome.WasCorrect, destination, outcome.ExpectedDestination, !terminalCorrectSort);
 
             if (_session.State == ShiftState.Active)
             {
@@ -193,6 +204,11 @@ namespace CurioClerk.Presentation
             }
             else
             {
+                if (_session.State == ShiftState.Completed && outcome.WasCorrect)
+                {
+                    _feedbackService.Play(PlayerFeedbackCue.ShiftComplete);
+                }
+
                 ShowResults();
             }
         }
@@ -213,6 +229,7 @@ namespace CurioClerk.Presentation
                     _sortedCount++;
                 }
 
+                _feedbackService.Play(PlayerFeedbackCue.Hold);
                 RefreshShiftView();
             }
         }
@@ -264,13 +281,16 @@ namespace CurioClerk.Presentation
             CreateText(page, "LanguageHeader", _localizer.Get("language"), 28, Paper, TextAlignmentOptions.Left, new Vector2(0.14f, 0.72f), new Vector2(0.86f, 0.78f), true);
             CreateButton(page, "EnglishButton", "English", new Vector2(0.14f, 0.62f), new Vector2(0.48f, 0.70f), _localizer.Locale == "en" ? Amber : Wine, _localizer.Locale == "en" ? Ink : Paper, () => SetLocale("en"));
             CreateButton(page, "KoreanButton", "한국어", new Vector2(0.52f, 0.62f), new Vector2(0.86f, 0.70f), _localizer.Locale == "ko" ? Amber : Wine, _localizer.Locale == "ko" ? Ink : Paper, () => SetLocale("ko"));
-            CreateText(page, "PrivacyHeader", _localizer.Get("privacy"), 28, Paper, TextAlignmentOptions.Left, new Vector2(0.14f, 0.49f), new Vector2(0.86f, 0.55f), true);
+            CreateText(page, "FeedbackHeader", _localizer.Get("feedback_settings"), 28, Paper, TextAlignmentOptions.Left, new Vector2(0.14f, 0.53f), new Vector2(0.86f, 0.59f), true);
+            CreateButton(page, "SoundToggleButton", FeedbackToggleLabel("sound", _save.soundEnabled), new Vector2(0.14f, 0.43f), new Vector2(0.48f, 0.51f), _save.soundEnabled ? Sage : Wine, Paper, ToggleSound);
+            CreateButton(page, "HapticsToggleButton", FeedbackToggleLabel("haptics", _save.hapticsEnabled), new Vector2(0.52f, 0.43f), new Vector2(0.86f, 0.51f), _save.hapticsEnabled ? Sage : Wine, Paper, ToggleHaptics);
+            CreateText(page, "PrivacyHeader", _localizer.Get("privacy"), 28, Paper, TextAlignmentOptions.Left, new Vector2(0.14f, 0.33f), new Vector2(0.86f, 0.39f), true);
             if (_privacy.PrivacyOptionsRequired)
             {
-                CreateButton(page, "AdPrivacyOptionsButton", _localizer.Get("privacy_options"), new Vector2(0.14f, 0.37f), new Vector2(0.86f, 0.45f), Wine, Paper, ShowAdPrivacyOptions);
+                CreateButton(page, "AdPrivacyOptionsButton", _localizer.Get("privacy_options"), new Vector2(0.14f, 0.24f), new Vector2(0.86f, 0.31f), Wine, Paper, ShowAdPrivacyOptions);
             }
 
-            CreateText(page, "PrivacyNote", _localizer.Locale == "ko" ? "광고 동의 없이도 모든 게임 기능을 이용할 수 있습니다." : "All gameplay remains available without ad consent.", 22, Paper, TextAlignmentOptions.Top, new Vector2(0.14f, 0.22f), new Vector2(0.86f, 0.34f));
+            CreateText(page, "PrivacyNote", _localizer.Locale == "ko" ? "광고 동의 없이도 모든 게임 기능을 이용할 수 있습니다." : "All gameplay remains available without ad consent.", 22, Paper, TextAlignmentOptions.Top, new Vector2(0.14f, 0.11f), new Vector2(0.86f, 0.22f));
             CreateButton(page, "SettingsBackButton", _localizer.Get("back"), new Vector2(0.30f, 0.03f), new Vector2(0.70f, 0.09f), Paper, Ink, ShowMenu);
         }
 
@@ -322,6 +342,8 @@ namespace CurioClerk.Presentation
             var feedbackPanel = CreatePanel(page, "SortFeedbackPanel", Color.clear, new Vector2(0.05f, 0.155f), new Vector2(0.95f, 0.205f));
             _sortFeedbackPanel = feedbackPanel.GetComponent<Image>();
             _statusText = CreateText(feedbackPanel, "SortFeedback", string.Empty, 21, Paper, TextAlignmentOptions.Center, Vector2.zero, Vector2.one, true);
+            _feedbackAnimator = page.gameObject.AddComponent<ShiftFeedbackAnimator>();
+            _feedbackAnimator.Configure(card, feedbackPanel);
 
             var repair = CreateButton(page, "RepairButton", _localizer.Get("repair"), new Vector2(0.05f, 0.04f), new Vector2(0.32f, 0.14f), DustyRose, Paper, () => ChooseDestination(Destination.Repair));
             var storage = CreateButton(page, "StorageButton", _localizer.Get("storage"), new Vector2(0.365f, 0.04f), new Vector2(0.635f, 0.14f), Sage, Paper, () => ChooseDestination(Destination.Storage));
@@ -391,7 +413,8 @@ namespace CurioClerk.Presentation
 
             var outcome = _session.Sort(destination);
             _sortedCount++;
-            ShowSortFeedback(true, destination, outcome.ExpectedDestination);
+            var completingTutorial = _tutorialStage == TutorialStage.FinalSort;
+            ShowSortFeedback(true, destination, outcome.ExpectedDestination, !completingTutorial);
             switch (_tutorialStage)
             {
                 case TutorialStage.FirstSort:
@@ -430,6 +453,7 @@ namespace CurioClerk.Presentation
                     _sortedCount++;
                 }
 
+                _feedbackService.Play(PlayerFeedbackCue.Hold);
                 _tutorialStage = TutorialStage.SortAfterHold;
                 RefreshShiftView();
                 RefreshTutorialGuidance();
@@ -490,6 +514,7 @@ namespace CurioClerk.Presentation
             _tutorialStage = TutorialStage.Complete;
             _save.tutorialCompleted = true;
             Save();
+            _feedbackService.Play(PlayerFeedbackCue.ShiftComplete);
             ActiveScreen = AppScreen.Tutorial;
             var page = CreatePage("TutorialCompleteScreen");
             CreateText(page, "TutorialCompleteTitle", _localizer.Get("tutorial_complete_title"), 58, Amber, TextAlignmentOptions.Center, new Vector2(0.10f, 0.62f), new Vector2(0.90f, 0.76f), true);
@@ -497,13 +522,29 @@ namespace CurioClerk.Presentation
             CreateButton(page, "TutorialStartShiftButton", _localizer.Get("tutorial_start_shift"), new Vector2(0.18f, 0.20f), new Vector2(0.82f, 0.30f), Amber, Ink, () => StartNewShift(_seedProvider.CreateStandardSeed(_save.completedShifts)));
         }
 
-        private void ShowSortFeedback(bool wasCorrect, Destination selected, Destination expected)
+        private void ShowSortFeedback(
+            bool wasCorrect,
+            Destination selected,
+            Destination expected,
+            bool playCue = true)
         {
             _sortFeedbackPanel.color = wasCorrect ? Sage : DustyRose;
             _statusText.text = wasCorrect
                 ? _localizer.Get("feedback_correct_label") + " · " + _localizer.Get("correct")
                 : _localizer.Get("feedback_wrong_label") + " · " + _localizer.Get("wrong", DestinationName(expected));
             _statusText.color = Paper;
+            if (playCue)
+            {
+                _feedbackService.Play(wasCorrect ? PlayerFeedbackCue.Correct : PlayerFeedbackCue.Wrong);
+            }
+            if (wasCorrect)
+            {
+                _feedbackAnimator?.PlayCorrect();
+            }
+            else
+            {
+                _feedbackAnimator?.PlayWrong();
+            }
 
             var highlighted = wasCorrect ? selected : expected;
             for (var index = 0; index < _destinationHighlights.Length; index++)
@@ -558,6 +599,7 @@ namespace CurioClerk.Presentation
             }
 
             _hudText.text = $"♥ {_session.Hearts}     COMBO {_session.Combo}     {_localizer.Get("coins")} {_session.Coins}";
+            _feedbackAnimator?.PlayArtifactEntrance();
         }
 
         private void ShowResults()
@@ -566,8 +608,11 @@ namespace CurioClerk.Presentation
             ActiveScreen = AppScreen.Results;
             var page = CreatePage("ResultsScreen");
             var completed = _session.State == ShiftState.Completed;
-            CreateText(page, "ResultTitle", _localizer.Get(completed ? "complete" : "failed"), 58, completed ? Amber : DustyRose, TextAlignmentOptions.Center, new Vector2(0.08f, 0.69f), new Vector2(0.92f, 0.82f), true);
-            CreateText(page, "ResultScore", $"{_localizer.Get("score")}  {_session.Score}\n{_localizer.Get("coins")}  {_session.Coins}\n{_localizer.Get("result_correct_label")}  {_session.CorrectSorts}   ·   {_localizer.Get("result_mistakes_label")}  {_session.Mistakes}", 33, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.45f), new Vector2(0.85f, 0.66f), true);
+            var resultTitle = CreateText(page, "ResultTitle", _localizer.Get(completed ? "complete" : "failed"), 58, completed ? Amber : DustyRose, TextAlignmentOptions.Center, new Vector2(0.08f, 0.69f), new Vector2(0.92f, 0.82f), true);
+            var resultScore = CreateText(page, "ResultScore", $"{_localizer.Get("score")}  {_session.Score}\n{_localizer.Get("coins")}  {_session.Coins}\n{_localizer.Get("result_correct_label")}  {_session.CorrectSorts}   ·   {_localizer.Get("result_mistakes_label")}  {_session.Mistakes}", 33, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.45f), new Vector2(0.85f, 0.66f), true);
+            var resultAnimator = page.gameObject.AddComponent<ShiftFeedbackAnimator>();
+            resultAnimator.Configure(resultTitle.rectTransform, resultScore.rectTransform);
+            resultAnimator.PlayArtifactEntrance();
             CreateText(page, "RewardedAdFeedback", string.IsNullOrEmpty(_rewardFeedbackKey) ? string.Empty : _localizer.Get(_rewardFeedbackKey), 22, DustyRose, TextAlignmentOptions.Center, new Vector2(0.12f, 0.41f), new Vector2(0.88f, 0.45f), true);
             var rewardLabel = completed ? _localizer.Get("double") : _localizer.Get("revive");
             if (!CanShowRewarded || _session.RewardClaimed)
@@ -730,6 +775,32 @@ namespace CurioClerk.Presentation
             ShowSettings();
         }
 
+        private string FeedbackToggleLabel(string key, bool enabled)
+        {
+            return _localizer.Get(key) + ": " + _localizer.Get(enabled ? "on" : "off");
+        }
+
+        private void ToggleSound()
+        {
+            _save.soundEnabled = !_save.soundEnabled;
+            ConfigureFeedback();
+            Save();
+            ShowSettings();
+        }
+
+        private void ToggleHaptics()
+        {
+            _save.hapticsEnabled = !_save.hapticsEnabled;
+            ConfigureFeedback();
+            Save();
+            ShowSettings();
+        }
+
+        private void ConfigureFeedback()
+        {
+            _feedbackService?.Configure(_save.soundEnabled, _save.hapticsEnabled);
+        }
+
         private void Save()
         {
             if (_saveStore != null && _save != null)
@@ -740,19 +811,30 @@ namespace CurioClerk.Presentation
 
         private void EnsureDisplayCamera()
         {
-            var hasActiveCamera = FindObjectsByType<Camera>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
-                .Any(camera => camera.isActiveAndEnabled);
-            if (hasActiveCamera)
+            var displayCamera = FindObjectsByType<Camera>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                .FirstOrDefault(camera => camera.isActiveAndEnabled);
+            if (displayCamera == null)
             {
-                return;
+                var cameraObject = new GameObject("CurioClerkDisplayCamera", typeof(Camera));
+                cameraObject.transform.SetParent(transform, false);
+                displayCamera = cameraObject.GetComponent<Camera>();
+                displayCamera.clearFlags = CameraClearFlags.SolidColor;
+                displayCamera.backgroundColor = Plum;
+                displayCamera.cullingMask = 0;
             }
 
-            var cameraObject = new GameObject("CurioClerkDisplayCamera", typeof(Camera));
-            cameraObject.transform.SetParent(transform, false);
-            var displayCamera = cameraObject.GetComponent<Camera>();
-            displayCamera.clearFlags = CameraClearFlags.SolidColor;
-            displayCamera.backgroundColor = Plum;
-            displayCamera.cullingMask = 0;
+            var hasActiveListener = FindObjectsByType<AudioListener>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                .Any(listener => listener.isActiveAndEnabled);
+            if (!hasActiveListener)
+            {
+                var listener = displayCamera.GetComponent<AudioListener>();
+                if (listener == null)
+                {
+                    listener = displayCamera.gameObject.AddComponent<AudioListener>();
+                }
+
+                listener.enabled = true;
+            }
         }
 
         private void BuildShell()

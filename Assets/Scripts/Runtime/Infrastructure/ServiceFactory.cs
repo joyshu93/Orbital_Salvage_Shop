@@ -3,10 +3,9 @@ using System.Text.RegularExpressions;
 using CurioClerk.Infrastructure.Ads;
 using CurioClerk.Infrastructure.Analytics;
 using CurioClerk.Infrastructure.Diagnostics;
+using CurioClerk.Infrastructure.Feedback;
 using CurioClerk.Infrastructure.Privacy;
-#if UNITY_ANDROID && !UNITY_EDITOR
 using UnityEngine;
-#endif
 
 namespace CurioClerk.Infrastructure
 {
@@ -20,6 +19,8 @@ namespace CurioClerk.Infrastructure
 #if UNITY_INCLUDE_TESTS
         private static IAdService s_TestAdService;
         private static IPrivacyService s_TestPrivacyService;
+        private static IPlayerFeedbackService s_TestFeedbackService;
+        private static bool s_TestServicesConfigured;
 #endif
 
         public static IAdService CreateAdService()
@@ -67,19 +68,52 @@ namespace CurioClerk.Infrastructure
 
         public static ICrashReporter CreateCrashReporter() => new ConsentAwareCrashReporter();
 
+        public static IPlayerFeedbackService CreatePlayerFeedbackService(GameObject host)
+        {
 #if UNITY_INCLUDE_TESTS
-        internal static void SetTestServices(IAdService adService, IPrivacyService privacyService)
+            if (s_TestServicesConfigured)
+            {
+                return s_TestFeedbackService ?? new SilentPlayerFeedbackService();
+            }
+#endif
+            return new UnityPlayerFeedbackService(host);
+        }
+
+#if UNITY_INCLUDE_TESTS
+        internal static void SetTestServices(
+            IAdService adService,
+            IPrivacyService privacyService,
+            IPlayerFeedbackService feedbackService = null)
         {
             s_TestAdService = adService;
             s_TestPrivacyService = privacyService;
+            s_TestFeedbackService = feedbackService;
+            s_TestServicesConfigured = true;
         }
 
         internal static void ResetTestServices()
         {
             s_TestAdService = null;
             s_TestPrivacyService = null;
+            s_TestFeedbackService = null;
+            s_TestServicesConfigured = false;
         }
 #endif
+
+        private sealed class SilentPlayerFeedbackService : IPlayerFeedbackService
+        {
+            public void Configure(bool soundEnabled, bool hapticsEnabled)
+            {
+            }
+
+            public void Play(PlayerFeedbackCue cue)
+            {
+            }
+
+            public void Dispose()
+            {
+            }
+        }
 
         private sealed class UnavailableAdService : IAdService
         {

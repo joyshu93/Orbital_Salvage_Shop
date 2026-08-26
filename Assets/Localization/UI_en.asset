@@ -47,8 +47,8 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1602203653
-    m_Localized: Read rules from top to bottom. The first matching rule wins. Hold
-      one item when you need a second look. Three mistakes end the shift.
+    m_Localized: Read rules from top to bottom. The first matching rule wins. Training
+      mistakes do not cost hearts, so take your time and try Hold.
     m_Metadata:
       m_Items: []
   - m_Id: 1602203654
@@ -209,6 +209,91 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 1349456796561408
     m_Localized: Ad failed. No changes were made.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369009975296
+    m_Localized: "REPAIR \xB7 STORAGE \xB7 VAULT\nUse HOLD when you need a second
+      look."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724032
+    m_Localized: "1 / 4 \xB7 FRAGILE goes to REPAIR. File the teacup."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724033
+    m_Localized: "2 / 4 \xB7 Two rules match. The first rule wins: REPAIR."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724034
+    m_Localized: "3 / 4 \xB7 Put this item on HOLD before sorting."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724035
+    m_Localized: "3 / 4 \xB7 Now use CURSED to file the revealed key."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724036
+    m_Localized: "4 / 4 \xB7 Final check. Sort the held item without a hint."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724037
+    m_Localized: "HOLD FIRST \xB7 Use the Hold button before sorting."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724038
+    m_Localized: "FOLLOW THE NOTE \xB7 Complete the current lesson first."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724039
+    m_Localized: Training Complete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724040
+    m_Localized: The rulebook is yours. Your first full night shift is ready.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724041
+    m_Localized: Start First Shift
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724042
+    m_Localized: NEXT
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724043
+    m_Localized: CORRECT
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724044
+    m_Localized: WRONG
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724045
+    m_Localized: CORRECT
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724046
+    m_Localized: MISTAKES
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724047
+    m_Localized: Feedback
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724048
+    m_Localized: Sound
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724049
+    m_Localized: Haptics
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724050
+    m_Localized: On
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724051
+    m_Localized: Off
     m_Metadata:
       m_Items: []
   references:

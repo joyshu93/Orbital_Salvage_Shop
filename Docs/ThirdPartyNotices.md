@@ -1,6 +1,6 @@
 # Third-party notices register
 
-Last reviewed: 2026-08-21 (KST)
+Last reviewed: 2026-08-26 (KST)
 
 This is the working inventory for externally sourced material. It is not yet the final in-app notice. Before an RC build, remove unused material, resolve every open item, and make required notices easily viewable in the distributed product or its accompanying materials.
 
@@ -15,6 +15,8 @@ This is the working inventory for externally sourced material. It is not yet the
 | Unity packages | `Packages/manifest.json` and `Packages/packages-lock.json` | Unity registry/built-in packages under their package metadata, Unity Companion License where applicable, and Unity terms. Direct versions include Input System 1.20.0, Localization 1.5.8, URP 17.3.0, Test Framework 1.6.0, uGUI 2.0.0, and Visual Studio Editor 2.0.26. | Version lock is the source of truth. Export and review package notices from the resolved RC environment; do not assume one license covers every transitive package. |
 | Google Mobile Ads Unity plugin | Google-authored `com.google.ads.mobile` 11.3.0 in `Packages/manifest.json`; official Google release: https://github.com/googleads/googleads-mobile-unity/releases/tag/v11.3.0; distributed through the community OpenUPM registry, which is not operated by Google. | Apache License 2.0; retain and review the package license from the human-resolved package cache before the RC notice audit. | **Pinned; Unity resolution pending.** Use only this UPM installation, and do not import an Asset-package copy. |
 | External Dependency Manager for Unity | `GooglePackages/com.google.external-dependency-manager-1.2.188.tgz`; official archive: https://dl.google.com/games/registry/unity/com.google.external-dependency-manager/com.google.external-dependency-manager-1.2.188.tgz; SHA-256: `250B3AD3191C20E703799F612F642D8D734042A06E4CCAD636F926854101A482`. | Apache License 2.0 in archive path `package/LICENSE.md`; package identity and license must be rechecked after any archive replacement. | **Pinned and archive-verified.** Embedded `package/package.json` declares `com.google.external-dependency-manager` 1.2.188; Unity resolution remains pending. |
+| Procedural interaction feedback tones | Generated at runtime by repository-owned C# under `Assets/Scripts/Runtime/Infrastructure/Feedback`; provenance entry `AUDIO-SYNTH-001` in `Docs/AIAssetProvenance.md`. | No third-party audio or reference recording; Unity built-in audio APIs only. | **No third-party notice required.** Prototype listening and device-volume review remain open before RC. |
+| Phase 3 bilingual settings copy | `Assets/Scripts/Runtime/Localization/Localizer.cs`; provenance entry `TEXT-UI-001` in `Docs/AIAssetProvenance.md`. | Project-authored functional English/Korean labels; no third-party prose or attribution identified. | **No third-party notice required.** Bilingual visual review remains open before RC. |
 
 No Asset Store art, stock art, commercial audio, or third-party gameplay package has been approved or recorded as of the review date.
 

@@ -207,6 +207,90 @@ MonoBehaviour:
     m_Key: ad_failed
     m_Metadata:
       m_Items: []
+  - m_Id: 2069369009975296
+    m_Key: tutorial_controls
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724032
+    m_Key: tutorial_step_one
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724033
+    m_Key: tutorial_step_two
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724034
+    m_Key: tutorial_step_hold
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724035
+    m_Key: tutorial_step_after_hold
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724036
+    m_Key: tutorial_step_final
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724037
+    m_Key: tutorial_hold_first
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724038
+    m_Key: tutorial_follow_step
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724039
+    m_Key: tutorial_complete_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724040
+    m_Key: tutorial_complete_body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724041
+    m_Key: tutorial_start_shift
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724042
+    m_Key: next
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724043
+    m_Key: feedback_correct_label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724044
+    m_Key: feedback_wrong_label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724045
+    m_Key: result_correct_label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724046
+    m_Key: result_mistakes_label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724047
+    m_Key: feedback_settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724048
+    m_Key: sound
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724049
+    m_Key: haptics
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724050
+    m_Key: on
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2069369047724051
+    m_Key: off
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

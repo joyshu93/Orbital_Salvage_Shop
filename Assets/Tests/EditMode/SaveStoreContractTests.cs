@@ -64,8 +64,35 @@ namespace CurioClerk.Tests.EditMode
 
             var loaded = api.Load();
 
-            Assert.That(api.Int(loaded, "version"), Is.EqualTo(1));
+            Assert.That(api.Int(loaded, "version"), Is.EqualTo(2));
             Assert.That(api.Int(loaded, "coins"), Is.Zero);
+        }
+
+        [Test]
+        public void Load_MigratesVersionOneFeedbackPreferencesToEnabledDefaults()
+        {
+            var api = SaveApi.Create(_path);
+            File.WriteAllText(_path, "{\"version\":1,\"coins\":12}");
+
+            var loaded = api.Load();
+
+            Assert.That(api.Int(loaded, "version"), Is.EqualTo(2));
+            Assert.That(api.Bool(loaded, "soundEnabled"), Is.True,
+                "Players upgrading from v1 must not silently lose sound because missing JSON booleans deserialize false.");
+            Assert.That(api.Bool(loaded, "hapticsEnabled"), Is.True);
+        }
+
+        [Test]
+        public void Load_PreservesDisabledVersionTwoFeedbackPreferences()
+        {
+            var api = SaveApi.Create(_path);
+            File.WriteAllText(_path, "{\"version\":2,\"soundEnabled\":false,\"hapticsEnabled\":false}");
+
+            var loaded = api.Load();
+
+            Assert.That(api.Bool(loaded, "soundEnabled"), Is.False,
+                "A deliberate v2 opt-out must survive load and sanitization.");
+            Assert.That(api.Bool(loaded, "hapticsEnabled"), Is.False);
         }
 
         private sealed class SaveApi
@@ -99,6 +126,8 @@ namespace CurioClerk.Tests.EditMode
             public object Load() => _storeType.GetMethod("LoadOrDefault").Invoke(_store, null);
 
             public int Int(object save, string field) => (int)_saveType.GetField(field).GetValue(save);
+
+            public bool Bool(object save, string field) => (bool)_saveType.GetField(field).GetValue(save);
 
             private static Type Require(string fullName, string assembly)
             {

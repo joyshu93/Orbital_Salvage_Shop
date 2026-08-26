@@ -101,6 +101,38 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Store submission decision | Treat the images and prominent screenshots containing them as AI-assisted/generated media wherever the selected store asks. Recheck the selected store's current wording at upload time. |
 | Release status | **Vertical-slice prototype — not approved for RC.** Requires in-Unity composition review, similarity/trademark review, any desired human repaint or adjustment, and explicit developer release approval. |
 
+### AUDIO-SYNTH-001 — procedural interaction feedback tones
+
+| Field | Record |
+| --- | --- |
+| Repository files | Runtime synthesis code under `Assets/Scripts/Runtime/Infrastructure/Feedback`; no audio binary is stored or imported |
+| Asset type and intended use | Very short interface tones for hold, correct sort, wrong sort, and shift completion |
+| Tool | OpenAI Codex authored the deterministic waveform code from the developer-approved Phase 3 game-feel design |
+| Creation date | 2026-08-26 KST |
+| Prompt summary | Add restrained, warm-occult interaction feedback without third-party audio files or packages; keep the game fully playable when sound and haptics are disabled. |
+| Negative constraints | No sampled audio, synthesized voice, music, named composer or franchise imitation, external model output, trademark sound, or third-party reference recording. |
+| Reference inputs | None |
+| Human direction | The developer approved the recommended Phase 3 scope. Codex selected short procedural tones, optional Android haptics, and independent persisted toggles to minimize cost and external dependencies. |
+| Human edits | No human audio edit is claimed. Final gain, pitch, duration, comfort, and device-speaker suitability require developer listening review. |
+| Third-party elements | None. Waveforms are computed at runtime from repository-owned source code and use Unity's built-in audio APIs. |
+| Store submission decision | Runtime-generated interface tones are not submitted AI-generated audio files. Recheck the selected store's current disclosure wording if these tones are later rendered into promotional media. |
+| Release status | **Prototype only — listening and device-volume review required before RC.** |
+
+### TEXT-UI-001 — Phase 3 feedback settings copy
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Assets/Scripts/Runtime/Localization/Localizer.cs`; generated Unity localization tables after `ProjectBuilder.BuildAll` |
+| Asset type and intended use | English and Korean labels for Feedback, Sound, Haptics, On, and Off in the in-game Settings screen |
+| Tool | OpenAI Codex drafted the bilingual interface copy from the developer-approved Phase 3 feature scope |
+| Creation date | 2026-08-26 KST |
+| Reference inputs | Existing project terminology and bilingual UI conventions only; no third-party prose was supplied or copied |
+| Human direction | The developer approved the recommended implementation and retains final wording and release authority. |
+| Human edits | No independent human rewrite is claimed yet. Korean naturalness, English clarity, truncation, and accessibility require developer in-Unity review. |
+| Third-party elements | None identified; short functional labels do not require attribution. |
+| Store submission decision | Ordinary in-game settings copy; no separate AI-media declaration is currently identified. Recheck selected-store requirements at submission time. |
+| Release status | **Prototype copy — bilingual visual review required before RC.** |
+
 ### DEV-CODE-001 — initial project implementation
 
 | Field | Record |

@@ -165,3 +165,38 @@ All four Phase 2 generations initially rendered their transparency preview check
 - All eight selected sprites were checked as 32-bit ARGB PNGs with a corner alpha value of zero.
 - The desk background intentionally remains opaque.
 - Unity import compression and resizing are technical processing, not claimed human creative edits.
+
+## ART-CATALOG-001 — remaining 16 curio sprites
+
+The following is the retained normalized prompt record for the selected catalog outputs generated on 2026-08-26 KST. Each subject brief was combined with this shared production direction:
+
+```text
+Create one original production-ready 2D item sprite for Curio Clerk, a cozy warm-occult mobile sorting puzzle. Use a hand-painted gouache finish, restrained dark-plum outline, tactile materials, parchment/brass/deep-plum colors, and warm amber lamplight. Center the entire isolated object on a square 1024 × 1024 canvas with generous margin and a silhouette readable at 128 px. Require genuine transparent alpha. No checkerboard, scenery, floor, cast shadow, text, letters, numerals, logos, watermarks, brands, protected characters, likenesses, or imitation of a named artist, studio, game, film, or franchise.
+```
+
+| Asset ID | Selected subject brief |
+| --- | --- |
+| `borrowed-shadow` | A folded, detached deep-plum shadow kept by a tiny antique brass clothes peg, with a soft amber edge that suggests sunrise approaching. |
+| `mossy-watch` | A round antique brass pocket watch whose face and open lid are gently overgrown with living moss that creeps one minute ahead. |
+| `paper-fish` | One origami fish folded from aged parchment, with damp blue-gray edges, a brass eye, and a subtly animated curl. |
+| `backward-candle` | One ivory candle in a small brass holder, with amber wax visibly climbing upward toward the flame instead of dripping down. |
+| `porcelain-tooth` | One oversized elegant cream porcelain tooth with fine glaze cracks, a non-human deep-plum crescent motif, and a small brass root cap. |
+| `humming-scarf` | One coiled deep-plum wool scarf with one end lifted as if humming, two non-musical parchment breath curls, and an amber clasp. |
+| `sundial-egg` | One parchment-colored porcelain egg in a tiny brass sundial cradle, with an amber noon beam and abstract plum time-shadow marks. |
+| `rusty-comet` | One palm-sized antique iron comet curio with a rounded rusted head, layered brass and plum ribbon tail, and warm time-glow. |
+| `ink-snowglobe` | One antique glass snow globe filled with swirling midnight-purple ink, a small cream paper boat suspended inside, and an aged brass base. |
+| `patient-compass` | One round antique brass pocket compass with a deep-plum enamel rim, a resting cream needle, and an amber hourglass-shaped marker. |
+| `yesterday-ticket` | One curled vintage parchment transit ticket with scalloped ends, brass punch hole, moon-and-clock pictograms, and a backward amber glow; no readable writing or numbers. |
+| `tea-crown` | One tiny crown assembled from ivory teacup rims, three brass spoon-like points, amber tea-drop gems, and a deep-plum velvet band. |
+| `lantern-snail` | One small snail-shaped enchanted brass curio with a warm amber lantern as its spiral shell, moss-green body, and plum feelers. |
+| `tide-locket` | One open antique oval brass locket containing a curling blue-green tide beneath an ivory crescent moon, with a broken plum ribbon and amber droplets. |
+| `murmur-box` | One palm-sized rounded walnut box with brass corners, a slightly open glowing lid, plum keyhole, and two parchment whisper curls with no faces or writing. |
+| `unmelting-ice` | One faceted blue-green ice crystal holding a preserved deep-plum leaf, mounted in a small brass base beside a tiny floating amber flame. |
+
+The first eight subject generations used only the project-owned `sleeping-teacup.png` and `mirror-seed.png` as palette, brushwork, outline, lighting, and mobile-readability references. The final eight used text only. The first eight needed background-extraction edits after ImageGen rendered its checkerboard preview as opaque pixels. `yesterday-ticket` received a content edit replacing unintended Roman numerals with non-linguistic dots and diamonds, followed by background extraction. No manual repaint or redraw is claimed.
+
+## Catalog technical validation record
+
+- `scripts/test-artifact-art-contract.ps1` derives all 24 authoritative artifact IDs from `ContentCatalog.cs` and requires a square PNG of at least 512 px with transparent corners for each ID.
+- The selected 16 files are 1254 × 1254 PNGs; the complete catalog passed the 24/24 contract on 2026-08-26 KST.
+- Visual similarity, trademark, small-screen composition, and final release approval remain human review gates.

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using CurioClerk.Content;
 using CurioClerk.Infrastructure;
 using CurioClerk.Infrastructure.Ads;
 using CurioClerk.Infrastructure.Feedback;
@@ -316,39 +317,17 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ShiftArtwork_UsesSymbolBadgeWhenIllustrationIsUnavailable()
+        public IEnumerator ShiftArtwork_LoadsBespokeIllustrationForEveryCatalogArtifact()
         {
-            var illustratedIds = new[]
-            {
-                "clockwork-moth",
-                "rain-jar",
-                "whispering-key",
-                "sleeping-teacup",
-                "moon-umbrella",
-                "silent-bell",
-                "thimble-storm",
-                "mirror-seed"
-            };
-            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
             yield return null;
-            SetEnglishLocale(app);
 
-            for (var seed = 1; seed <= 64; seed++)
+            foreach (var artifact in ContentCatalog.CreateArtifacts())
             {
-                app.StartNewShift(seed);
-                if (Array.IndexOf(illustratedIds, CurrentArtifactId(app)) < 0)
-                {
-                    break;
-                }
+                var sprite = VisualAssetLibrary.Artifact(artifact.Id);
+                Assert.That(sprite, Is.Not.Null,
+                    $"Catalog artifact '{artifact.Id}' must have a Resources artwork sprite.");
+                Assert.That(sprite.name, Is.EqualTo(artifact.Id));
             }
-
-            Assert.That(Array.IndexOf(illustratedIds, CurrentArtifactId(app)), Is.LessThan(0),
-                "The deterministic seed search must select an artifact without bespoke artwork.");
-            var illustration = GameObject.Find("ArtifactIllustration").GetComponent<UnityEngine.UI.Image>();
-            var symbol = GameObject.Find("ArtifactSymbol");
-            Assert.That(illustration.enabled, Is.False);
-            Assert.That(symbol.activeSelf, Is.True,
-                "Artifacts without bespoke art must retain the readable symbol badge.");
         }
 
         [UnityTest]

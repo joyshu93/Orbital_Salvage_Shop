@@ -1,6 +1,6 @@
 # AI asset provenance and release policy
 
-Last reviewed: 2026-08-24 (KST)
+Last reviewed: 2026-08-26 (KST)
 
 This document is the release evidence ledger for AI-assisted work in **Curio Clerk: Night Shift**. It is an internal risk-control record, not legal advice. Update it whenever an AI tool creates or edits source code, art, audio, text, video, localization, or store material.
 
@@ -100,6 +100,26 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Intended uses | Standard-shift current, next, and held artifact illustrations in the in-game vertical slice. Store screenshots require the release gate below. |
 | Store submission decision | Treat the images and prominent screenshots containing them as AI-assisted/generated media wherever the selected store asks. Recheck the selected store's current wording at upload time. |
 | Release status | **Vertical-slice prototype — not approved for RC.** Requires in-Unity composition review, similarity/trademark review, any desired human repaint or adjustment, and explicit developer release approval. |
+
+### ART-CATALOG-001 — remaining curio catalog illustrations
+
+| Field | Record |
+| --- | --- |
+| Repository files | Sixteen transparent sprites under `Assets/Resources/Art/Artifacts`: `borrowed-shadow`, `mossy-watch`, `paper-fish`, `backward-candle`, `porcelain-tooth`, `humming-scarf`, `sundial-egg`, `rusty-comet`, `ink-snowglobe`, `patient-compass`, `yesterday-ticket`, `tea-crown`, `lantern-snail`, `tide-locket`, `murmur-box`, and `unmelting-ice` |
+| SHA-256 | Shadow `DAEF84B290CEC82569A8B7D7C8952C4019F91AE7F56C678077373443C48C79DF`; watch `816819806FE16A6BBF3DB21C4A5ED36C97CF0B18BD6332ED076E48E0A9575A50`; fish `29CD1292E2F02E54033350DB3C9A840A63E920B2E70B3A07941F68FC5A033D29`; candle `32CF4C685EA214605932089DCF7C694334A5260F5CF9A295705BFA2A9B208B7A`; tooth `3BBCFD843D88C98093C009A1D3BB1527E1E1A98F50AD4B6A3E0789581C91B6FB`; scarf `CC876492AEE2AE32E206CD6035C9D2697975B29EBAA9E9BE145A48E5CC1C718F`; egg `9BF25E0D5FB0BE16703BF8CBB6295238B9455BAA139A951061762F7D004156A5`; comet `2ADEF7045C5CFF101C179C1DE402D118114F331C7013BFA53719D80CB347B464`; snowglobe `A3412F9E525C36CB35ADB426D7F2BD31743C295434F9F7D8EE37B4DEB157D284`; compass `D0333C84E3FEB9632381A052033BA14758D37DEE3704E98F1D776C3F81F982A0`; ticket `A47E34E3E35AF9011830505A58FD514EDFE6AC01EFFF46D03E5B8C690AC90996`; crown `A15611F3EB4CE91638EC01BA6C56E36C3B4AD4F669D39FEED83BA48131F039FD`; snail `9D86A547011DF1081CEA79EDF166E9B91DDAD838BB86A8FECE7D5BEC665DFC96`; locket `A1B8291262F8A3003D3B747A3D3EFF338B2D1F94B7AAC4F3C642BB20B652E82C`; box `F781BF0CB3B6EB415F7ECA4C497AE1D4C7046BF9DE593EBD5575C3C3454FC003`; ice `7C9FA4CEA21C5B0C6750355136E822F3A468D428BBF27C7CD6DFAA870DE648DD` |
+| Dimensions | Each selected sprite is 1254 × 1254 PNG with transparent corners. |
+| Tool | Built-in OpenAI ImageGen invoked through Codex |
+| Creation evidence | Generated, selected, alpha-corrected where necessary, and technically checked 2026-08-26 KST. Normalized subject prompts and correction history are retained in `Docs/VisualSlicePrompts.md`. |
+| Prompt summary | Complete the authoritative 24-curio catalog with one readable, isolated, transparent warm-occult inventory illustration per remaining object. Use a tactile hand-painted gouache finish, dark-plum outline, brass/parchment/amber palette, and a silhouette readable at 128 px. |
+| Reference inputs | The first eight generations used only project-owned `sleeping-teacup.png` and `mirror-seed.png` as palette, brushwork, outline, lighting, and mobile-readability references. The final eight were generated from text only. No third-party reference was supplied. |
+| Input rights basis | No third-party image, named artist, studio, franchise, brand, person, or private material was supplied. |
+| Negative constraints | No text, letters, numbers, brands, logos, signatures, watermarks, named styles, protected characters, likenesses, scenery, frames, opaque checkerboards, or extra unrelated props. |
+| Human direction | The developer approved completing the remaining catalog and the existing warm-occult visual direction. Codex specified each subject, palette, composition, material, readability target, and negative constraints, then rejected or corrected outputs that violated transparency or no-text requirements. |
+| Human edits | No manual repaint or redraw is claimed. Codex selected outputs, directed background-only alpha extraction where checkerboards were rendered as pixels, removed unintended Roman numerals from `yesterday-ticket`, verified file dimensions and corner alpha, named files, and integrated them. Unity import processing is not a creative edit. |
+| Similarity and trademark review | Prompts prohibited brands, logos, named styles, protected characters, likenesses, signatures, and watermarks. No intentional protected element or visible brand mark was identified during selection. Broader visual-similarity review and final human release review remain open. |
+| Intended uses | In-game current, next, held, and casebook artifact illustrations. Store screenshots require the release gate below. |
+| Store submission decision | Treat selected images and prominent screenshots containing them as AI-assisted/generated media wherever Samsung asks. Recheck the live submission wording at upload time. |
+| Release status | **Catalog prototype — not approved for RC.** Requires in-Unity scale/composition review, similarity/trademark review, any desired direct human repaint or adjustment, and explicit developer release approval. |
 
 ### AUDIO-SYNTH-001 — procedural interaction feedback tones
 

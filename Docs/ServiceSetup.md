@@ -55,18 +55,26 @@ $env:CURIO_ANDROID_KEY_ALIAS = '<key alias>'
 $env:CURIO_ANDROID_KEY_PASS = '<key password>'
 ```
 
-The build first verifies that the running Editor is exactly Unity `6000.3.21f1` and independently runs the Release-mode no-remote-telemetry gate, so invoking the Unity menu or batch entry point cannot bypass the wrapper preflight. The gate child process is hidden and receives no AdMob or signing environment values. The build then validates the live ID shapes, rejects Google's sample IDs, writes the rewarded unit only to the ignored `Assets/Resources/ServiceConfiguration.asset`, and writes the app ID only to the ignored Google Mobile Ads settings asset. Signing values are applied in memory immediately before `BuildPipeline.BuildPlayer` and cleared afterward. The committed build manifest contains exactly the approved public release metadata and the AAB SHA-256.
+The build first verifies the pinned Unity project/editor and the editor-local Android SDK, API 36 platform, build tools, ADB, NDK, and OpenJDK without launching Unity. It then independently runs the Release-mode no-remote-telemetry gate, so invoking the Unity menu or batch entry point cannot bypass the wrapper preflight. The gate child process is hidden and receives no AdMob or signing environment values. The build then validates the live ID shapes, rejects Google's sample IDs, writes the rewarded unit only to the ignored `Assets/Resources/ServiceConfiguration.asset`, and writes the app ID only to the ignored Google Mobile Ads settings asset. Signing values are applied in memory immediately before `BuildPipeline.BuildPlayer` and cleared afterward. The committed build manifest contains exactly the approved public release metadata and the AAB SHA-256.
+
+Run the execution-policy-free diagnostic before preparing any service IDs or signing values:
+
+```powershell
+.\scripts\check-android-toolchain.cmd
+```
+
+`READY` means the exact editor installation has the components needed to attempt an Android build. `BLOCKED` lists every missing component without printing an absolute machine path. On a company-managed machine, do not modify the managed Unity installation; point the scripts at a separate personal Unity `6000.3.21f1` installation with `-UnityPath` when one is available.
 
 After Unity has resolved the pinned GMA/EDM4U packages, the human developer downloads the official `bundletool-all-1.18.3.jar` from:
 
 - https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
 
-Keep it at `tools/bundletool/bundletool-all-1.18.3.jar`; the jar is ignored. The inspection script executes `bundletool version` and requires the actual normalized output to equal `1.18.3`; renaming another jar is insufficient. Then run:
+Keep it at `tools/bundletool/bundletool-all-1.18.3.jar`; the jar is ignored. The official file downloaded on 2026-08-26 has SHA-256 `A099CFA1543F55593BC2ED16A70A7C67FE54B1747BB7301F37FDFD6D91028E29`. The inspection script executes `bundletool version` and requires the actual normalized output to equal `1.18.3`; renaming another jar is insufficient. Then run:
 
 ```powershell
 .\scripts\check-no-remote-telemetry.ps1 -Mode Release
-.\scripts\test-unity.ps1
-.\scripts\build-android.ps1
+.\scripts\test-unity.cmd
+.\scripts\build-android.cmd
 .\scripts\inspect-aab.ps1 -AabPath .\Builds\Android\CurioClerk.aab -BundletoolPath .\tools\bundletool\bundletool-all-1.18.3.jar
 ```
 

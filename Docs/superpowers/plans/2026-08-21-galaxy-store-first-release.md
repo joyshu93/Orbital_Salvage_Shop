@@ -844,7 +844,7 @@ No filesystem username, service ID, keystore path, or password may appear.
 
 `scripts/build-android.ps1` must run `scripts/check-no-remote-telemetry.ps1 -Mode Release` and fail before Unity starts if the telemetry boundary fails or any of the six environment values are absent. It must not print secret values. It accepts AdMob configuration only and has no remote-telemetry configuration or upload step. After build, require the AAB, general IL2CPP debugging archive, and JSON manifest; compare the manifest SHA-256 with `Get-FileHash`.
 
-- [ ] **Step 5: Pin bundletool and implement AAB inspection**
+- [x] **Step 5: Pin bundletool and implement AAB inspection**
 
 Download official `bundletool-all-1.18.3.jar` to ignored `tools/bundletool/`. `scripts/inspect-aab.ps1` accepts the AAB and jar paths, then runs:
 

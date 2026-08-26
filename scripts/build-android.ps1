@@ -7,6 +7,7 @@ $ProjectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $AabPath = Join-Path $ProjectRoot 'Builds\Android\CurioClerk.aab'
 $ManifestPath = Join-Path $ProjectRoot 'Builds\Android\CurioClerk-build.json'
 $LogPath = Join-Path $ProjectRoot 'Logs\AndroidBuild.log'
+$ToolchainPreflightPath = Join-Path $PSScriptRoot 'check-android-toolchain.ps1'
 $TelemetryGatePath = Join-Path $PSScriptRoot 'check-no-remote-telemetry.ps1'
 $requiredEnvironmentNames = @(
     'CURIO_ADMOB_APP_ID',
@@ -17,7 +18,19 @@ $requiredEnvironmentNames = @(
     'CURIO_ANDROID_KEY_PASS'
 )
 
+$windowsPowerShell = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::System)) `
+    'WindowsPowerShell\v1.0\powershell.exe'
+if (-not (Test-Path -LiteralPath $windowsPowerShell -PathType Leaf)) {
+    throw 'The Windows PowerShell host required by the Android toolchain preflight is missing.'
+}
+
 $global:LASTEXITCODE = 0
+& $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $ToolchainPreflightPath `
+    -ProjectRoot $ProjectRoot -UnityPath $UnityPath
+if ($LASTEXITCODE -ne 0) {
+    throw 'Android toolchain preflight failed. Unity was not started.'
+}
+
 & $TelemetryGatePath -ProjectRoot $ProjectRoot -Mode Release
 if ($LASTEXITCODE -ne 0) {
     throw 'The release no-remote-telemetry gate failed. Unity was not started.'

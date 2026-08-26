@@ -506,7 +506,7 @@ if ($Mode -eq 'Submission') {
     $approvedPath = Get-StructuredField $artReview 'Repository path' 'ArtReleaseReview.md'
     if ($approvedPath -ne 'Assets/Art/Brand/AppIcon.png') { throw 'Art release Repository path must be Assets/Art/Brand/AppIcon.png.' }
     if ((Get-StructuredField $artReview 'Release decision' 'ArtReleaseReview.md') -ne 'Approved for release') { throw 'Art release decision must be Approved for release.' }
-    $reviewRowPattern = "(?m)^\|\s*$([regex]::Escape($approvedAssetId))\s*\|\s*Assets/Art/Brand/AppIcon\.png\s*\|\s*Approved for release\s*\|$"
+    $reviewRowPattern = "(?m)^\|\s*$([regex]::Escape($approvedAssetId))\s*\|\s*Assets/Art/Brand/AppIcon\.png\s*\|\s*Approved for release\s*\|\r?$"
     if ($artReview -notmatch $reviewRowPattern) { throw 'Art review Application icon row must bind the approved ID, path, and decision.' }
     $iconInventoryRow = [regex]::Match($assetInventory, '(?m)^\| Application icon \|(?<body>.*)\|$')
     if (-not $iconInventoryRow.Success -or $iconInventoryRow.Groups['body'].Value -notmatch [regex]::Escape($approvedAssetId)) {

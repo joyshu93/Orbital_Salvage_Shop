@@ -254,7 +254,7 @@ $forbiddenRuntimeMarkers = @(
     [pscustomobject]@{ Name = 'Application Insights'; Pattern = '\b(?:TelemetryClient|ApplicationInsights)\b' },
     [pscustomobject]@{ Name = 'App Center'; Pattern = '\bAppCenter\b' },
     [pscustomobject]@{ Name = 'Bugsnag/Datadog/New Relic'; Pattern = '\b(?:Bugsnag|Datadog|NewRelic)\b' },
-    [pscustomobject]@{ Name = 'analytics SDK'; Pattern = '\b(?:Amplitude|Mixpanel|GameAnalytics)\b' },
+    [pscustomobject]@{ Name = 'analytics SDK'; Pattern = '\b(?:Amplitude(?:\.|Client\b|Analytics\b)|Mixpanel\b|GameAnalytics\b)' },
     [pscustomobject]@{ Name = 'Unity Analytics'; Pattern = '\bUnity(?:Engine|\.Services)\.Analytics\b' },
     [pscustomobject]@{ Name = 'crash SDK'; Pattern = '\b(?:CrashReportHandler|Backtrace|Raygun)\b' }
 )

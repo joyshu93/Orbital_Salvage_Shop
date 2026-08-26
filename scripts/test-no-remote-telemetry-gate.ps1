@@ -80,6 +80,15 @@ internal static class MarkerDocumentationFixture
     private const string ReviewNote = "UnityWebRequest is forbidden for gameplay telemetry.";
 }
 '@
+    Write-FixtureFile 'Assets/Scripts/Runtime/Infrastructure/Feedback/ProceduralTone.cs' @'
+internal static class ProceduralTone
+{
+    public static float Scale(float amplitude, float envelope)
+    {
+        return amplitude * envelope;
+    }
+}
+'@
 
     $edmArchive = Join-Path $fixtureRoot 'GooglePackages/com.google.external-dependency-manager-1.2.188.tgz'
     [System.IO.Directory]::CreateDirectory((Split-Path -Parent $edmArchive)) | Out-Null

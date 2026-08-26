@@ -25,9 +25,12 @@ Open the repository root as the Unity project. Generated content, localization, 
 The current project workflow does not enable Unity MCP or other Authorized Agentic Access. The human developer runs Unity tests and builds; Codex prepares repository changes and reviews the supplied output.
 
 ```powershell
-.\scripts\test-unity.ps1
-.\scripts\build-android.ps1
+.\scripts\check-android-toolchain.cmd
+.\scripts\test-unity.cmd
+.\scripts\build-android.cmd
 ```
+
+The CMD entry points bypass only the local PowerShell script-execution policy. They do not bypass release checks, signing, service configuration, tests, or Unity validation.
 
 Version 1 uses AdMob/UMP only for opt-in rewarded ads and ships no Firebase or remote gameplay/crash telemetry transport. Gameplay remains fully available when ads are declined or unavailable.
 

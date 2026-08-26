@@ -200,3 +200,33 @@ The first eight subject generations used only the project-owned `sleeping-teacup
 - `scripts/test-artifact-art-contract.ps1` derives all 24 authoritative artifact IDs from `ContentCatalog.cs` and requires a square PNG of at least 512 px with transparent corners for each ID.
 - The selected 16 files are 1254 × 1254 PNGs; the complete catalog passed the 24/24 contract on 2026-08-26 KST.
 - Visual similarity, trademark, small-screen composition, and final release approval remain human review gates.
+
+## ART-COSMETICS-001 — six desk charm sprites
+
+The following shared direction and subject briefs are the normalized prompt record for the six selected outputs generated on 2026-08-26 KST. No input image was supplied.
+
+```text
+Use case: stylized-concept
+Asset type: transparent 2D mobile game desk-charm sprite for Curio Clerk: Night Shift
+Style/medium: original hand-painted gouache inventory illustration, tactile materials, restrained dark-plum outline, crisp mobile-readable silhouette
+Composition/framing: exactly one complete isolated object, centered three-quarter view, generous transparent padding, square canvas, readable at 128 px
+Lighting/mood: cozy amber lamplight, warm occult, curious and welcoming rather than frightening
+Color palette: deep plum, parchment ivory, antique brass, muted sage, restrained amber glow
+Constraints: genuinely transparent alpha background; no floor, scenery, frame, cast shadow, text, letters, numbers, brands, logos, signatures, watermarks, protected characters, real-person likenesses, named artist/studio/game/film/franchise style, or unrelated props
+Avoid: photorealism, glossy 3D render, neon, horror, opaque checkerboard
+```
+
+| Asset ID | Selected subject brief |
+| --- | --- |
+| `brass-lamp` | A small antique brass desk lamp with a softly glowing amber glass shade, elegant compact base, and subtle age and wear; exactly one lamp. |
+| `moth-mobile` | A delicate small hanging brass mobile with exactly three deep-plum moth ornaments, a simple crescent hook, and tiny parchment accents; exactly one assembled mobile. |
+| `plum-runner` | A neatly folded deep-plum desk runner with tactile woven edges and a small abstract brass crescent embroidery motif with no text; exactly one runner. |
+| `moon-mug` | One ivory ceramic tea mug with a crescent-shaped handle, a small abstract moon motif, warm tea, and one soft curl of steam; exactly one mug. |
+| `fern-familiar` | One small antique brass planter holding a lush muted-sage fern whose gently curled fronds suggest a friendly magical familiar without eyes, mouth, or character face; exactly one potted fern. |
+| `amber-window` | One miniature antique arched window frame with aged brass trim, deep-plum wood, amber night glow, and a simple ivory crescent visible through the panes; exactly one self-contained window charm. |
+
+## Cosmetics technical validation record
+
+- `scripts/test-cosmetic-art-contract.ps1` derives all six authoritative cosmetic IDs from `ContentCatalog.cs` and requires a square PNG of at least 512 px with effectively transparent corners for every ID.
+- All six selected files are 1254 × 1254 PNGs and passed the 6/6 contract on 2026-08-26 KST.
+- No manual repaint, redraw, or human-authored visual modification is claimed. In-Unity scale/composition, similarity, trademark, and final release review remain open.

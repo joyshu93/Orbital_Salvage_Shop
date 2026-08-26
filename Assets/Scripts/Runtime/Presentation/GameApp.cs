@@ -34,6 +34,12 @@ namespace CurioClerk.Presentation
             Complete
         }
 
+        private enum CollectionTab
+        {
+            Casebook,
+            Cosmetics
+        }
+
         private static TMP_FontAsset s_InterfaceFont;
         private static readonly Color Plum = Hex("#351B2B");
         private static readonly Color Wine = Hex("#5B2944");
@@ -86,6 +92,8 @@ namespace CurioClerk.Presentation
         private bool _canRequestAds;
         private string _rewardFeedbackKey;
         private TutorialStage _tutorialStage;
+        private CollectionTab _collectionTab;
+        private string _cosmeticFeedback;
 
         public AppScreen ActiveScreen { get; private set; }
 
@@ -141,8 +149,7 @@ namespace CurioClerk.Presentation
             var equipped = ContentCatalog.CreateCosmetics().FirstOrDefault(item => item.Id == _save.equippedCosmeticId);
             if (equipped != null)
             {
-                var charm = CreatePanel(page, "EquippedDeskCharm", Hex(equipped.AccentHex), new Vector2(0.74f, 0.88f), new Vector2(0.94f, 0.96f));
-                CreateText(charm, "EquippedDeskCharmLabel", "✦  " + CosmeticName(equipped), 18, Ink, TextAlignmentOptions.Center, Vector2.zero, Vector2.one, true);
+                CreateEquippedCosmeticArtwork(page, equipped, new Vector2(0.72f, 0.86f), new Vector2(0.95f, 0.98f), true);
             }
         }
 
@@ -236,10 +243,35 @@ namespace CurioClerk.Presentation
 
         public void ShowCollection()
         {
+            _collectionTab = CollectionTab.Casebook;
+            _cosmeticFeedback = null;
+            BuildCollectionScreen();
+        }
+
+        private void BuildCollectionScreen()
+        {
             ActiveScreen = AppScreen.Collection;
             var page = CreatePage("CollectionScreen");
             CreateText(page, "CollectionTitle", _localizer.Get("collection"), 50, Amber, TextAlignmentOptions.Center, new Vector2(0.08f, 0.89f), new Vector2(0.92f, 0.97f), true);
-            var scrollContent = CreateScrollContent(page, "CasebookScroll", new Vector2(0.08f, 0.30f), new Vector2(0.92f, 0.87f));
+            CreateButton(page, "CasebookTabButton", _localizer.Get("casebook_tab"), new Vector2(0.08f, 0.79f), new Vector2(0.49f, 0.85f), _collectionTab == CollectionTab.Casebook ? Amber : Wine, _collectionTab == CollectionTab.Casebook ? Ink : Paper, ShowCasebookTab);
+            CreateButton(page, "CosmeticsTabButton", _localizer.Get("cosmetics_tab"), new Vector2(0.51f, 0.79f), new Vector2(0.92f, 0.85f), _collectionTab == CollectionTab.Cosmetics ? Amber : Wine, _collectionTab == CollectionTab.Cosmetics ? Ink : Paper, ShowCosmeticsTab);
+
+            if (_collectionTab == CollectionTab.Casebook)
+            {
+                BuildCasebook(page);
+            }
+            else
+            {
+                BuildCosmetics(page);
+            }
+
+            CreateButton(page, "CollectionBackButton", _localizer.Get("back"), new Vector2(0.34f, 0.015f), new Vector2(0.66f, 0.065f), Paper, Ink, ShowMenu);
+        }
+
+        private void BuildCasebook(Transform page)
+        {
+            CreateText(page, "CollectionProgress", _localizer.Get("casebook_discovered", _save.discoveredArtifactIds.Count, _artifactContent.Count), 24, Paper, TextAlignmentOptions.Center, new Vector2(0.08f, 0.735f), new Vector2(0.92f, 0.785f), true);
+            var scrollContent = CreateScrollContent(page, "CasebookScroll", new Vector2(0.08f, 0.08f), new Vector2(0.92f, 0.73f));
             if (_save.discoveredArtifactIds.Count == 0)
             {
                 CreateLayoutText(scrollContent, _localizer.Get("casebook_empty"), 27, Paper, 110);
@@ -249,28 +281,67 @@ namespace CurioClerk.Presentation
             {
                 var known = _save.discoveredArtifactIds.Contains(artifact.Id);
                 var name = known ? Name(artifact) : "?????";
-                var description = known ? Description(artifact) : "···";
-                CreateLayoutText(scrollContent, $"{artifact.Symbol}   {name}\n<size=21>{description}</size>", 28, known ? Paper : DustyRose, 112);
+                var description = known ? Description(artifact) : _localizer.Get("casebook_locked");
+                var card = CreatePanel(scrollContent, "CasebookCard_" + artifact.Id, known ? Paper : new Color(Wine.r, Wine.g, Wine.b, 0.94f), Vector2.zero, Vector2.one);
+                var layout = card.gameObject.AddComponent<LayoutElement>();
+                layout.preferredHeight = 220;
+                AddSurfaceChrome(card, known ? Amber : DustyRose, 1.5f, 0.22f);
+                var artwork = CreateArtworkImage(card, "CasebookArtwork_" + artifact.Id, new Vector2(0.025f, 0.08f), new Vector2(0.32f, 0.92f));
+                artwork.sprite = VisualAssetLibrary.Artifact(artifact.Id);
+                artwork.enabled = artwork.sprite != null;
+                artwork.color = known ? Color.white : new Color(0.13f, 0.06f, 0.10f, 0.96f);
+                CreateText(card, "CasebookName_" + artifact.Id, name, 28, known ? Ink : Paper, TextAlignmentOptions.Left, new Vector2(0.35f, 0.66f), new Vector2(0.96f, 0.91f), true);
+                CreateText(card, "CasebookDescription_" + artifact.Id, description, 19, known ? Ink : DustyRose, TextAlignmentOptions.TopLeft, new Vector2(0.35f, 0.29f), new Vector2(0.96f, 0.66f));
+                CreateText(card, "CasebookTraits_" + artifact.Id, known ? TraitsText(artifact.Traits) : string.Empty, 17, known ? Wine : DustyRose, TextAlignmentOptions.BottomLeft, new Vector2(0.35f, 0.07f), new Vector2(0.96f, 0.29f), true);
+            }
+        }
+
+        private void BuildCosmetics(Transform page)
+        {
+            CreateText(page, "CollectionCoins", _localizer.Get("collection_coins", _save.coins), 24, Paper, TextAlignmentOptions.Center, new Vector2(0.08f, 0.735f), new Vector2(0.92f, 0.785f), true);
+            if (!string.IsNullOrEmpty(_cosmeticFeedback))
+            {
+                CreateText(page, "CosmeticFeedback", _cosmeticFeedback, 21, Amber, TextAlignmentOptions.Center, new Vector2(0.08f, 0.69f), new Vector2(0.92f, 0.735f), true);
             }
 
-            CreateText(page, "CosmeticHeader", _localizer.Get("cosmetics"), 30, Amber, TextAlignmentOptions.Center, new Vector2(0.08f, 0.23f), new Vector2(0.92f, 0.29f), true);
+            var scrollContent = CreateScrollContent(page, "CosmeticsScroll", new Vector2(0.08f, 0.08f), new Vector2(0.92f, string.IsNullOrEmpty(_cosmeticFeedback) ? 0.73f : 0.685f));
             var cosmetics = ContentCatalog.CreateCosmetics();
-            for (var index = 0; index < cosmetics.Count; index++)
+            foreach (var item in cosmetics)
             {
-                var item = cosmetics[index];
-                var minX = 0.08f + (index % 3) * 0.29f;
-                var maxX = minX + 0.27f;
-                var minY = index < 3 ? 0.15f : 0.08f;
-                var maxY = minY + 0.06f;
                 var owned = _save.unlockedCosmeticIds.Contains(item.Id);
                 var equipped = owned && _save.equippedCosmeticId == item.Id;
-                var status = equipped ? _localizer.Get("equipped") : owned ? _localizer.Get("equip") : _localizer.Get("unlock", item.Cost);
-                var label = CosmeticName(item) + "\n<size=18>" + status + "</size>";
+                var status = equipped
+                    ? _localizer.Get("cosmetic_equipped_status")
+                    : owned
+                        ? _localizer.Get("cosmetic_equip_status")
+                        : _localizer.Get("cosmetic_unlock_status", item.Cost);
                 var color = equipped ? Amber : owned ? Sage : Wine;
-                CreateButton(page, "Cosmetic_" + item.Id, label, new Vector2(minX, minY), new Vector2(maxX, maxY), color, equipped ? Ink : Paper, () => SelectCosmetic(item));
+                var button = CreateButton(scrollContent, "Cosmetic_" + item.Id, CosmeticName(item), Vector2.zero, Vector2.one, color, equipped ? Ink : Paper, () => SelectCosmetic(item));
+                var layout = button.gameObject.AddComponent<LayoutElement>();
+                layout.preferredHeight = 230;
+                var label = button.transform.Find("Label").GetComponent<TMP_Text>();
+                label.name = "CosmeticName_" + item.Id;
+                label.alignment = TextAlignmentOptions.TopLeft;
+                label.fontSize = 28;
+                SetAnchors(label.rectTransform, new Vector2(0.38f, 0.42f), new Vector2(0.95f, 0.86f));
+                var artwork = CreateArtworkImage(button.transform, "CosmeticArtwork_" + item.Id, new Vector2(0.035f, 0.08f), new Vector2(0.34f, 0.92f));
+                artwork.sprite = VisualAssetLibrary.Cosmetic(item.Id);
+                artwork.enabled = artwork.sprite != null;
+                CreateText(button.transform, "CosmeticStatus_" + item.Id, status, 20, equipped ? Ink : Paper, TextAlignmentOptions.BottomLeft, new Vector2(0.38f, 0.13f), new Vector2(0.95f, 0.44f), true);
             }
+        }
 
-            CreateButton(page, "CollectionBackButton", _localizer.Get("back"), new Vector2(0.34f, 0.015f), new Vector2(0.66f, 0.065f), Paper, Ink, ShowMenu);
+        private void ShowCasebookTab()
+        {
+            _collectionTab = CollectionTab.Casebook;
+            _cosmeticFeedback = null;
+            BuildCollectionScreen();
+        }
+
+        private void ShowCosmeticsTab()
+        {
+            _collectionTab = CollectionTab.Cosmetics;
+            BuildCollectionScreen();
         }
 
         public void ShowSettings()
@@ -310,11 +381,16 @@ namespace CurioClerk.Presentation
         {
             ActiveScreen = AppScreen.Shift;
             var page = CreatePage("ShiftScreen");
+            var equipped = ContentCatalog.CreateCosmetics().FirstOrDefault(item => item.Id == _save.equippedCosmeticId);
             _hudText = CreateText(page, "ShiftHud", string.Empty, 26, Paper, TextAlignmentOptions.Center, new Vector2(0.07f, 0.93f), new Vector2(0.93f, 0.98f), true);
             var rulesPanel = CreatePanel(page, "RulesPanel", new Color(Wine.r, Wine.g, Wine.b, 0.82f), new Vector2(0.045f, 0.675f), new Vector2(0.955f, 0.91f));
             AddSurfaceChrome(rulesPanel, Amber, 2f, 0.28f);
             CreateText(rulesPanel, "RulesHeader", _localizer.Get("rules"), 23, Amber, TextAlignmentOptions.Left, new Vector2(0.035f, 0.70f), new Vector2(0.965f, 0.94f), true);
             _ruleListText = CreateText(rulesPanel, "RuleList", RulesText(), 22, Paper, TextAlignmentOptions.TopLeft, new Vector2(0.035f, 0.05f), new Vector2(0.965f, 0.72f));
+            if (equipped != null)
+            {
+                CreateEquippedCosmeticArtwork(page, equipped, new Vector2(0.80f, 0.78f), new Vector2(0.95f, 0.90f), false);
+            }
 
             _nextIllustrations[0] = CreateArtifactPreview(page, "NextPreviewCard0", "NextPreviewArtwork0", "NextPreview0", Paper, new Vector2(0.05f, 0.59f), new Vector2(0.34f, 0.66f), out _nextTexts[0]);
             _nextIllustrations[1] = CreateArtifactPreview(page, "NextPreviewCard1", "NextPreviewArtwork1", "NextPreview1", Paper, new Vector2(0.355f, 0.59f), new Vector2(0.645f, 0.66f), out _nextTexts[1]);
@@ -687,14 +763,22 @@ namespace CurioClerk.Presentation
 
         private void SelectCosmetic(CosmeticContent cosmetic)
         {
-            var changed = _save.unlockedCosmeticIds.Contains(cosmetic.Id)
+            var wasOwned = _save.unlockedCosmeticIds.Contains(cosmetic.Id);
+            var changed = wasOwned
                 ? _progression.TryEquipCosmetic(_save, cosmetic.Id)
                 : _progression.TryUnlockCosmetic(_save, cosmetic.Id, cosmetic.Cost);
             if (changed)
             {
                 Save();
-                ShowCollection();
+                _cosmeticFeedback = _localizer.Get("cosmetic_equipped_feedback", CosmeticName(cosmetic));
             }
+            else if (!wasOwned && _save.coins < cosmetic.Cost)
+            {
+                _cosmeticFeedback = _localizer.Get("insufficient");
+            }
+
+            _collectionTab = CollectionTab.Cosmetics;
+            BuildCollectionScreen();
         }
 
         private void RequestAdConsent()
@@ -980,6 +1064,19 @@ namespace CurioClerk.Presentation
             var artwork = CreateArtworkImage(panel, artworkName, new Vector2(0.035f, 0.08f), new Vector2(0.29f, 0.92f));
             label = CreateText(panel, labelName, string.Empty, 17, accent, TextAlignmentOptions.Center, new Vector2(0.29f, 0.04f), new Vector2(0.98f, 0.96f), true);
             return artwork;
+        }
+
+        private void CreateEquippedCosmeticArtwork(Transform parent, CosmeticContent cosmetic, Vector2 min, Vector2 max, bool showLabel)
+        {
+            var panel = CreatePanel(parent, "EquippedDeskCharm", new Color(Wine.r, Wine.g, Wine.b, 0.78f), min, max);
+            AddSurfaceChrome(panel, Hex(cosmetic.AccentHex), 1.5f, 0.20f);
+            var artwork = CreateArtworkImage(panel, "EquippedDeskCharmArtwork", new Vector2(0.06f, showLabel ? 0.25f : 0.06f), new Vector2(0.94f, 0.94f));
+            artwork.sprite = VisualAssetLibrary.Cosmetic(cosmetic.Id);
+            artwork.enabled = artwork.sprite != null;
+            if (showLabel)
+            {
+                CreateText(panel, "EquippedDeskCharmLabel", CosmeticName(cosmetic), 15, Paper, TextAlignmentOptions.Center, new Vector2(0.04f, 0.02f), new Vector2(0.96f, 0.26f), true);
+            }
         }
 
         private static void SetPreviewArtwork(Image preview, string artifactId)

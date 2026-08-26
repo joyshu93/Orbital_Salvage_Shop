@@ -296,6 +296,42 @@ MonoBehaviour:
     m_Localized: Off
     m_Metadata:
       m_Items: []
+  - m_Id: 2106105840775168
+    m_Localized: CASEBOOK
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301120
+    m_Localized: '{0} / {1} DISCOVERED'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301121
+    m_Localized: LOCKED CASE FILE
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301122
+    m_Localized: DESK CHARMS
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301123
+    m_Localized: COINS {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301124
+    m_Localized: "UNLOCK \xB7 {0} COINS"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301125
+    m_Localized: EQUIP
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301126
+    m_Localized: EQUIPPED
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301127
+    m_Localized: '{0} equipped'
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

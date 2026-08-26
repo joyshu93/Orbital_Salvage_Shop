@@ -9,6 +9,8 @@ namespace CurioClerk.Presentation
         private const int IconSize = 48;
         private static readonly Dictionary<string, Sprite> ArtifactSprites =
             new Dictionary<string, Sprite>(StringComparer.Ordinal);
+        private static readonly Dictionary<string, Sprite> CosmeticSprites =
+            new Dictionary<string, Sprite>(StringComparer.Ordinal);
         private static Sprite s_DeskBackground;
         private static Sprite s_RepairIcon;
         private static Sprite s_StorageIcon;
@@ -39,6 +41,22 @@ namespace CurioClerk.Presentation
             {
                 sprite = Resources.Load<Sprite>("Art/Artifacts/" + artifactId);
                 ArtifactSprites.Add(artifactId, sprite);
+            }
+
+            return sprite;
+        }
+
+        internal static Sprite Cosmetic(string cosmeticId)
+        {
+            if (string.IsNullOrEmpty(cosmeticId))
+            {
+                return null;
+            }
+
+            if (!CosmeticSprites.TryGetValue(cosmeticId, out var sprite))
+            {
+                sprite = Resources.Load<Sprite>("Art/Cosmetics/" + cosmeticId);
+                CosmeticSprites.Add(cosmeticId, sprite);
             }
 
             return sprite;

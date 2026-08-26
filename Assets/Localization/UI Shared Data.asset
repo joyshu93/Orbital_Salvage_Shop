@@ -291,6 +291,42 @@ MonoBehaviour:
     m_Key: off
     m_Metadata:
       m_Items: []
+  - m_Id: 2106105840775168
+    m_Key: casebook_tab
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301120
+    m_Key: casebook_discovered
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301121
+    m_Key: casebook_locked
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301122
+    m_Key: cosmetics_tab
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301123
+    m_Key: collection_coins
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301124
+    m_Key: cosmetic_unlock_status
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301125
+    m_Key: cosmetic_equip_status
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301126
+    m_Key: cosmetic_equipped_status
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301127
+    m_Key: cosmetic_equipped_feedback
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -121,6 +121,41 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Store submission decision | Treat selected images and prominent screenshots containing them as AI-assisted/generated media wherever Samsung asks. Recheck the live submission wording at upload time. |
 | Release status | **Catalog prototype — not approved for RC.** Requires in-Unity scale/composition review, similarity/trademark review, any desired direct human repaint or adjustment, and explicit developer release approval. |
 
+### ART-COSMETICS-001 — desk charm illustration set
+
+| Field | Record |
+| --- | --- |
+| Repository files | Six transparent sprites under `Assets/Resources/Art/Cosmetics`: `brass-lamp`, `moth-mobile`, `plum-runner`, `moon-mug`, `fern-familiar`, and `amber-window` |
+| SHA-256 | Lamp `2A7957A690681F41A59D14B06DFB347067B618764F6DF7F4FD5AC1BCB65A75D8`; mobile `A11CFB98192885490EEB5344B0C2DFBC27B7EF071ED2312C5A89EEDCD72F954E`; runner `0FA33B56E2669B7755FFB20A06B7FCFA716D23725A5A26C15975BA618BFD17D1`; mug `82163ABC4C0354CBA56EF92002F450F31ED230385E7D6902408398EFCFCEB1E1`; fern `00EB501E74A228B16AE0E26B80B2F5331FC71A0E65A53F827C361112EB8D94E4`; window `2D4E29EA72FE28951C1643F1B18A6105F111FCE2A37F855E3412DDDFFD46D315` |
+| Dimensions | Each selected sprite is 1254 × 1254 PNG with effectively transparent corners. |
+| Asset type and intended use | Illustrated previews for the six unlockable desk charms, plus the currently equipped charm shown on the menu and shift desk |
+| Tool | Built-in OpenAI ImageGen invoked through Codex |
+| Creation evidence | Generated, selected, copied into the repository, and technically checked 2026-08-26 KST. Normalized prompts are retained in `Docs/VisualSlicePrompts.md`. |
+| Prompt summary | Create six isolated, readable warm-occult desk accessories using the established deep-plum, parchment, antique-brass, sage, and amber palette, tactile hand-painted gouache texture, and a strong silhouette at 128 px. |
+| Negative constraints | No text, letters, numbers, brands, logos, signatures, watermarks, named styles, protected characters, real-person likenesses, scenery, frames, opaque checkerboards, or unrelated props. |
+| Reference inputs | None. The prompts describe the repository-owned product palette and generic production characteristics without uploading third-party or project images. |
+| Human direction | The developer approved an illustrated cosmetics tab and equipped-desk previews as the recommended product-quality pass. Codex defines each subject, composition, material, readability target, and negative constraint within that scope. |
+| Human edits | No human repaint or redraw is claimed. Codex selected the displayed outputs, verified transparent corners and dimensions, named the files, and integrated them. Unity import is technical processing only; direct human creative edits and before/after evidence remain open. |
+| Similarity and trademark review | Prompt constraints prohibit brands, logos, protected characters, likenesses, and named styles. Final selected files still require human visual and similarity review. |
+| Third-party elements | None intentionally requested or identified. Update this field immediately if any external input or recognizable third-party element is introduced. |
+| Store submission decision | Treat the selected images and prominent store screenshots containing them as AI-assisted/generated media wherever the selected store asks. Recheck live submission wording before upload. |
+| Release status | **Cosmetics prototype — not approved for RC.** In-Unity scale/composition review, similarity/trademark review, any desired direct human repaint or adjustment, and explicit developer release approval remain required. |
+
+### TEXT-UI-002 — casebook and cosmetics interface copy
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Assets/Scripts/Runtime/Localization/Localizer.cs`; generated Unity localization tables after `ProjectBuilder.BuildAll` |
+| Asset type and intended use | English and Korean labels for casebook progress, locked records, collection tabs, cosmetic prices, ownership, and equip feedback |
+| Tool | OpenAI Codex drafts concise bilingual functional interface copy from the developer-approved collection redesign |
+| Creation date | 2026-08-26 KST |
+| Reference inputs | Existing project terminology and bilingual catalog names only; no third-party prose supplied or copied |
+| Human direction | The developer approved the recommended illustrated casebook and cosmetics workflow and retains final wording and release authority. |
+| Human edits | No independent human rewrite claimed at intake. Korean naturalness, English clarity, line wrapping, and accessibility require developer review in Unity. |
+| Third-party elements | None identified; short functional labels require no third-party attribution. |
+| Store submission decision | Ordinary in-game interface copy; no separate AI-media declaration currently identified. Recheck selected-store requirements at submission time. |
+| Release status | **Prototype copy — bilingual visual review required before RC.** |
+
 ### AUDIO-SYNTH-001 — procedural interaction feedback tones
 
 | Field | Record |

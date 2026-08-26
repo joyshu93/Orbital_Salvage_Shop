@@ -312,6 +312,42 @@ MonoBehaviour:
     m_Localized: "\uAEBC\uC9D0"
     m_Metadata:
       m_Items: []
+  - m_Id: 2106105840775168
+    m_Localized: "\uC218\uC9D1 \uB3C4\uAC10"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301120
+    m_Localized: "{0} / {1} \uBC1C\uACAC"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301121
+    m_Localized: "\uC7A0\uAE34 \uAE30\uB85D"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301122
+    m_Localized: "\uCC45\uC0C1 \uC7A5\uC2DD"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301123
+    m_Localized: "\uCF54\uC778 {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301124
+    m_Localized: "\uD574\uAE08 \xB7 {0} \uCF54\uC778"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301125
+    m_Localized: "\uC7A5\uCC29"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301126
+    m_Localized: "\uC7A5\uCC29 \uC911"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2106105895301127
+    m_Localized: "{0} \uC7A5\uCC29 \uC644\uB8CC"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

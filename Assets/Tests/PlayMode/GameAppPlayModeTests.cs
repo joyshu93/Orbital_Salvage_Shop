@@ -331,6 +331,101 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator Casebook_ShowsIllustratedCardsAndKeepsUnknownDetailsLocked()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            var discovered = SaveStringList(app, "discoveredArtifactIds");
+            discovered.Clear();
+            discovered.Add("sleeping-teacup");
+
+            app.ShowCollection();
+            yield return null;
+
+            Assert.That(ObjectText("CollectionProgress"), Is.EqualTo("1 / 24 DISCOVERED"));
+            Assert.That(ObjectText("CasebookName_sleeping-teacup"), Is.EqualTo("Sleeping Teacup"));
+            Assert.That(ObjectText("CasebookDescription_sleeping-teacup"), Does.Contain("kettle sings"));
+            Assert.That(ObjectText("CasebookTraits_sleeping-teacup"), Does.Contain("ALIVE").And.Contain("FRAGILE"));
+            Assert.That(ObjectText("CasebookName_borrowed-shadow"), Is.EqualTo("?????"));
+            Assert.That(ObjectText("CasebookDescription_borrowed-shadow"), Is.EqualTo("LOCKED CASE FILE"));
+
+            var knownArt = GameObject.Find("CasebookArtwork_sleeping-teacup")?.GetComponent<UnityEngine.UI.Image>();
+            var unknownArt = GameObject.Find("CasebookArtwork_borrowed-shadow")?.GetComponent<UnityEngine.UI.Image>();
+            Assert.That(knownArt?.sprite?.name, Is.EqualTo("sleeping-teacup"));
+            Assert.That(unknownArt?.sprite?.name, Is.EqualTo("borrowed-shadow"));
+            Assert.That(unknownArt.color.r, Is.LessThan(knownArt.color.r),
+                "Undiscovered artwork must remain a dark silhouette rather than reveal the finished illustration.");
+        }
+
+        [UnityTest]
+        public IEnumerator CosmeticsTab_ShowsSixIllustratedUnlockCards()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            SetSaveInt(app, "coins", 0);
+            SaveStringList(app, "unlockedCosmeticIds").Clear();
+            app.ShowCollection();
+            ClickButton("CosmeticsTabButton");
+            yield return null;
+
+            Assert.That(ObjectText("CollectionCoins"), Is.EqualTo("COINS 0"));
+            foreach (var cosmetic in ContentCatalog.CreateCosmetics())
+            {
+                var artwork = GameObject.Find("CosmeticArtwork_" + cosmetic.Id)?.GetComponent<UnityEngine.UI.Image>();
+                Assert.That(artwork, Is.Not.Null, cosmetic.Id + " must expose a cosmetic preview image.");
+                Assert.That(artwork.sprite?.name, Is.EqualTo(cosmetic.Id));
+                Assert.That(ObjectText("CosmeticStatus_" + cosmetic.Id),
+                    Is.EqualTo("UNLOCK · " + cosmetic.Cost + " COINS"));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator CosmeticUnlock_InsufficientCoinsShowsLocalizedFeedbackAndPreservesOwnership()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetLocale(app, "ko");
+            SetSaveInt(app, "coins", 0);
+            SaveStringList(app, "unlockedCosmeticIds").Clear();
+            app.ShowCollection();
+            ClickButton("CosmeticsTabButton");
+            ClickButton("Cosmetic_brass-lamp");
+            yield return null;
+
+            Assert.That(ObjectText("CosmeticFeedback"), Is.EqualTo("코인이 부족합니다"));
+            Assert.That(SaveStringList(app, "unlockedCosmeticIds"), Does.Not.Contain("brass-lamp"));
+            Assert.That(Coins(app), Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator EquippedCosmetic_AppearsAsArtworkOnMenuAndShiftDesk()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            SetSaveInt(app, "coins", 1000);
+            SaveStringList(app, "unlockedCosmeticIds").Clear();
+            app.ShowCollection();
+            ClickButton("CosmeticsTabButton");
+            ClickButton("Cosmetic_brass-lamp");
+            yield return null;
+
+            Assert.That(SaveString(app, "equippedCosmeticId"), Is.EqualTo("brass-lamp"));
+            Assert.That(ObjectText("CosmeticFeedback"), Is.EqualTo("Brass Lamp equipped"));
+            app.ShowMenu();
+            yield return null;
+            Assert.That(GameObject.Find("EquippedDeskCharmArtwork")?.GetComponent<UnityEngine.UI.Image>().sprite?.name,
+                Is.EqualTo("brass-lamp"));
+
+            app.StartNewShift(4242);
+            yield return null;
+            Assert.That(GameObject.Find("EquippedDeskCharmArtwork")?.GetComponent<UnityEngine.UI.Image>().sprite?.name,
+                Is.EqualTo("brass-lamp"));
+        }
+
+        [UnityTest]
         public IEnumerator CorrectSort_ShowsPositiveBannerAndHighlightsSelectedDestination()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
@@ -876,6 +971,24 @@ namespace CurioClerk.Tests.PlayMode
         {
             var save = typeof(GameApp).GetProperty("SaveData").GetValue(app);
             return (int)save.GetType().GetField("coins").GetValue(save);
+        }
+
+        private static void SetSaveInt(GameApp app, string fieldName, int value)
+        {
+            var save = typeof(GameApp).GetProperty("SaveData").GetValue(app);
+            save.GetType().GetField(fieldName).SetValue(save, value);
+        }
+
+        private static IList SaveStringList(GameApp app, string fieldName)
+        {
+            var save = typeof(GameApp).GetProperty("SaveData").GetValue(app);
+            return (IList)save.GetType().GetField(fieldName).GetValue(save);
+        }
+
+        private static string SaveString(GameApp app, string fieldName)
+        {
+            var save = typeof(GameApp).GetProperty("SaveData").GetValue(app);
+            return (string)save.GetType().GetField(fieldName).GetValue(save);
         }
 
         private static int SessionCoins(GameApp app)

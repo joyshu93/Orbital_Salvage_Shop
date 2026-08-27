@@ -1,6 +1,6 @@
 # AI asset provenance and release policy
 
-Last reviewed: 2026-08-26 (KST)
+Last reviewed: 2026-08-27 (KST)
 
 This document is the release evidence ledger for AI-assisted work in **Curio Clerk: Night Shift**. It is an internal risk-control record, not legal advice. Update it whenever an AI tool creates or edits source code, art, audio, text, video, localization, or store material.
 
@@ -140,6 +140,21 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Third-party elements | None intentionally requested or identified. Update this field immediately if any external input or recognizable third-party element is introduced. |
 | Store submission decision | Treat the selected images and prominent store screenshots containing them as AI-assisted/generated media wherever the selected store asks. Recheck live submission wording before upload. |
 | Release status | **Cosmetics prototype — not approved for RC.** In-Unity scale/composition review, similarity/trademark review, any desired direct human repaint or adjustment, and explicit developer release approval remain required. |
+
+### TEXT-GAMEPLAY-003 — Three-Seal Docket rules and curio resolutions
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Assets/Scripts/Runtime/Localization/Localizer.cs`; `Assets/Scripts/Runtime/Content/ContentCatalog.cs`; generated Unity localization tables and generated Artifact assets after `ProjectBuilder.BuildAll` |
+| Asset type and intended use | English and Korean Three-Seal Docket rules and artifact-specific resolution copy shown during gameplay and in the Casebook |
+| Tool | OpenAI Codex |
+| Creation date | 2026-08-27 KST |
+| Reference inputs | Existing project-authored artifact names and descriptions, plus the developer-approved Three-Seal Docket design; no third-party prose supplied or copied |
+| Human direction | The developer approved the core-loop redesign, its rules, and the requirement that each artifact's fiction connect to its gameplay result. |
+| Human edits | No independent human rewrite claimed at intake. Korean naturalness, English clarity, line wrapping, tone, and contextual fit require developer bilingual review in Unity. |
+| Third-party elements | None identified; no third-party prose or reference text was used. |
+| Store submission decision | Ordinary in-game gameplay copy; no separate AI-media declaration currently identified. Recheck selected-store requirements at submission time. |
+| Release status | **Prototype copy — developer bilingual review required before RC.** |
 
 ### TEXT-UI-002 — casebook and cosmetics interface copy
 

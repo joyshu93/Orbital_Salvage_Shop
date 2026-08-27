@@ -14,30 +14,30 @@ namespace CurioClerk.Content
         {
             return new[]
             {
-                A("clockwork-moth", "M", ArtifactTraits.Alive | ArtifactTraits.Metallic, "Clockwork Moth", "태엽 나방", "It remembers every lamp it has loved.", "사랑했던 모든 전등을 기억한다."),
-                A("rain-jar", "J", ArtifactTraits.Wet | ArtifactTraits.Temporal, "Jar of Tuesday Rain", "화요일 빗물병", "The rain inside insists it is still Tuesday.", "병 속의 비는 아직 화요일이라고 우긴다."),
-                A("whispering-key", "K", ArtifactTraits.Cursed | ArtifactTraits.Metallic, "Whispering Key", "속삭이는 열쇠", "It knows a door that no longer exists.", "이제는 없는 문 하나를 알고 있다."),
-                A("sleeping-teacup", "T", ArtifactTraits.Alive | ArtifactTraits.Fragile, "Sleeping Teacup", "잠든 찻잔", "Do not wake it before the kettle sings.", "주전자가 노래하기 전에는 깨우지 말 것."),
-                A("borrowed-shadow", "S", ArtifactTraits.Temporal | ArtifactTraits.Cursed, "Borrowed Shadow", "빌린 그림자", "Return before sunrise. It misses its owner.", "해 뜨기 전에 돌려줄 것. 주인을 그리워한다."),
-                A("moon-umbrella", "U", ArtifactTraits.Wet | ArtifactTraits.Fragile, "Moon-Mended Umbrella", "달빛으로 기운 우산", "The patches glow whenever rain feels lonely.", "비가 외로울 때마다 기운 자리가 빛난다."),
-                A("silent-bell", "B", ArtifactTraits.Cursed | ArtifactTraits.Metallic, "Bell Without a Tongue", "혀 없는 종", "It rings only in rooms that forgot you.", "당신을 잊은 방에서만 울린다."),
-                A("mossy-watch", "W", ArtifactTraits.Alive | ArtifactTraits.Temporal | ArtifactTraits.Metallic, "Mossy Pocket Watch", "이끼 낀 회중시계", "The moss grows one minute ahead.", "이끼가 언제나 1분 먼저 자란다."),
-                A("paper-fish", "F", ArtifactTraits.Alive | ArtifactTraits.Wet | ArtifactTraits.Fragile, "Paper Fish", "종이 물고기", "Folded from a letter nobody sent.", "아무도 보내지 않은 편지로 접혔다."),
-                A("backward-candle", "C", ArtifactTraits.Temporal | ArtifactTraits.Fragile, "Backward Candle", "거꾸로 타는 양초", "Its wax climbs toward an earlier evening.", "촛농이 더 이른 저녁을 향해 올라간다."),
-                A("porcelain-tooth", "P", ArtifactTraits.Fragile | ArtifactTraits.Cursed, "Porcelain Tooth", "도자기 이빨", "Too polite to bite, too rude to stop smiling.", "물기엔 공손하고 웃음을 멈추기엔 무례하다."),
-                A("thimble-storm", "R", ArtifactTraits.Wet | ArtifactTraits.Metallic, "Thimble Storm", "골무 속 폭풍", "A tiny forecast with very loud opinions.", "목소리 큰 아주 작은 일기예보다."),
-                A("humming-scarf", "H", ArtifactTraits.Alive | ArtifactTraits.Cursed, "Humming Scarf", "콧노래 목도리", "It only knows the chorus of a forbidden song.", "금지된 노래의 후렴만 알고 있다."),
-                A("sundial-egg", "E", ArtifactTraits.Alive | ArtifactTraits.Temporal | ArtifactTraits.Fragile, "Sundial Egg", "해시계 알", "Something inside is waiting for noon.", "안의 무언가가 정오를 기다린다."),
-                A("mirror-seed", "D", ArtifactTraits.Cursed | ArtifactTraits.Fragile, "Mirror Seed", "거울 씨앗", "Plant reflection-side down.", "반사되는 쪽을 아래로 심을 것."),
-                A("rusty-comet", "O", ArtifactTraits.Metallic | ArtifactTraits.Temporal, "Rusty Comet", "녹슨 혜성", "Late by three centuries and terribly embarrassed.", "세 세기 늦어서 몹시 난처해한다."),
-                A("ink-snowglobe", "G", ArtifactTraits.Wet | ArtifactTraits.Cursed | ArtifactTraits.Fragile, "Ink Snow Globe", "잉크 스노글로브", "Shake gently. The forecast is confidential.", "살살 흔들 것. 예보는 기밀이다."),
-                A("patient-compass", "Q", ArtifactTraits.Metallic | ArtifactTraits.Alive, "Patient Compass", "참을성 많은 나침반", "It points home when you are ready.", "당신이 준비되면 집을 가리킨다."),
-                A("yesterday-ticket", "Y", ArtifactTraits.Temporal | ArtifactTraits.Fragile, "Yesterday Ticket", "어제행 승차권", "One way. No refunds for paradoxes.", "편도. 역설로 인한 환불은 불가하다."),
-                A("tea-crown", "N", ArtifactTraits.Cursed | ArtifactTraits.Metallic | ArtifactTraits.Wet, "Tea-Stained Crown", "찻물 얼룩 왕관", "Abdicated after a difficult breakfast.", "힘든 아침 식사 후 퇴위했다."),
-                A("lantern-snail", "L", ArtifactTraits.Alive | ArtifactTraits.Fragile, "Lantern Snail", "등불 달팽이", "Carries a warm porch wherever it goes.", "어디를 가든 따뜻한 현관을 등에 진다."),
-                A("tide-locket", "I", ArtifactTraits.Wet | ArtifactTraits.Metallic, "Tide-Locked Locket", "밀물에 잠긴 로켓", "Opens only when the moon approves.", "달이 허락할 때만 열린다."),
-                A("murmur-box", "X", ArtifactTraits.Cursed | ArtifactTraits.Alive | ArtifactTraits.Metallic, "Murmur Box", "웅얼거림 상자", "Compliments are accepted through the keyhole.", "열쇠구멍으로 칭찬을 받는다."),
-                A("unmelting-ice", "V", ArtifactTraits.Wet | ArtifactTraits.Temporal | ArtifactTraits.Fragile, "Unmelting Ice", "녹지 않는 얼음", "Frozen during a winter that has not happened yet.", "아직 오지 않은 겨울에 얼었다.")
+                A("clockwork-moth", "M", ArtifactTraits.Alive | ArtifactTraits.Metallic, "Clockwork Moth", "태엽 나방", "It remembers every lamp it has loved.", "사랑했던 모든 전등을 기억한다.", "Its wings settle into the rhythm of the desk lamp.", "날개가 책상 램프의 박자에 맞춰 잔잔해진다."),
+                A("rain-jar", "J", ArtifactTraits.Wet | ArtifactTraits.Temporal, "Jar of Tuesday Rain", "화요일 빗물병", "The rain inside insists it is still Tuesday.", "병 속의 비는 아직 화요일이라고 우긴다.", "The rain softens to a quiet window drizzle.", "병 속의 비가 창가의 잔잔한 이슬비로 누그러진다."),
+                A("whispering-key", "K", ArtifactTraits.Cursed | ArtifactTraits.Metallic, "Whispering Key", "속삭이는 열쇠", "It knows a door that no longer exists.", "이제는 없는 문 하나를 알고 있다.", "Its whisper fades to the sound of one safe lock.", "속삭임이 안전한 자물쇠 하나의 소리로 잦아든다."),
+                A("sleeping-teacup", "T", ArtifactTraits.Alive | ArtifactTraits.Fragile, "Sleeping Teacup", "잠든 찻잔", "Do not wake it before the kettle sings.", "주전자가 노래하기 전에는 깨우지 말 것.", "It sighs once and dreams of warm tea.", "한 번 한숨을 쉬고 따뜻한 차를 꿈꾼다."),
+                A("borrowed-shadow", "S", ArtifactTraits.Temporal | ArtifactTraits.Cursed, "Borrowed Shadow", "빌린 그림자", "Return before sunrise. It misses its owner.", "해 뜨기 전에 돌려줄 것. 주인을 그리워한다.", "It leans toward home, patient until sunrise.", "해 뜰 때까지 얌전히 기다리며 집 쪽으로 몸을 기울인다."),
+                A("moon-umbrella", "U", ArtifactTraits.Wet | ArtifactTraits.Fragile, "Moon-Mended Umbrella", "달빛으로 기운 우산", "The patches glow whenever rain feels lonely.", "비가 외로울 때마다 기운 자리가 빛난다.", "Its moonlit patches glow without trembling.", "달빛 기운 자리가 떨림 없이 은은히 빛난다."),
+                A("silent-bell", "B", ArtifactTraits.Cursed | ArtifactTraits.Metallic, "Bell Without a Tongue", "혀 없는 종", "It rings only in rooms that forgot you.", "당신을 잊은 방에서만 울린다.", "For tonight, it is silent for the right reason.", "오늘 밤만큼은 올바른 이유로 고요하다."),
+                A("mossy-watch", "W", ArtifactTraits.Alive | ArtifactTraits.Temporal | ArtifactTraits.Metallic, "Mossy Pocket Watch", "이끼 낀 회중시계", "The moss grows one minute ahead.", "이끼가 언제나 1분 먼저 자란다.", "The moss pauses and lets the present catch up.", "이끼가 멈춰 서서 현재가 따라오게 해 준다."),
+                A("paper-fish", "F", ArtifactTraits.Alive | ArtifactTraits.Wet | ArtifactTraits.Fragile, "Paper Fish", "종이 물고기", "Folded from a letter nobody sent.", "아무도 보내지 않은 편지로 접혔다.", "It folds its fins and rests like a sealed letter.", "지느러미를 접고 봉해진 편지처럼 쉰다."),
+                A("backward-candle", "C", ArtifactTraits.Temporal | ArtifactTraits.Fragile, "Backward Candle", "거꾸로 타는 양초", "Its wax climbs toward an earlier evening.", "촛농이 더 이른 저녁을 향해 올라간다.", "The wax holds still at this evening.", "촛농이 바로 오늘 저녁에 멈춰 선다."),
+                A("porcelain-tooth", "P", ArtifactTraits.Fragile | ArtifactTraits.Cursed, "Porcelain Tooth", "도자기 이빨", "Too polite to bite, too rude to stop smiling.", "물기엔 공손하고 웃음을 멈추기엔 무례하다.", "Its smile becomes small enough to trust.", "미소가 믿어도 될 만큼 작아진다."),
+                A("thimble-storm", "R", ArtifactTraits.Wet | ArtifactTraits.Metallic, "Thimble Storm", "골무 속 폭풍", "A tiny forecast with very loud opinions.", "목소리 큰 아주 작은 일기예보다.", "The tiny thunder lowers its voice.", "작은 천둥이 목소리를 낮춘다."),
+                A("humming-scarf", "H", ArtifactTraits.Alive | ArtifactTraits.Cursed, "Humming Scarf", "콧노래 목도리", "It only knows the chorus of a forbidden song.", "금지된 노래의 후렴만 알고 있다.", "The forbidden chorus becomes a sleepy hum.", "금지된 후렴이 졸린 콧노래로 누그러진다."),
+                A("sundial-egg", "E", ArtifactTraits.Alive | ArtifactTraits.Temporal | ArtifactTraits.Fragile, "Sundial Egg", "해시계 알", "Something inside is waiting for noon.", "안의 무언가가 정오를 기다린다.", "A steady noon-bright heartbeat answers from within.", "안쪽에서 정오처럼 밝고 고른 박동이 답한다."),
+                A("mirror-seed", "D", ArtifactTraits.Cursed | ArtifactTraits.Fragile, "Mirror Seed", "거울 씨앗", "Plant reflection-side down.", "반사되는 쪽을 아래로 심을 것.", "Its reflection curls safely around the seed.", "반사된 빛이 씨앗 둘레를 안전하게 감싼다."),
+                A("rusty-comet", "O", ArtifactTraits.Metallic | ArtifactTraits.Temporal, "Rusty Comet", "녹슨 혜성", "Late by three centuries and terribly embarrassed.", "세 세기 늦어서 몹시 난처해한다.", "It stops apologizing and shines at its own pace.", "사과를 멈추고 자기 속도로 빛난다."),
+                A("ink-snowglobe", "G", ArtifactTraits.Wet | ArtifactTraits.Cursed | ArtifactTraits.Fragile, "Ink Snow Globe", "잉크 스노글로브", "Shake gently. The forecast is confidential.", "살살 흔들 것. 예보는 기밀이다.", "The black forecast settles into gentle flakes.", "검은 예보가 부드러운 눈송이로 가라앉는다."),
+                A("patient-compass", "Q", ArtifactTraits.Metallic | ArtifactTraits.Alive, "Patient Compass", "참을성 많은 나침반", "It points home when you are ready.", "당신이 준비되면 집을 가리킨다.", "Its needle rests, certain that home can wait.", "집은 기다려 준다는 듯 바늘이 편안히 멈춘다."),
+                A("yesterday-ticket", "Y", ArtifactTraits.Temporal | ArtifactTraits.Fragile, "Yesterday Ticket", "어제행 승차권", "One way. No refunds for paradoxes.", "편도. 역설로 인한 환불은 불가하다.", "The punched date finally agrees to stay in the past.", "찍힌 날짜가 마침내 과거에 머물기로 한다."),
+                A("tea-crown", "N", ArtifactTraits.Cursed | ArtifactTraits.Metallic | ArtifactTraits.Wet, "Tea-Stained Crown", "찻물 얼룩 왕관", "Abdicated after a difficult breakfast.", "힘든 아침 식사 후 퇴위했다.", "A warm ring dries where breakfast once ruled.", "아침 식사가 다스리던 자리에 따뜻한 고리가 마른다."),
+                A("lantern-snail", "L", ArtifactTraits.Alive | ArtifactTraits.Fragile, "Lantern Snail", "등불 달팽이", "Carries a warm porch wherever it goes.", "어디를 가든 따뜻한 현관을 등에 진다.", "Its little porch light glows for the night clerk.", "작은 현관등이 야간 직원을 위해 빛난다."),
+                A("tide-locket", "I", ArtifactTraits.Wet | ArtifactTraits.Metallic, "Tide-Locked Locket", "밀물에 잠긴 로켓", "Opens only when the moon approves.", "달이 허락할 때만 열린다.", "The tide inside quiets beneath a patient moon.", "안쪽의 밀물이 느긋한 달 아래 잔잔해진다."),
+                A("murmur-box", "X", ArtifactTraits.Cursed | ArtifactTraits.Alive | ArtifactTraits.Metallic, "Murmur Box", "웅얼거림 상자", "Compliments are accepted through the keyhole.", "열쇠구멍으로 칭찬을 받는다.", "One kind word leaves it peacefully quiet.", "다정한 말 한마디에 상자가 편안히 조용해진다."),
+                A("unmelting-ice", "V", ArtifactTraits.Wet | ArtifactTraits.Temporal | ArtifactTraits.Fragile, "Unmelting Ice", "녹지 않는 얼음", "Frozen during a winter that has not happened yet.", "아직 오지 않은 겨울에 얼었다.", "It cools the desk without borrowing tomorrow.", "내일의 추위를 빌리지 않고 책상을 서늘하게 한다.")
             };
         }
 
@@ -134,8 +134,26 @@ namespace CurioClerk.Content
             };
         }
 
-        private static ArtifactContent A(string id, string symbol, ArtifactTraits traits, string en, string ko, string descEn, string descKo)
-            => new ArtifactContent(id, symbol, traits, en, ko, descEn, descKo);
+        private static ArtifactContent A(
+            string id,
+            string symbol,
+            ArtifactTraits traits,
+            string en,
+            string ko,
+            string descEn,
+            string descKo,
+            string resolutionEn,
+            string resolutionKo)
+            => new ArtifactContent(
+                id,
+                symbol,
+                traits,
+                en,
+                ko,
+                descEn,
+                descKo,
+                resolutionEn,
+                resolutionKo);
 
         private static SortingRule R(string id, ArtifactTraits all, ArtifactTraits any, Destination destination)
             => new SortingRule(id, all, any, destination, false);

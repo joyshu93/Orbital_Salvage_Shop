@@ -54,7 +54,8 @@ namespace CurioClerk.Editor
             {
                 var traitCount = CountBits((int)item.Traits);
                 if (string.IsNullOrWhiteSpace(item.NameEnglish) || string.IsNullOrWhiteSpace(item.NameKorean) ||
-                    string.IsNullOrWhiteSpace(item.DescriptionEnglish) || string.IsNullOrWhiteSpace(item.DescriptionKorean))
+                    string.IsNullOrWhiteSpace(item.DescriptionEnglish) || string.IsNullOrWhiteSpace(item.DescriptionKorean) ||
+                    string.IsNullOrWhiteSpace(item.ResolutionEnglish) || string.IsNullOrWhiteSpace(item.ResolutionKorean))
                 {
                     errors.Add($"Artifact '{item.Id}' has missing bilingual text.");
                 }

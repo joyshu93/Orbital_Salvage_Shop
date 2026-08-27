@@ -11,7 +11,9 @@ namespace CurioClerk.Content
             string nameEnglish,
             string nameKorean,
             string descriptionEnglish,
-            string descriptionKorean)
+            string descriptionKorean,
+            string resolutionEnglish,
+            string resolutionKorean)
         {
             Id = id;
             Symbol = symbol;
@@ -20,6 +22,8 @@ namespace CurioClerk.Content
             NameKorean = nameKorean;
             DescriptionEnglish = descriptionEnglish;
             DescriptionKorean = descriptionKorean;
+            ResolutionEnglish = resolutionEnglish;
+            ResolutionKorean = resolutionKorean;
         }
 
         public string Id { get; }
@@ -29,8 +33,9 @@ namespace CurioClerk.Content
         public string NameKorean { get; }
         public string DescriptionEnglish { get; }
         public string DescriptionKorean { get; }
+        public string ResolutionEnglish { get; }
+        public string ResolutionKorean { get; }
 
         public Artifact ToArtifact() => new Artifact(Id, Traits);
     }
 }
-

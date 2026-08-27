@@ -6,6 +6,7 @@ using CurioClerk.Content;
 using CurioClerk.Core.Rules;
 using CurioClerk.Core.Shifts;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace CurioClerk.Tests.EditMode
 {
@@ -25,6 +26,8 @@ namespace CurioClerk.Tests.EditMode
                 Assert.That(String(artifact, "NameKorean"), Is.Not.Empty);
                 Assert.That(String(artifact, "DescriptionEnglish"), Is.Not.Empty);
                 Assert.That(String(artifact, "DescriptionKorean"), Is.Not.Empty);
+                Assert.That(String(artifact, "ResolutionEnglish"), Is.Not.Empty, String(artifact, "Id"));
+                Assert.That(String(artifact, "ResolutionKorean"), Is.Not.Empty, String(artifact, "Id"));
                 var bits = Convert.ToInt32(Property(artifact, "Traits"));
                 var traitCount = 0;
                 while (bits != 0)
@@ -34,6 +37,30 @@ namespace CurioClerk.Tests.EditMode
                 }
 
                 Assert.That(traitCount, Is.InRange(1, 3), String(artifact, "Id"));
+            }
+        }
+
+        [Test]
+        public void ArtifactDefinition_ConfigureCopiesBilingualResolutionCopy()
+        {
+            var content = ContentCatalog.CreateArtifacts()[0];
+            var definition = ScriptableObject.CreateInstance<ArtifactDefinition>();
+            try
+            {
+                definition.Configure(content);
+                var englishProperty = typeof(ArtifactDefinition).GetProperty("ResolutionEnglish");
+                var koreanProperty = typeof(ArtifactDefinition).GetProperty("ResolutionKorean");
+
+                Assert.That(englishProperty, Is.Not.Null);
+                Assert.That(koreanProperty, Is.Not.Null);
+                Assert.That(englishProperty.GetValue(definition),
+                    Is.EqualTo(String(content, "ResolutionEnglish")));
+                Assert.That(koreanProperty.GetValue(definition),
+                    Is.EqualTo(String(content, "ResolutionKorean")));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(definition);
             }
         }
 

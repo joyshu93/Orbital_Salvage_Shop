@@ -90,6 +90,7 @@ namespace CurioClerk.Presentation
         private TMP_Text _ruleListText;
         private TMP_Text _tutorialCoach;
         private Button _holdButton;
+        private TMP_Text _holdButtonLabel;
         private readonly Button[] _destinationButtons = new Button[3];
         private readonly Outline[] _destinationHighlights = new Outline[3];
         private Outline _holdHighlight;
@@ -271,7 +272,8 @@ namespace CurioClerk.Presentation
                 return;
             }
 
-            RefreshShiftView(outcome.Disposition == SortDisposition.Correct);
+            var artifactAdvanced = outcome.Disposition == SortDisposition.Correct;
+            RefreshShiftView(artifactAdvanced, artifactAdvanced);
         }
 
         public void HoldCurrent()
@@ -484,6 +486,7 @@ namespace CurioClerk.Presentation
             _currentTraits = CreateText(card, "ArtifactTraits", string.Empty, 24, Wine, TextAlignmentOptions.Center, new Vector2(0.08f, 0.06f), new Vector2(0.92f, 0.20f), true);
 
             _holdButton = CreateButton(page, "HoldButton", _localizer.Get("hold"), new Vector2(0.34f, 0.175f), new Vector2(0.66f, 0.225f), Wine, Paper, HoldCurrent, 28);
+            _holdButtonLabel = _holdButton.transform.Find("Label").GetComponent<TMP_Text>();
             AddButtonIcon(_holdButton, "HoldButtonIcon", VisualAssetLibrary.HoldIcon, Paper);
             _holdHighlight = CreateButtonHighlight(_holdButton);
             var feedbackPanel = CreatePanel(page, "SortFeedbackPanel", Color.clear, new Vector2(0.05f, 0.235f), new Vector2(0.95f, 0.295f));
@@ -789,17 +792,35 @@ namespace CurioClerk.Presentation
 
         private void ShowBlockedFeedback()
         {
-            _sortFeedbackPanel.color = Wine;
-            _statusText.text = _localizer.Get("blocked");
+            RefreshDecisionMessage();
+        }
+
+        private void RefreshDecisionMessage()
+        {
+            var holdRequired = _session?.ShouldSuggestHold == true;
+            _sortFeedbackPanel.color = holdRequired ? Wine : Color.clear;
+            _statusText.text = holdRequired
+                ? _localizer.Get(
+                    "hold_required",
+                    DestinationName(_session.CurrentResolution.Destination))
+                : _localizer.Get("decision_prompt");
             _statusText.color = Paper;
-            _holdHighlight.enabled = true;
+            SetHoldPresentation(holdRequired);
             for (var index = 0; index < _destinationHighlights.Length; index++)
             {
                 _destinationHighlights[index].enabled = false;
             }
         }
 
-        private void RefreshShiftView(bool animateArtifact = true)
+        private void SetHoldPresentation(bool required)
+        {
+            _holdButtonLabel.text = _localizer.Get(required ? "hold_for_next" : "hold");
+            _holdHighlight.enabled = required;
+        }
+
+        private void RefreshShiftView(
+            bool animateArtifact = true,
+            bool refreshDecisionMessage = true)
         {
             if (_session?.CurrentArtifact == null)
             {
@@ -848,7 +869,10 @@ namespace CurioClerk.Presentation
                 _destinationButtons[index].interactable = _session.CanSort((Destination)index);
             }
 
-            _holdHighlight.enabled = _session.ShouldSuggestHold;
+            if (refreshDecisionMessage)
+            {
+                RefreshDecisionMessage();
+            }
             if (_session.RequiredDockets > 0)
             {
                 _docketProgress?.Refresh(

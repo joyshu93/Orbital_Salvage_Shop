@@ -150,15 +150,29 @@ namespace CurioClerk.Tests.PlayMode
                 Is.False);
             Assert.That(HasEnabledOutline("HoldButton"), Is.True);
             Assert.That(ObjectText("DocketCounter"), Does.Contain("1 / 4"));
+            Assert.That(ObjectText("SortFeedback"),
+                Does.Contain("REPAIR").And.Contain("already full"));
+            Assert.That(ObjectText("HoldButton"), Does.Contain("NEXT DOCKET"));
 
             var heartsBeforeBlockedSort = SessionHearts(app);
+            var holdMessageBeforeBlockedSort = ObjectText("SortFeedback");
             feedback.Cues.Clear();
             ChooseDestination(app, Convert.ToInt32(first));
 
             Assert.That(SessionHearts(app), Is.EqualTo(heartsBeforeBlockedSort));
-            Assert.That(ObjectText("SortFeedback"), Does.Contain("HOLD"));
+            Assert.That(ObjectText("SortFeedback"), Is.EqualTo(holdMessageBeforeBlockedSort));
             Assert.That(feedback.Cues.Contains(PlayerFeedbackCue.Wrong), Is.False,
                 "A stamped desk is a Hold prompt, not a sorting mistake.");
+
+            SetLocale(app, "ko");
+            app.StartNewShift(4242);
+            first = ExpectedDestination(app);
+            ChooseDestination(app, Convert.ToInt32(first));
+            yield return null;
+
+            Assert.That(ObjectText("SortFeedback"),
+                Does.Contain("수리실").And.Contain("이미 찼어요"));
+            Assert.That(ObjectText("HoldButton"), Does.Contain("다음 장부"));
         }
 
         [UnityTest]
@@ -624,21 +638,24 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator CorrectSort_ShowsPositiveBannerAndHighlightsSelectedDestination()
+        public IEnumerator FreshArtifact_ShowsOnlyCurrentDecisionPrompt()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
             yield return null;
             SetEnglishLocale(app);
-            app.StartNewShift(4242);
+            StartAuthoredShift(app, "mirror-seed", "clockwork-moth", "sleeping-teacup");
 
-            var expected = ExpectedDestination(app);
-            typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { expected });
+            Assert.That(ObjectText("SortFeedback"),
+                Is.EqualTo("Compare its traits with tonight's rules."));
+
+            var precedingResolution = CatalogResolution("mirror-seed", "en");
+            app.ChooseDestination(Destination.Vault);
             yield return null;
 
-            Assert.That(GameObject.Find("SortFeedbackPanel"), Is.Not.Null);
-            Assert.That(ObjectText("SortFeedback"), Does.StartWith("CORRECT · "));
-            Assert.That(HasEnabledOutline(DestinationButtonName(expected)), Is.True,
-                "A correct sort must highlight the selected destination.");
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("clockwork-moth"));
+            Assert.That(ObjectText("SortFeedback"),
+                Is.EqualTo("Compare its traits with tonight's rules."));
+            Assert.That(ObjectText("SortFeedback"), Does.Not.Contain(precedingResolution));
         }
 
         [UnityTest]
@@ -649,7 +666,7 @@ namespace CurioClerk.Tests.PlayMode
             SetEnglishLocale(app);
             StartAuthoredShift(app, "mirror-seed", "clockwork-moth", "sleeping-teacup");
 
-            app.ChooseDestination(Destination.Vault);
+            ShowSortFeedbackForCurrent(app, Destination.Vault);
 
             Assert.That(ObjectText("SortFeedback"),
                 Does.Contain("CURSED took priority -> VAULT")
@@ -657,7 +674,7 @@ namespace CurioClerk.Tests.PlayMode
 
             SetLocale(app, "ko");
             StartAuthoredShift(app, "mirror-seed", "clockwork-moth", "sleeping-teacup");
-            app.ChooseDestination(Destination.Vault);
+            ShowSortFeedbackForCurrent(app, Destination.Vault);
 
             Assert.That(ObjectText("SortFeedback"),
                 Does.Contain("저주받음 우선 -> 봉인고")
@@ -672,7 +689,7 @@ namespace CurioClerk.Tests.PlayMode
             SetEnglishLocale(app);
             StartAuthoredShift(app, "clockwork-moth", "sleeping-teacup", "whispering-key");
 
-            app.ChooseDestination(Destination.Storage);
+            ShowSortFeedbackForCurrent(app, Destination.Storage);
 
             Assert.That(ObjectText("SortFeedback"),
                 Does.Contain("No special rule -> STORAGE")
@@ -1165,6 +1182,27 @@ namespace CurioClerk.Tests.PlayMode
             typeof(GameApp).GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic)
                 .SetValue(app, new ShiftSession(queue, rules));
             InvokePrivate(app, "BuildShiftScreen");
+        }
+
+        private static void ShowSortFeedbackForCurrent(GameApp app, Destination destination)
+        {
+            var session = (ShiftSession)Session(app);
+            var artifact = session.CurrentArtifact;
+            ArtifactContent content = null;
+            foreach (var candidate in ContentCatalog.CreateArtifacts())
+            {
+                if (candidate.Id == artifact.Id)
+                {
+                    content = candidate;
+                    break;
+                }
+            }
+
+            Assert.That(content, Is.Not.Null, "Missing authored test artifact: " + artifact.Id);
+            var outcome = session.Sort(destination);
+            typeof(GameApp)
+                .GetMethod("ShowSortFeedback", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(app, new object[] { artifact, content, outcome, false });
         }
 
         private static void CompleteActiveShift(GameApp app)

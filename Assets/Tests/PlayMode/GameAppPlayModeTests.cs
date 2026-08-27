@@ -14,6 +14,7 @@ using CurioClerk.Infrastructure.Time;
 using CurioClerk.Localization;
 using CurioClerk.Presentation;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.TestTools;
 
@@ -107,6 +108,28 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(ObjectText("DocketStampRepairStatus"), Is.EqualTo("빈칸"));
             Assert.That(ObjectText("DocketStampStorageStatus"), Is.EqualTo("빈칸"));
             Assert.That(ObjectText("DocketStampVaultStatus"), Is.EqualTo("빈칸"));
+        }
+
+        [UnityTest]
+        public IEnumerator ShiftLayout_UsesCurioFirstReadableBands()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            app.StartNewShift(4242);
+            yield return null;
+
+            Assert.That(FindRect("DocketProgress").anchorMin.y, Is.GreaterThanOrEqualTo(0.84f));
+            Assert.That(FindRect("RulesPanel").anchorMin.y,
+                Is.GreaterThan(FindRect("CurrentArtifactCard").anchorMax.y));
+            Assert.That(FindText("RuleList").fontSize, Is.GreaterThanOrEqualTo(24f));
+            Assert.That(FindText("ArtifactName").fontSize, Is.GreaterThanOrEqualTo(40f));
+            Assert.That(FindText("ArtifactTraits").fontSize, Is.GreaterThanOrEqualTo(23f));
+            Assert.That(FindText("RepairButton").fontSize, Is.GreaterThanOrEqualTo(28f));
+            Assert.That(FindRect("CurrentArtifactCard").rect.height,
+                Is.GreaterThan(FindRect("RulesPanel").rect.height));
+            Assert.That(FindText("ArtifactName").font.name, Does.StartWith("GowunBatang-Bold"));
+            Assert.That(FindText("RuleList").font.name, Does.StartWith("NotoSansKR"));
         }
 
         [UnityTest]
@@ -1465,6 +1488,22 @@ namespace CurioClerk.Tests.PlayMode
             var textComponent = textObject.GetComponent(textType) ?? textObject.GetComponentInChildren(textType);
             Assert.That(textComponent, Is.Not.Null, objectName + " must expose visible TMP text.");
             return (string)textType.GetProperty("text").GetValue(textComponent);
+        }
+
+        private static RectTransform FindRect(string objectName)
+        {
+            var target = GameObject.Find(objectName);
+            Assert.That(target, Is.Not.Null, objectName + " must exist in the active view.");
+            return target.GetComponent<RectTransform>();
+        }
+
+        private static TMP_Text FindText(string objectName)
+        {
+            var target = GameObject.Find(objectName);
+            Assert.That(target, Is.Not.Null, objectName + " must exist in the active view.");
+            var text = target.GetComponent<TMP_Text>() ?? target.GetComponentInChildren<TMP_Text>();
+            Assert.That(text, Is.Not.Null, objectName + " must expose visible TMP text.");
+            return text;
         }
 
         private readonly struct RewardFeedbackCase

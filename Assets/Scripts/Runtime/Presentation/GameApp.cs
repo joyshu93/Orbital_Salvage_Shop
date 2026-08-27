@@ -858,7 +858,9 @@ namespace CurioClerk.Presentation
                 _docketProgress?.Refresh(
                     _session.CurrentDocket,
                     _session.CompletedDockets,
-                    _session.RequiredDockets);
+                    _session.RequiredDockets,
+                    _localizer.Get("docket_empty"),
+                    _localizer.Get("docket_complete"));
                 _hudText.text = _localizer.Get(
                     "shift_hud",
                     _session.Hearts,
@@ -1337,22 +1339,32 @@ namespace CurioClerk.Presentation
                 new Vector2(0.16f, 0.08f),
                 new Vector2(0.31f, 0.92f),
                 true);
+            var stampLabels = new TMP_Text[3];
             var stamps = new[]
             {
                 CreateDocketStamp(panel, "DocketStampRepair", VisualAssetLibrary.RepairIcon,
-                    DustyRose, new Vector2(0.34f, 0.14f), new Vector2(0.52f, 0.86f)),
+                    DustyRose, new Vector2(0.34f, 0.14f), new Vector2(0.52f, 0.86f),
+                    out stampLabels[0]),
                 CreateDocketStamp(panel, "DocketStampStorage", VisualAssetLibrary.StorageIcon,
-                    Sage, new Vector2(0.56f, 0.14f), new Vector2(0.74f, 0.86f)),
+                    Sage, new Vector2(0.56f, 0.14f), new Vector2(0.74f, 0.86f),
+                    out stampLabels[1]),
                 CreateDocketStamp(panel, "DocketStampVault", VisualAssetLibrary.VaultIcon,
-                    Amber, new Vector2(0.78f, 0.14f), new Vector2(0.96f, 0.86f))
+                    Amber, new Vector2(0.78f, 0.14f), new Vector2(0.96f, 0.86f),
+                    out stampLabels[2])
             };
 
             _docketProgress = panel.gameObject.AddComponent<DocketProgressView>();
             _docketProgress.Configure(
                 counter,
                 stamps,
+                stampLabels,
                 new Color(Paper.r, Paper.g, Paper.b, 0.16f),
-                new Color(Amber.r, Amber.g, Amber.b, 0.72f));
+                new[]
+                {
+                    new Color(DustyRose.r, DustyRose.g, DustyRose.b, 0.72f),
+                    new Color(Sage.r, Sage.g, Sage.b, 0.72f),
+                    new Color(Amber.r, Amber.g, Amber.b, 0.72f)
+                });
         }
 
         private static Image CreateDocketStamp(
@@ -1361,13 +1373,24 @@ namespace CurioClerk.Presentation
             Sprite iconSprite,
             Color iconColor,
             Vector2 min,
-            Vector2 max)
+            Vector2 max,
+            out TMP_Text statusLabel)
         {
             var stamp = CreatePanel(parent, name, Color.clear, min, max);
             AddSurfaceChrome(stamp, iconColor, 1f, 0.12f);
-            var icon = CreateArtworkImage(stamp, name + "Icon", new Vector2(0.20f, 0.12f), new Vector2(0.80f, 0.88f));
+            var icon = CreateArtworkImage(stamp, name + "Icon", new Vector2(0.20f, 0.32f), new Vector2(0.80f, 0.94f));
             icon.sprite = iconSprite;
             icon.color = iconColor;
+            statusLabel = CreateText(
+                stamp,
+                name + "Status",
+                string.Empty,
+                12,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.04f, 0.02f),
+                new Vector2(0.96f, 0.32f),
+                true);
             return stamp.GetComponent<Image>();
         }
 

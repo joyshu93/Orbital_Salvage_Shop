@@ -3,7 +3,8 @@
   "rootNamespace": "CurioClerk.Tests.PlayMode",
   "references": [
     "CurioClerk.Core",
-    "CurioClerk.Runtime"
+    "CurioClerk.Runtime",
+    "Unity.TextMeshPro"
   ],
   "optionalUnityReferences": [
     "TestAssemblies"

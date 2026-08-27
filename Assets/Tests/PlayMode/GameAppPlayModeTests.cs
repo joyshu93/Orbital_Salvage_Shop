@@ -87,6 +87,29 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator DocketStampLabels_AreLocalizedInEnglishAndKorean()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+
+            SetLocale(app, "en");
+            app.StartNewShift(4242);
+            yield return null;
+
+            Assert.That(ObjectText("DocketStampRepairStatus"), Is.EqualTo("EMPTY"));
+            Assert.That(ObjectText("DocketStampStorageStatus"), Is.EqualTo("EMPTY"));
+            Assert.That(ObjectText("DocketStampVaultStatus"), Is.EqualTo("EMPTY"));
+
+            SetLocale(app, "ko");
+            app.StartNewShift(4242);
+            yield return null;
+
+            Assert.That(ObjectText("DocketStampRepairStatus"), Is.EqualTo("빈칸"));
+            Assert.That(ObjectText("DocketStampStorageStatus"), Is.EqualTo("빈칸"));
+            Assert.That(ObjectText("DocketStampVaultStatus"), Is.EqualTo("빈칸"));
+        }
+
+        [UnityTest]
         public IEnumerator DuplicateDesk_DisablesThatDeskAndSuggestsHold()
         {
             var feedback = new RecordingPlayerFeedbackService();

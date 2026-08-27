@@ -9,6 +9,7 @@ This is the working inventory for externally sourced material. It is not yet the
 | Component | Repository evidence | License/attribution | Current release decision |
 | --- | --- | --- | --- |
 | Noto Sans KR Variable | `Assets/Fonts/NotoSansKR/NotoSansKR-Variable.ttf` | SIL Open Font License 1.1. Copyright 2014–2021 Adobe; Reserved Font Name `Source`. Full text: `Assets/Fonts/NotoSansKR/OFL.txt`. | Approved for bundling only while the copyright notice and OFL text are retained and made human-readable with the distribution. Do not rename a modified version with a reserved name. |
+| Gowun Batang Bold | `Assets/Fonts/GowunBatang/GowunBatang-Bold.ttf` | SIL Open Font License 1.1. Copyright 2021 The Gowun Batang Project Authors. Full text: `Assets/Fonts/GowunBatang/OFL.txt`. | Approved for prototype bundling without modification while the copyright notice and OFL text are retained and made human-readable with the distribution. |
 | Liberation Sans | `Assets/TextMesh Pro/Fonts/LiberationSans.ttf` and generated TMP font resources | SIL Open Font License 1.1. Copyright 2010 Google Corporation and 2012 Red Hat, Inc.; reserved names are stated in `Assets/TextMesh Pro/Fonts/LiberationSans - OFL.txt`. | Repository copy is permitted under the bundled OFL terms. Confirm whether it is included in the final player and include its notice if shipped. |
 | EmojiOne TMP sample | Removed from `Assets/TextMesh Pro/Sprites` and detached from `Assets/TextMesh Pro/Resources/TMP Settings.asset`. | The removed sample had incomplete provenance, so no EmojiOne material is approved or shipped. | **Removed from release.** `ContentValidator` and the EditMode release-asset contract reject any future `EmojiOne` asset. |
 | TextMesh Pro essential resources and shaders | `Assets/TextMesh Pro/**`; source package: `com.unity.ugui` 2.0.0, pinned in `Packages/packages-lock.json`. | Unity Companion License. Verbatim package license: `Docs/Licenses/uGUI-2.0.0-LICENSE.md`; source and package fingerprint: `Docs/Licenses/uGUI-2.0.0-source.md`. Separately listed Liberation Sans notice remains applicable where shipped. | **Resolved for the recorded uGUI 2.0.0 essential resources and shaders.** Retain the license notice with distribution and re-audit if the package version or copied resources change. |
@@ -22,6 +23,13 @@ This is the working inventory for externally sourced material. It is not yet the
 | Desk charm illustration set | Six selected ImageGen PNGs recorded with hashes as `ART-COSMETICS-001` in `Docs/AIAssetProvenance.md`; normalized prompts are retained in `Docs/VisualSlicePrompts.md`. | Original text prompts only; no third-party asset or reference was supplied. | **No third-party attribution identified. Prototype only; final similarity/trademark and human release review remain open.** Update this row if any external element is introduced. |
 | Casebook and cosmetics bilingual copy | `Assets/Scripts/Runtime/Localization/Localizer.cs`; provenance entry `TEXT-UI-002` in `Docs/AIAssetProvenance.md`. | Project-authored functional English/Korean labels; no third-party prose or attribution identified. | **No third-party notice required.** Bilingual visual review remains open before RC. |
 | Three-Seal bilingual gameplay copy | `Assets/Scripts/Runtime/Localization/Localizer.cs`, `Assets/Scripts/Runtime/Content/ContentCatalog.cs`, generated localization tables, and generated Artifact assets; provenance entry `TEXT-GAMEPLAY-003` in `Docs/AIAssetProvenance.md`. | Existing project-authored names/descriptions and the approved Three-Seal design only; no third-party prose or attribution identified. | **No third-party notice required.** Human bilingual review remains required before RC. |
+
+### Gowun Batang Bold
+
+- Source: https://github.com/google/fonts/tree/main/ofl/gowunbatang
+- File: `Assets/Fonts/GowunBatang/GowunBatang-Bold.ttf`
+- License: SIL Open Font License 1.1
+- Use: Curio names, titles, and short resolution copy.
 
 No Asset Store art, stock art, commercial audio, or third-party gameplay package has been approved or recorded as of the review date.
 

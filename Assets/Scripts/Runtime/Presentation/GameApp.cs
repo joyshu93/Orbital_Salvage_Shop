@@ -43,7 +43,14 @@ namespace CurioClerk.Presentation
             Cosmetics
         }
 
+        private enum TextRole
+        {
+            Interface,
+            Display
+        }
+
         private static TMP_FontAsset s_InterfaceFont;
+        private static TMP_FontAsset s_DisplayFont;
         private static readonly Color Plum = Hex("#351B2B");
         private static readonly Color Wine = Hex("#5B2944");
         private static readonly Color Paper = Hex("#F2E5C4");
@@ -147,7 +154,7 @@ namespace CurioClerk.Presentation
             ActiveScreen = AppScreen.Menu;
             var page = CreatePage("MainMenuScreen");
             CreateText(page, "Eyebrow", _localizer.Get("subtitle"), 34, Amber, TextAlignmentOptions.Center, new Vector2(0.12f, 0.80f), new Vector2(0.88f, 0.87f), true);
-            CreateText(page, "Title", _localizer.Get("title"), 72, Paper, TextAlignmentOptions.Center, new Vector2(0.08f, 0.64f), new Vector2(0.92f, 0.80f), true);
+            CreateText(page, "Title", _localizer.Get("title"), 72, Paper, TextAlignmentOptions.Center, new Vector2(0.08f, 0.64f), new Vector2(0.92f, 0.80f), true, TextRole.Display);
             CreateText(page, "WelcomeNote", _localizer.Locale == "ko" ? "밤새 들어오는 기묘한 물건을 규칙대로 정리하세요." : "File strange arrivals by lamplight until morning.", 27, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.54f), new Vector2(0.85f, 0.64f));
             CreateButton(page, "StartShiftButton", _localizer.Get("start"), new Vector2(0.15f, 0.40f), new Vector2(0.85f, 0.49f), Amber, Ink, OnStartPressed);
             CreateButton(page, "DailyShiftButton", DailyButtonText(), new Vector2(0.15f, 0.30f), new Vector2(0.85f, 0.38f), Paper, Ink, StartDailyShift);
@@ -331,7 +338,7 @@ namespace CurioClerk.Presentation
                 artwork.sprite = VisualAssetLibrary.Artifact(artifact.Id);
                 artwork.enabled = artwork.sprite != null;
                 artwork.color = known ? Color.white : new Color(0.13f, 0.06f, 0.10f, 0.96f);
-                CreateText(card, "CasebookName_" + artifact.Id, name, 28, known ? Ink : Paper, TextAlignmentOptions.Left, new Vector2(0.35f, 0.70f), new Vector2(0.96f, 0.91f), true);
+                CreateText(card, "CasebookName_" + artifact.Id, name, 28, known ? Ink : Paper, TextAlignmentOptions.Left, new Vector2(0.35f, 0.70f), new Vector2(0.96f, 0.91f), true, TextRole.Display);
                 CreateText(card, "CasebookDescription_" + artifact.Id, description, 18, known ? Ink : DustyRose, TextAlignmentOptions.TopLeft, new Vector2(0.35f, 0.44f), new Vector2(0.96f, 0.70f));
                 if (known)
                 {
@@ -476,7 +483,7 @@ namespace CurioClerk.Presentation
             AddSurfaceChrome(card, Amber, 3f, 0.34f);
             _artifactIllustration = CreateArtworkImage(card, "ArtifactIllustration", new Vector2(0.035f, 0.18f), new Vector2(0.39f, 0.92f));
             _currentSymbol = CreateText(card, "ArtifactSymbol", string.Empty, 84, Wine, TextAlignmentOptions.Center, new Vector2(0.05f, 0.31f), new Vector2(0.37f, 0.83f), true);
-            _currentName = CreateText(card, "ArtifactName", string.Empty, 35, Ink, TextAlignmentOptions.Left, new Vector2(0.41f, 0.68f), new Vector2(0.95f, 0.92f), true);
+            _currentName = CreateText(card, "ArtifactName", string.Empty, 35, Ink, TextAlignmentOptions.Left, new Vector2(0.41f, 0.68f), new Vector2(0.95f, 0.92f), true, TextRole.Display);
             _currentDescription = CreateText(card, "ArtifactDescription", string.Empty, 22, Ink, TextAlignmentOptions.TopLeft, new Vector2(0.41f, 0.25f), new Vector2(0.94f, 0.68f));
             _currentTraits = CreateText(card, "ArtifactTraits", string.Empty, 20, Wine, TextAlignmentOptions.Center, new Vector2(0.08f, 0.07f), new Vector2(0.92f, 0.24f), true);
 
@@ -689,7 +696,7 @@ namespace CurioClerk.Presentation
             _feedbackService.Play(PlayerFeedbackCue.ShiftComplete);
             ActiveScreen = AppScreen.Tutorial;
             var page = CreatePage("TutorialCompleteScreen");
-            CreateText(page, "TutorialCompleteTitle", _localizer.Get("tutorial_complete_title"), 58, Amber, TextAlignmentOptions.Center, new Vector2(0.10f, 0.62f), new Vector2(0.90f, 0.76f), true);
+            CreateText(page, "TutorialCompleteTitle", _localizer.Get("tutorial_complete_title"), 58, Amber, TextAlignmentOptions.Center, new Vector2(0.10f, 0.62f), new Vector2(0.90f, 0.76f), true, TextRole.Display);
             CreateText(page, "TutorialCompleteBody", _localizer.Get("tutorial_complete_body"), 30, Paper, TextAlignmentOptions.Center, new Vector2(0.14f, 0.39f), new Vector2(0.86f, 0.58f));
             CreateButton(page, "TutorialStartShiftButton", _localizer.Get("tutorial_start_shift"), new Vector2(0.18f, 0.20f), new Vector2(0.82f, 0.30f), Amber, Ink, () => StartNewShift(_seedProvider.CreateStandardSeed(_save.completedShifts)));
         }
@@ -877,7 +884,7 @@ namespace CurioClerk.Presentation
             ActiveScreen = AppScreen.Results;
             var page = CreatePage("ResultsScreen");
             var completed = _session.State == ShiftState.Completed;
-            var resultTitle = CreateText(page, "ResultTitle", _localizer.Get(completed ? "complete" : "failed"), 54, completed ? Amber : DustyRose, TextAlignmentOptions.Center, new Vector2(0.08f, 0.87f), new Vector2(0.92f, 0.96f), true);
+            var resultTitle = CreateText(page, "ResultTitle", _localizer.Get(completed ? "complete" : "failed"), 54, completed ? Amber : DustyRose, TextAlignmentOptions.Center, new Vector2(0.08f, 0.87f), new Vector2(0.92f, 0.96f), true, TextRole.Display);
             CreateText(page, "ResultDocketsHeader", _localizer.Get("result_dockets"), 25, Amber, TextAlignmentOptions.Center, new Vector2(0.12f, 0.81f), new Vector2(0.88f, 0.86f), true);
             for (var docket = 0; docket < 4; docket++)
             {
@@ -911,7 +918,8 @@ namespace CurioClerk.Presentation
                 TextAlignmentOptions.Center,
                 new Vector2(0.12f, 0.45f),
                 new Vector2(0.88f, 0.61f),
-                true);
+                true,
+                TextRole.Display);
             var resultScore = CreateText(page, "ResultScore", $"{_localizer.Get("score")}  {_session.Score}\n{_localizer.Get("coins")}  {_session.Coins}\n{_localizer.Get("result_correct_label")}  {_session.CorrectSorts}   ·   {_localizer.Get("result_mistakes_label")}  {_session.Mistakes}", 27, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.27f), new Vector2(0.85f, 0.43f), true);
             if (_isDailyShift && completed)
             {
@@ -1254,7 +1262,7 @@ namespace CurioClerk.Presentation
             return rect;
         }
 
-        private static TMP_Text CreateText(Transform parent, string name, string value, float size, Color color, TextAlignmentOptions alignment, Vector2 min, Vector2 max, bool bold = false)
+        private static TMP_Text CreateText(Transform parent, string name, string value, float size, Color color, TextAlignmentOptions alignment, Vector2 min, Vector2 max, bool bold = false, TextRole role = TextRole.Interface)
         {
             var gameObject = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
             var rect = gameObject.GetComponent<RectTransform>();
@@ -1266,9 +1274,15 @@ namespace CurioClerk.Presentation
                 s_InterfaceFont = Resources.Load<TMP_FontAsset>("Fonts/NotoSansKR-Dynamic");
             }
 
-            if (s_InterfaceFont != null)
+            if (s_DisplayFont == null)
             {
-                text.font = s_InterfaceFont;
+                s_DisplayFont = Resources.Load<TMP_FontAsset>("Fonts/GowunBatang-Bold-Dynamic");
+            }
+
+            var selectedFont = role == TextRole.Display ? s_DisplayFont : s_InterfaceFont;
+            if (selectedFont != null)
+            {
+                text.font = selectedFont;
             }
 
             text.text = value;

@@ -491,9 +491,20 @@ namespace CurioClerk.Editor
 
         private static void ConfigureFontAssets()
         {
-            const string sourcePath = "Assets/Fonts/NotoSansKR/NotoSansKR-Variable.ttf";
-            const string assetPath = "Assets/Resources/Fonts/NotoSansKR-Dynamic.asset";
             EnsureTextMeshProResources();
+            ClearDefaultTmpSpriteAsset();
+            EnsureDynamicFontAsset(
+                "Assets/Fonts/NotoSansKR/NotoSansKR-Variable.ttf",
+                "Assets/Resources/Fonts/NotoSansKR-Dynamic.asset",
+                "NotoSansKR-Dynamic");
+            EnsureDynamicFontAsset(
+                "Assets/Fonts/GowunBatang/GowunBatang-Bold.ttf",
+                "Assets/Resources/Fonts/GowunBatang-Bold-Dynamic.asset",
+                "GowunBatang-Bold-Dynamic");
+        }
+
+        private static void ClearDefaultTmpSpriteAsset()
+        {
             var tmpSettings = Resources.Load<TMP_Settings>("TMP Settings");
             if (tmpSettings == null)
             {
@@ -510,19 +521,22 @@ namespace CurioClerk.Editor
             defaultSpriteAsset.objectReferenceValue = null;
             serializedSettings.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(tmpSettings);
+        }
+
+        private static void EnsureDynamicFontAsset(string sourcePath, string assetPath, string assetName)
+        {
             AssetDatabase.ImportAsset(sourcePath, ImportAssetOptions.ForceSynchronousImport);
             var sourceFont = AssetDatabase.LoadAssetAtPath<Font>(sourcePath);
             if (sourceFont == null)
             {
-                throw new InvalidOperationException("Noto Sans KR source font could not be imported.");
+                throw new InvalidOperationException($"Source font could not be imported: {sourcePath}");
             }
 
             var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(assetPath);
             if (fontAsset == null)
             {
                 fontAsset = TMP_FontAsset.CreateFontAsset(sourceFont);
-                fontAsset.name = "NotoSansKR-Dynamic";
-                fontAsset.atlasPopulationMode = AtlasPopulationMode.Dynamic;
+                fontAsset.name = assetName;
                 AssetDatabase.CreateAsset(fontAsset, assetPath);
 
                 foreach (var texture in fontAsset.atlasTextures)
@@ -541,6 +555,8 @@ namespace CurioClerk.Editor
                 }
             }
 
+            fontAsset.name = assetName;
+            fontAsset.atlasPopulationMode = AtlasPopulationMode.Dynamic;
             EditorUtility.SetDirty(fontAsset);
         }
 

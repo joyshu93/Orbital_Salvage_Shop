@@ -156,6 +156,22 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Store submission decision | Ordinary in-game gameplay copy; no separate AI-media declaration currently identified. Recheck selected-store requirements at submission time. |
 | Release status | **Prototype copy — developer bilingual review required before RC.** |
 
+### FONT-UI-001 — Gowun Batang display typography
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Assets/Fonts/GowunBatang/GowunBatang-Bold.ttf`; `Assets/Fonts/GowunBatang/OFL.txt`; generated `Assets/Resources/Fonts/GowunBatang-Bold-Dynamic.asset` after `ProjectBuilder.BuildAll` |
+| Asset type and intended use | Third-party open-source display font for curio names, titles, and short resolution copy in the approved Curio-First UX overhaul |
+| Source | Official Google Fonts repository: https://github.com/google/fonts/tree/main/ofl/gowunbatang |
+| Creator | Copyright 2021 The Gowun Batang Project Authors; no AI generation or modification is claimed |
+| Acquisition date | 2026-08-27 KST |
+| Reference inputs | None; the original font binary and its OFL text are copied without modification from the official source directory |
+| Human direction | The developer explicitly approved the F1 pairing: Gowun Batang for short display copy and Noto Sans KR for functional interface copy. |
+| Human edits | No glyph editing, renaming, or derivative font work is claimed. Unity TMP atlas generation is technical processing only. |
+| Third-party elements | SIL Open Font License 1.1; full text retained at `Assets/Fonts/GowunBatang/OFL.txt` and notice recorded in `Docs/ThirdPartyNotices.md` |
+| Store submission decision | Ordinary bundled open-source font; retain the copyright and OFL notice with the distributed product and re-audit the final bundle before RC. |
+| Release status | **Approved for prototype integration under OFL 1.1; final in-game readability and bundled-notice review remain required before RC.** |
+
 ### TEXT-UI-002 — casebook and cosmetics interface copy
 
 | Field | Record |

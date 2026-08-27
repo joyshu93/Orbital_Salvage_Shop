@@ -50,10 +50,16 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(GameObject.Find("CurioClerkCanvas"), Is.Not.Null);
             Assert.That(GameObject.Find("StartShiftButton"), Is.Not.Null);
             var textType = Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro");
+            var fontProperty = textType.GetProperty("font");
             var titleText = GameObject.Find("Title").GetComponent(textType);
-            var titleFont = textType.GetProperty("font").GetValue(titleText) as UnityEngine.Object;
+            var startButtonText = GameObject.Find("StartShiftButton").GetComponentInChildren(textType);
+            var titleFont = fontProperty.GetValue(titleText) as UnityEngine.Object;
+            var startButtonFont = fontProperty.GetValue(startButtonText) as UnityEngine.Object;
             Assert.That(titleFont, Is.Not.Null);
-            Assert.That(titleFont.name, Does.StartWith("NotoSansKR"));
+            Assert.That(startButtonFont, Is.Not.Null);
+            Assert.That(titleFont.name, Does.StartWith("GowunBatang-Bold"));
+            Assert.That(startButtonFont.name, Does.StartWith("NotoSansKR"));
+            Assert.That(titleFont, Is.Not.SameAs(startButtonFont));
 
             appType.GetMethod("StartNewShift").Invoke(app, new object[] { 4242 });
             yield return null;

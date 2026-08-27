@@ -93,6 +93,7 @@ namespace CurioClerk.Presentation
         private ShiftFeedbackAnimator _feedbackAnimator;
         private bool _resultApplied;
         private int _appliedResultCoins;
+        private string _lastCorrectArtifactId;
         private bool _adConsentResolved;
         private bool _canRequestAds;
         private string _rewardFeedbackKey;
@@ -206,6 +207,7 @@ namespace CurioClerk.Presentation
             _seenThisShift.Clear();
             _resultApplied = false;
             _appliedResultCoins = 0;
+            _lastCorrectArtifactId = null;
             _rewardFeedbackKey = null;
             BuildShiftScreen();
         }
@@ -223,11 +225,14 @@ namespace CurioClerk.Presentation
                 return;
             }
 
-            var artifactId = _session.CurrentArtifact.Id;
+            var artifact = _session.CurrentArtifact;
+            var artifactId = artifact.Id;
+            var content = _artifactById[artifactId];
             var outcome = _session.Sort(destination);
             if (outcome.Disposition == SortDisposition.Correct)
             {
                 _seenThisShift.Add(artifactId);
+                _lastCorrectArtifactId = artifactId;
             }
 
             if (outcome.Disposition == SortDisposition.Blocked)
@@ -238,9 +243,9 @@ namespace CurioClerk.Presentation
             {
                 var terminalCorrectSort = outcome.DidCompleteShift && outcome.WasCorrect;
                 ShowSortFeedback(
-                    outcome.WasCorrect,
-                    destination,
-                    outcome.ExpectedDestination,
+                    artifact,
+                    content,
+                    outcome,
                     !terminalCorrectSort);
                 if (outcome.DidCompleteDocket && !outcome.DidCompleteShift)
                 {
@@ -326,9 +331,22 @@ namespace CurioClerk.Presentation
                 artwork.sprite = VisualAssetLibrary.Artifact(artifact.Id);
                 artwork.enabled = artwork.sprite != null;
                 artwork.color = known ? Color.white : new Color(0.13f, 0.06f, 0.10f, 0.96f);
-                CreateText(card, "CasebookName_" + artifact.Id, name, 28, known ? Ink : Paper, TextAlignmentOptions.Left, new Vector2(0.35f, 0.66f), new Vector2(0.96f, 0.91f), true);
-                CreateText(card, "CasebookDescription_" + artifact.Id, description, 19, known ? Ink : DustyRose, TextAlignmentOptions.TopLeft, new Vector2(0.35f, 0.29f), new Vector2(0.96f, 0.66f));
-                CreateText(card, "CasebookTraits_" + artifact.Id, known ? TraitsText(artifact.Traits) : string.Empty, 17, known ? Wine : DustyRose, TextAlignmentOptions.BottomLeft, new Vector2(0.35f, 0.07f), new Vector2(0.96f, 0.29f), true);
+                CreateText(card, "CasebookName_" + artifact.Id, name, 28, known ? Ink : Paper, TextAlignmentOptions.Left, new Vector2(0.35f, 0.70f), new Vector2(0.96f, 0.91f), true);
+                CreateText(card, "CasebookDescription_" + artifact.Id, description, 18, known ? Ink : DustyRose, TextAlignmentOptions.TopLeft, new Vector2(0.35f, 0.44f), new Vector2(0.96f, 0.70f));
+                if (known)
+                {
+                    CreateText(
+                        card,
+                        "CasebookResolution_" + artifact.Id,
+                        _localizer.Get("resolution_label") + " · " + Resolution(artifact),
+                        17,
+                        Wine,
+                        TextAlignmentOptions.TopLeft,
+                        new Vector2(0.35f, 0.18f),
+                        new Vector2(0.96f, 0.44f));
+                }
+
+                CreateText(card, "CasebookTraits_" + artifact.Id, known ? TraitsText(artifact.Traits) : string.Empty, 16, known ? Wine : DustyRose, TextAlignmentOptions.BottomLeft, new Vector2(0.35f, 0.05f), new Vector2(0.96f, 0.18f), true);
             }
         }
 
@@ -521,6 +539,7 @@ namespace CurioClerk.Presentation
             _seenThisShift.Clear();
             _resultApplied = false;
             _appliedResultCoins = 0;
+            _lastCorrectArtifactId = null;
             _rewardFeedbackKey = null;
             _tutorialStage = TutorialStage.FirstVault;
             BuildShiftScreen();
@@ -537,16 +556,27 @@ namespace CurioClerk.Presentation
                 return;
             }
 
-            var expected = _ruleEngine.Resolve(_session.CurrentArtifact, _activeRules);
-            if (destination != expected)
+            var artifact = _session.CurrentArtifact;
+            var content = _artifactById[artifact.Id];
+            var resolution = _ruleEngine.ResolveDetailed(artifact, _activeRules);
+            if (destination != resolution.Destination)
             {
-                ShowSortFeedback(false, destination, expected);
+                var wrong = new SortOutcome(
+                    SortDisposition.Wrong,
+                    destination,
+                    resolution.Destination,
+                    resolution.RuleId,
+                    false,
+                    false,
+                    0,
+                    0);
+                ShowSortFeedback(artifact, content, wrong);
                 return;
             }
 
             var outcome = _session.Sort(destination);
             var completingTutorial = _tutorialStage == TutorialStage.FinalHeldVault;
-            ShowSortFeedback(true, destination, outcome.ExpectedDestination, !completingTutorial);
+            ShowSortFeedback(artifact, content, outcome, !completingTutorial);
             switch (_tutorialStage)
             {
                 case TutorialStage.FirstVault:
@@ -665,16 +695,21 @@ namespace CurioClerk.Presentation
         }
 
         private void ShowSortFeedback(
-            bool wasCorrect,
-            Destination selected,
-            Destination expected,
+            Artifact artifact,
+            ArtifactContent content,
+            SortOutcome outcome,
             bool playCue = true)
         {
-            _sortFeedbackPanel.color = wasCorrect ? Sage : DustyRose;
+            var wasCorrect = outcome.WasCorrect;
+            var reason = RuleReason(artifact, outcome);
+            _sortFeedbackPanel.color = wasCorrect
+                ? DestinationColor(outcome.SelectedDestination)
+                : DustyRose;
             _statusText.text = wasCorrect
-                ? _localizer.Get("feedback_correct_label") + " · " + _localizer.Get("correct")
-                : _localizer.Get("feedback_wrong_label") + " · " + _localizer.Get("wrong", DestinationName(expected));
-            _statusText.color = Paper;
+                ? _localizer.Get("feedback_correct_label") + " · " + reason + "\n" + Resolution(content)
+                : _localizer.Get("feedback_wrong_label") + " · " +
+                  _localizer.Get("wrong", DestinationName(outcome.ExpectedDestination)) + "\n" + reason;
+            _statusText.color = wasCorrect && outcome.SelectedDestination == Destination.Vault ? Ink : Paper;
             if (playCue)
             {
                 _feedbackService.Play(wasCorrect ? PlayerFeedbackCue.Correct : PlayerFeedbackCue.Wrong);
@@ -688,11 +723,64 @@ namespace CurioClerk.Presentation
                 _feedbackAnimator?.PlayWrong();
             }
 
-            var highlighted = wasCorrect ? selected : expected;
+            var highlighted = wasCorrect ? outcome.SelectedDestination : outcome.ExpectedDestination;
             for (var index = 0; index < _destinationHighlights.Length; index++)
             {
                 var outline = _destinationHighlights[index];
                 outline.enabled = index == (int)highlighted;
+            }
+        }
+
+        private string RuleReason(Artifact artifact, SortOutcome outcome)
+        {
+            var matchedIndex = -1;
+            for (var index = 0; index < _activeRules.Count; index++)
+            {
+                if (_activeRules[index].Id == outcome.MatchedRuleId)
+                {
+                    matchedIndex = index;
+                    break;
+                }
+            }
+
+            if (matchedIndex < 0)
+            {
+                throw new InvalidOperationException("Sort outcome references an unknown active rule.");
+            }
+
+            var matched = _activeRules[matchedIndex];
+            var destination = DestinationName(outcome.ExpectedDestination);
+            if (matched.IsFallback)
+            {
+                return _localizer.Get("fallback_reason", destination);
+            }
+
+            var matchedTraits = matched.RequiredAll != ArtifactTraits.None
+                ? matched.RequiredAll
+                : matched.RequiredAny;
+            var hasLowerMatch = false;
+            for (var index = matchedIndex + 1; index < _activeRules.Count; index++)
+            {
+                if (!_activeRules[index].IsFallback && _activeRules[index].Matches(artifact))
+                {
+                    hasLowerMatch = true;
+                    break;
+                }
+            }
+
+            return _localizer.Get(
+                hasLowerMatch ? "rule_priority_reason" : "rule_reason",
+                TraitsText(matchedTraits),
+                destination);
+        }
+
+        private static Color DestinationColor(Destination destination)
+        {
+            switch (destination)
+            {
+                case Destination.Repair: return DustyRose;
+                case Destination.Vault: return Amber;
+                default: return Sage;
             }
         }
 
@@ -789,25 +877,51 @@ namespace CurioClerk.Presentation
             ActiveScreen = AppScreen.Results;
             var page = CreatePage("ResultsScreen");
             var completed = _session.State == ShiftState.Completed;
-            var resultTitle = CreateText(page, "ResultTitle", _localizer.Get(completed ? "complete" : "failed"), 58, completed ? Amber : DustyRose, TextAlignmentOptions.Center, new Vector2(0.08f, 0.69f), new Vector2(0.92f, 0.82f), true);
-            var resultScore = CreateText(page, "ResultScore", $"{_localizer.Get("score")}  {_session.Score}\n{_localizer.Get("coins")}  {_session.Coins}\n{_localizer.Get("result_correct_label")}  {_session.CorrectSorts}   ·   {_localizer.Get("result_mistakes_label")}  {_session.Mistakes}", 33, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.45f), new Vector2(0.85f, 0.66f), true);
+            var resultTitle = CreateText(page, "ResultTitle", _localizer.Get(completed ? "complete" : "failed"), 54, completed ? Amber : DustyRose, TextAlignmentOptions.Center, new Vector2(0.08f, 0.87f), new Vector2(0.92f, 0.96f), true);
+            CreateText(page, "ResultDocketsHeader", _localizer.Get("result_dockets"), 25, Amber, TextAlignmentOptions.Center, new Vector2(0.12f, 0.81f), new Vector2(0.88f, 0.86f), true);
+            for (var docket = 0; docket < 4; docket++)
+            {
+                var hasCompletedDocket = docket < _session.CompletedDocketPristine.Count;
+                var pristine = hasCompletedDocket && _session.CompletedDocketPristine[docket];
+                var status = pristine
+                    ? _localizer.Get("docket_pristine")
+                    : _localizer.Get("docket_inked");
+                var rowTop = 0.80f - docket * 0.045f;
+                CreateText(
+                    page,
+                    "ResultDocket" + docket,
+                    (docket + 1) + " · " + status,
+                    22,
+                    pristine ? Sage : DustyRose,
+                    TextAlignmentOptions.Center,
+                    new Vector2(0.20f, rowTop - 0.04f),
+                    new Vector2(0.80f, rowTop),
+                    true);
+            }
+
+            var resultResolution = _lastCorrectArtifactId != null && _artifactById.TryGetValue(_lastCorrectArtifactId, out var finalContent)
+                ? Resolution(finalContent)
+                : _localizer.Get("result_waiting");
+            CreateText(
+                page,
+                "ResultResolution",
+                _localizer.Get("resolution_label") + "\n" + resultResolution,
+                22,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.12f, 0.45f),
+                new Vector2(0.88f, 0.61f),
+                true);
+            var resultScore = CreateText(page, "ResultScore", $"{_localizer.Get("score")}  {_session.Score}\n{_localizer.Get("coins")}  {_session.Coins}\n{_localizer.Get("result_correct_label")}  {_session.CorrectSorts}   ·   {_localizer.Get("result_mistakes_label")}  {_session.Mistakes}", 27, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.27f), new Vector2(0.85f, 0.43f), true);
             if (_isDailyShift && completed)
             {
-                CreateText(page, "DailyResultStatus", _localizer.Get("daily_result_best", _save.dailyBestScore), 23, Amber, TextAlignmentOptions.Center, new Vector2(0.15f, 0.405f), new Vector2(0.85f, 0.455f), true);
+                CreateText(page, "DailyResultStatus", _localizer.Get("daily_result_best", _save.dailyBestScore), 20, Amber, TextAlignmentOptions.Center, new Vector2(0.15f, 0.23f), new Vector2(0.85f, 0.27f), true);
             }
             var resultAnimator = page.gameObject.AddComponent<ShiftFeedbackAnimator>();
             resultAnimator.Configure(resultTitle.rectTransform, resultScore.rectTransform);
             resultAnimator.PlayArtifactEntrance();
-            CreateText(page, "RewardedAdFeedback", string.IsNullOrEmpty(_rewardFeedbackKey) ? string.Empty : _localizer.Get(_rewardFeedbackKey), 22, DustyRose, TextAlignmentOptions.Center, new Vector2(0.12f, 0.41f), new Vector2(0.88f, 0.45f), true);
-            var rewardLabel = completed ? _localizer.Get("double") : _localizer.Get("revive");
-            if (!CanShowRewarded || _session.RewardClaimed)
-            {
-                rewardLabel = _localizer.Get("ad_unavailable");
-            }
-
-            var reward = CreateButton(page, "RewardedAdButton", rewardLabel, new Vector2(0.12f, 0.30f), new Vector2(0.88f, 0.40f), Wine, Paper, () => RequestReward(completed));
-            reward.interactable = CanShowRewarded && !_session.RewardClaimed;
-            CreateButton(page, "ResultsContinueButton", _localizer.Get("continue"), new Vector2(0.20f, 0.15f), new Vector2(0.80f, 0.25f), Amber, Ink, ReturnFromResults);
+            CreateText(page, "RewardedAdFeedback", string.IsNullOrEmpty(_rewardFeedbackKey) ? string.Empty : _localizer.Get(_rewardFeedbackKey), 20, DustyRose, TextAlignmentOptions.Center, new Vector2(0.12f, 0.20f), new Vector2(0.88f, 0.25f), true);
+            CreateButton(page, "ResultsContinueButton", _localizer.Get("continue"), new Vector2(0.20f, 0.09f), new Vector2(0.80f, 0.17f), Amber, Ink, ReturnFromResults);
         }
 
         private void RequestReward(bool completed)
@@ -1399,6 +1513,8 @@ namespace CurioClerk.Presentation
         private string Name(ArtifactContent content) => _localizer.Locale == "ko" ? content.NameKorean : content.NameEnglish;
 
         private string Description(ArtifactContent content) => _localizer.Locale == "ko" ? content.DescriptionKorean : content.DescriptionEnglish;
+
+        private string Resolution(ArtifactContent content) => _localizer.Locale == "ko" ? content.ResolutionKorean : content.ResolutionEnglish;
 
         private string CosmeticName(CosmeticContent content) => _localizer.Locale == "ko" ? content.NameKorean : content.NameEnglish;
 

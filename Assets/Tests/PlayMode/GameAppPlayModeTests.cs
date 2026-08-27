@@ -3,6 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using CurioClerk.Content;
+using CurioClerk.Core.Artifacts;
+using CurioClerk.Core.Rules;
+using CurioClerk.Core.Shifts;
 using CurioClerk.Infrastructure;
 using CurioClerk.Infrastructure.Ads;
 using CurioClerk.Infrastructure.Feedback;
@@ -80,8 +83,10 @@ namespace CurioClerk.Tests.PlayMode
         [UnityTest]
         public IEnumerator DuplicateDesk_DisablesThatDeskAndSuggestsHold()
         {
-            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            var feedback = new RecordingPlayerFeedbackService();
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService(), feedback);
             yield return null;
+            SetEnglishLocale(app);
             app.StartNewShift(4242);
 
             var first = ExpectedDestination(app);
@@ -93,6 +98,15 @@ namespace CurioClerk.Tests.PlayMode
                 Is.False);
             Assert.That(HasEnabledOutline("HoldButton"), Is.True);
             Assert.That(ObjectText("DocketCounter"), Does.Contain("1 / 4"));
+
+            var heartsBeforeBlockedSort = SessionHearts(app);
+            feedback.Cues.Clear();
+            ChooseDestination(app, Convert.ToInt32(first));
+
+            Assert.That(SessionHearts(app), Is.EqualTo(heartsBeforeBlockedSort));
+            Assert.That(ObjectText("SortFeedback"), Does.Contain("HOLD"));
+            Assert.That(feedback.Cues.Contains(PlayerFeedbackCue.Wrong), Is.False,
+                "A stamped desk is a Hold prompt, not a sorting mistake.");
         }
 
         [UnityTest]
@@ -474,9 +488,13 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(ObjectText("CollectionProgress"), Is.EqualTo("1 / 24 DISCOVERED"));
             Assert.That(ObjectText("CasebookName_sleeping-teacup"), Is.EqualTo("Sleeping Teacup"));
             Assert.That(ObjectText("CasebookDescription_sleeping-teacup"), Does.Contain("kettle sings"));
+            Assert.That(ObjectText("CasebookResolution_sleeping-teacup"),
+                Does.Contain("dreams of warm tea"));
             Assert.That(ObjectText("CasebookTraits_sleeping-teacup"), Does.Contain("ALIVE").And.Contain("FRAGILE"));
             Assert.That(ObjectText("CasebookName_borrowed-shadow"), Is.EqualTo("?????"));
             Assert.That(ObjectText("CasebookDescription_borrowed-shadow"), Is.EqualTo("LOCKED CASE FILE"));
+            Assert.That(GameObject.Find("CasebookResolution_borrowed-shadow"), Is.Null,
+                "A locked case file must not reveal its post-filing resolution.");
 
             var knownArt = GameObject.Find("CasebookArtwork_sleeping-teacup")?.GetComponent<UnityEngine.UI.Image>();
             var unknownArt = GameObject.Find("CasebookArtwork_borrowed-shadow")?.GetComponent<UnityEngine.UI.Image>();
@@ -572,6 +590,44 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator PriorityRuleFeedback_ExplainsCursedVaultAndResolutionInBothLanguages()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            StartAuthoredShift(app, "mirror-seed", "clockwork-moth", "sleeping-teacup");
+
+            app.ChooseDestination(Destination.Vault);
+
+            Assert.That(ObjectText("SortFeedback"),
+                Does.Contain("CURSED took priority -> VAULT")
+                    .And.Contain("Its reflection curls safely around the seed."));
+
+            SetLocale(app, "ko");
+            StartAuthoredShift(app, "mirror-seed", "clockwork-moth", "sleeping-teacup");
+            app.ChooseDestination(Destination.Vault);
+
+            Assert.That(ObjectText("SortFeedback"),
+                Does.Contain("저주받음 우선 -> 봉인고")
+                    .And.Contain("반사된 빛이 씨앗 둘레를 안전하게 감싼다."));
+        }
+
+        [UnityTest]
+        public IEnumerator FallbackRuleFeedback_ExplainsStorageAndResolution()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            StartAuthoredShift(app, "clockwork-moth", "sleeping-teacup", "whispering-key");
+
+            app.ChooseDestination(Destination.Storage);
+
+            Assert.That(ObjectText("SortFeedback"),
+                Does.Contain("No special rule -> STORAGE")
+                    .And.Contain("Its wings settle into the rhythm of the desk lamp."));
+        }
+
+        [UnityTest]
         public IEnumerator WrongSort_ShowsCorrectionBannerAndHighlightsExpectedDestination()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
@@ -621,7 +677,11 @@ namespace CurioClerk.Tests.PlayMode
             appType.GetMethod("StartNewShift").Invoke(app, new object[] { 4242 });
             var sessionField = appType.GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic);
             SortCurrentIncorrectly(app);
-            CompleteActiveShift(app);
+            CompleteUntilCorrectSorts(app, 11);
+            var finalArtifactId = CurrentArtifactId(app);
+            var finalResolution = CatalogResolution(finalArtifactId, "en");
+            var finalDestination = ExpectedDestination(app);
+            typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { finalDestination });
 
             yield return null;
             Assert.That(appType.GetProperty("ActiveScreen").GetValue(app).ToString(), Is.EqualTo("Results"));
@@ -633,6 +693,16 @@ namespace CurioClerk.Tests.PlayMode
                 "A completed result must be durable before the player leaves the results screen.");
             Assert.That(discovered.Count, Is.EqualTo(12),
                 "The corrected artifact and every other item must be discovered.");
+            Assert.That(ObjectText("ResultDocket0"), Does.Contain("INKED"));
+            for (var docket = 1; docket < 4; docket++)
+            {
+                Assert.That(ObjectText("ResultDocket" + docket), Does.Contain("PRISTINE"));
+            }
+
+            Assert.That(ObjectText("ResultResolution"), Does.Contain(finalResolution),
+                "The completed ledger must close on the final curio's authored resolution.");
+            Assert.That(GameObject.Find("RewardedAdButton"), Is.Null,
+                "Core-fun validation must not display monetization offers.");
 
             var coinsField = saveType.GetField("coins");
             var coinsBeforeReward = (int)coinsField.GetValue(save);
@@ -856,6 +926,7 @@ namespace CurioClerk.Tests.PlayMode
             var feedback = new RecordingPlayerFeedbackService();
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService(), feedback);
             yield return null;
+            SetEnglishLocale(app);
             app.StartNewShift(4242);
 
             SortCurrentIncorrectly(app);
@@ -869,6 +940,14 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Results));
             Assert.That(feedback.Cues, Is.EqualTo(new[] { PlayerFeedbackCue.Wrong }),
                 "A final wrong sort must retain its corrective tone and haptic without overlapping the completion tone.");
+            for (var docket = 0; docket < 4; docket++)
+            {
+                Assert.That(ObjectText("ResultDocket" + docket), Does.Contain("INKED"),
+                    "Unfinished docket rows must visibly remain unresolved.");
+            }
+
+            Assert.That(GameObject.Find("RewardedAdButton"), Is.Null,
+                "A failed core-fun test run must not surface a rewarded offer.");
         }
 
         [UnityTest]
@@ -887,7 +966,7 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(SessionCoins(app), Is.Zero);
             Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Results));
 
-            ClickRewardedAdButton();
+            RequestFailedShiftReward(app);
             Assert.That(adService.LastPlacement, Is.EqualTo("shift_failed_revive"));
             adService.Emit(RewardedAdResult.Earned);
 
@@ -906,7 +985,7 @@ namespace CurioClerk.Tests.PlayMode
             SortCurrentIncorrectly(app);
             Assert.That(SessionState(app), Is.EqualTo("Failed"));
             Assert.That(SessionHearts(app), Is.Zero);
-            ClickRewardedAdButton();
+            RequestFailedShiftReward(app);
             adService.Emit(RewardedAdResult.Earned);
 
             Assert.That(SessionState(app), Is.EqualTo("Failed"),
@@ -937,7 +1016,7 @@ namespace CurioClerk.Tests.PlayMode
 
             foreach (var current in cases)
             {
-                ClickRewardedAdButton();
+                RequestFailedShiftReward(app);
                 adService.Emit(current.Result);
                 yield return null;
 
@@ -1004,6 +1083,36 @@ namespace CurioClerk.Tests.PlayMode
         {
             app.StartNewShift(4242);
             CompleteActiveShift(app);
+        }
+
+        private static void StartAuthoredShift(GameApp app, params string[] artifactIds)
+        {
+            var queue = new List<Artifact>();
+            var catalog = ContentCatalog.CreateArtifacts();
+            foreach (var artifactId in artifactIds)
+            {
+                ArtifactContent content = null;
+                foreach (var candidate in catalog)
+                {
+                    if (candidate.Id == artifactId)
+                    {
+                        content = candidate;
+                        break;
+                    }
+                }
+
+                Assert.That(content, Is.Not.Null, "Missing authored test artifact: " + artifactId);
+                queue.Add(content.ToArtifact());
+            }
+
+            var rules = ContentCatalog.CreateRulePacks()[0].Rules;
+            typeof(GameApp).GetField("_plannedQueue", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(app, queue);
+            typeof(GameApp).GetField("_activeRules", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(app, rules);
+            typeof(GameApp).GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(app, new ShiftSession(queue, rules));
+            InvokePrivate(app, "BuildShiftScreen");
         }
 
         private static void CompleteActiveShift(GameApp app)
@@ -1286,13 +1395,25 @@ namespace CurioClerk.Tests.PlayMode
                 .Invoke(app, new object[] { true });
         }
 
-        private static void ClickRewardedAdButton()
+        private static void RequestFailedShiftReward(GameApp app)
         {
-            var buttonType = Type.GetType("UnityEngine.UI.Button, UnityEngine.UI");
-            var button = GameObject.Find("RewardedAdButton");
-            Assert.That(button, Is.Not.Null, "The failed results screen must expose the rewarded-ad offer.");
-            var onClick = buttonType.GetProperty("onClick").GetValue(button.GetComponent(buttonType));
-            onClick.GetType().GetMethod("Invoke").Invoke(onClick, null);
+            typeof(GameApp)
+                .GetMethod("RequestReward", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(app, new object[] { false });
+        }
+
+        private static string CatalogResolution(string artifactId, string locale)
+        {
+            foreach (var artifact in ContentCatalog.CreateArtifacts())
+            {
+                if (artifact.Id == artifactId)
+                {
+                    return locale == "ko" ? artifact.ResolutionKorean : artifact.ResolutionEnglish;
+                }
+            }
+
+            Assert.Fail("Missing catalog resolution for " + artifactId);
+            return string.Empty;
         }
 
         private static void InvokePrivate(GameApp app, string methodName)

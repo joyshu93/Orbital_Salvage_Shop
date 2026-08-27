@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using CurioClerk.Content;
+using CurioClerk.Core.Rules;
+using CurioClerk.Core.Shifts;
 using TMPro;
 using UnityEditor;
 using UnityEditor.Build;
@@ -35,7 +37,8 @@ namespace CurioClerk.Editor
                 throw new BuildFailedException("Curio Clerk validation failed:\n- " + string.Join("\n- ", errors));
             }
 
-            Debug.Log("Curio Clerk validation passed: 24 artifacts, 10 rules, 5 difficulties, 6 cosmetics, 2 scenes.");
+            Debug.Log("Curio Clerk validation passed: 24 artifacts, 10 rules, 2 rule packs, " +
+                      "3 docket templates, 5 difficulties, 6 cosmetics, 2 scenes.");
         }
 
         private static void ValidateCatalog(ICollection<string> errors)
@@ -70,12 +73,56 @@ namespace CurioClerk.Editor
 
             AddDuplicateErrors(ruleTemplates.Select(rule => rule.Id), "rule", errors);
 
-            for (var band = 1; band <= 5; band++)
+            var ruleEngine = new RuleEngine();
+            var rulePacks = ContentCatalog.CreateRulePacks();
+            if (rulePacks.Count != 2)
             {
-                var rules = ContentCatalog.CreateRulesForBand(band, 7300 + band);
-                if (rules.Count < 3 || !rules[rules.Count - 1].IsFallback)
+                errors.Add($"Expected 2 rule packs, found {rulePacks.Count}.");
+            }
+
+            AddDuplicateErrors(rulePacks.Select(pack => pack.Id), "rule pack", errors);
+            foreach (var pack in rulePacks)
+            {
+                var counts = new int[3];
+                foreach (var artifact in artifacts)
                 {
-                    errors.Add($"Difficulty band {band} does not end in a fallback rule.");
+                    var destination = ruleEngine.Resolve(artifact.ToArtifact(), pack.Rules);
+                    counts[(int)destination]++;
+                }
+
+                if (counts[(int)Destination.Repair] < 4 ||
+                    counts[(int)Destination.Storage] < 4 ||
+                    counts[(int)Destination.Vault] < 4)
+                {
+                    errors.Add($"Rule pack '{pack.Id}' requires at least four artifacts per destination.");
+                }
+            }
+
+            var sequenceAnalyzer = new DocketSequenceAnalyzer();
+            var shiftTemplates = ContentCatalog.CreateShiftTemplates();
+            if (shiftTemplates.Count != 3)
+            {
+                errors.Add($"Expected 3 docket templates, found {shiftTemplates.Count}.");
+            }
+
+            AddDuplicateErrors(shiftTemplates.Select(template => template.Id), "docket template", errors);
+            foreach (var template in shiftTemplates)
+            {
+                var counts = new int[3];
+                foreach (var destination in template.Destinations)
+                {
+                    counts[(int)destination]++;
+                }
+
+                if (counts.Any(count => count != 4))
+                {
+                    errors.Add($"Docket template '{template.Id}' must contain four of every destination.");
+                }
+
+                var minimumHolds = sequenceAnalyzer.MinimumHolds(template.Destinations);
+                if (minimumHolds < 0 || minimumHolds < template.MinimumRequiredHolds)
+                {
+                    errors.Add($"Docket template '{template.Id}' does not satisfy its Hold requirement.");
                 }
             }
 

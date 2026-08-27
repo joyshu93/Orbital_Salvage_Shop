@@ -2,12 +2,13 @@ using System;
 using System.Collections.Generic;
 using CurioClerk.Core.Artifacts;
 using CurioClerk.Core.Rules;
+using CurioClerk.Core.Shifts;
 
 namespace CurioClerk.Content
 {
     public static class ContentCatalog
     {
-        public const int ContentVersion = 1;
+        public const int ContentVersion = 2;
 
         public static IReadOnlyList<ArtifactContent> CreateArtifacts()
         {
@@ -80,6 +81,46 @@ namespace CurioClerk.Content
             return active;
         }
 
+        public static IReadOnlyList<ShiftRulePack> CreateRulePacks()
+        {
+            return new[]
+            {
+                new ShiftRulePack("pack-cursed-fragile", 1, 3, new[]
+                {
+                    R("cursed-vault", ArtifactTraits.Cursed, ArtifactTraits.None, Destination.Vault),
+                    R("fragile-repair", ArtifactTraits.Fragile, ArtifactTraits.None, Destination.Repair),
+                    new SortingRule("fallback-storage", ArtifactTraits.None, ArtifactTraits.None,
+                        Destination.Storage, true)
+                }),
+                new ShiftRulePack("pack-temporal-wet", 2, 3, new[]
+                {
+                    R("temporal-vault", ArtifactTraits.Temporal, ArtifactTraits.None, Destination.Vault),
+                    R("wet-repair", ArtifactTraits.Wet, ArtifactTraits.None, Destination.Repair),
+                    new SortingRule("fallback-storage", ArtifactTraits.None, ArtifactTraits.None,
+                        Destination.Storage, true)
+                })
+            };
+        }
+
+        public static IReadOnlyList<ShiftSequenceTemplate> CreateShiftTemplates()
+        {
+            return new[]
+            {
+                T("docket-band-1", 1, 1, 1,
+                    Destination.Repair, Destination.Repair, Destination.Storage, Destination.Vault,
+                    Destination.Repair, Destination.Storage, Destination.Vault, Destination.Repair,
+                    Destination.Storage, Destination.Vault, Destination.Storage, Destination.Vault),
+                T("docket-band-2", 2, 2, 2,
+                    Destination.Vault, Destination.Vault, Destination.Repair, Destination.Storage,
+                    Destination.Repair, Destination.Storage, Destination.Vault, Destination.Storage,
+                    Destination.Storage, Destination.Repair, Destination.Vault, Destination.Repair),
+                T("docket-band-3", 3, 3, 3,
+                    Destination.Repair, Destination.Repair, Destination.Storage, Destination.Vault,
+                    Destination.Storage, Destination.Storage, Destination.Vault, Destination.Repair,
+                    Destination.Repair, Destination.Vault, Destination.Storage, Destination.Vault)
+            };
+        }
+
         public static IReadOnlyList<CosmeticContent> CreateCosmetics()
         {
             return new[]
@@ -98,6 +139,18 @@ namespace CurioClerk.Content
 
         private static SortingRule R(string id, ArtifactTraits all, ArtifactTraits any, Destination destination)
             => new SortingRule(id, all, any, destination, false);
+
+        private static ShiftSequenceTemplate T(
+            string id,
+            int minimumBand,
+            int maximumBand,
+            int minimumHolds,
+            params Destination[] destinations)
+            => new ShiftSequenceTemplate(
+                id,
+                minimumBand,
+                maximumBand,
+                minimumHolds,
+                destinations);
     }
 }
-

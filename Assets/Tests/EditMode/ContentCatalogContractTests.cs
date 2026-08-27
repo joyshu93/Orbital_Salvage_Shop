@@ -2,6 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using CurioClerk.Content;
+using CurioClerk.Core.Rules;
+using CurioClerk.Core.Shifts;
 using NUnit.Framework;
 
 namespace CurioClerk.Tests.EditMode
@@ -35,17 +38,56 @@ namespace CurioClerk.Tests.EditMode
         }
 
         [Test]
-        public void RuleAndDifficultyCatalog_HasTenTemplatesAndFiveValidBands()
+        public void RuleAndDocketCatalog_HasAuthoredBalancedGameplayStructures()
         {
-            var catalog = RequireCatalog();
-            var templates = Items(catalog.GetMethod("CreateRuleTemplates").Invoke(null, null));
-            Assert.That(templates, Has.Count.EqualTo(10));
+            Assert.That(ContentCatalog.ContentVersion, Is.EqualTo(2));
 
-            for (var band = 1; band <= 5; band++)
+            var ruleTemplates = ContentCatalog.CreateRuleTemplates();
+            Assert.That(ruleTemplates.Count, Is.EqualTo(10));
+            Assert.That(ruleTemplates.Select(rule => rule.Id).Distinct().Count(), Is.EqualTo(10));
+
+            var artifacts = ContentCatalog.CreateArtifacts()
+                .Select(content => content.ToArtifact())
+                .ToArray();
+            var packs = ContentCatalog.CreateRulePacks();
+            Assert.That(packs.Select(pack => pack.Id),
+                Is.EqualTo(new[] { "pack-cursed-fragile", "pack-temporal-wet" }));
+            foreach (var pack in packs)
             {
-                var rules = Items(catalog.GetMethod("CreateRulesForBand").Invoke(null, new object[] { band, 1234 }));
-                Assert.That(rules.Last().GetType().GetProperty("IsFallback").GetValue(rules.Last()), Is.True);
-                Assert.That(rules.Count, Is.EqualTo(band <= 2 ? 3 : band <= 4 ? 4 : 5));
+                Assert.That(pack.Rules, Has.Count.EqualTo(3), pack.Id);
+                Assert.That(pack.Rules.Take(2).All(rule => !rule.IsFallback), Is.True, pack.Id);
+                Assert.That(pack.Rules[2].IsFallback, Is.True, pack.Id);
+                Assert.That(pack.Rules[2].Destination, Is.EqualTo(Destination.Storage), pack.Id);
+
+                var engine = new RuleEngine();
+                var destinations = artifacts
+                    .Select(artifact => engine.Resolve(artifact, pack.Rules))
+                    .ToArray();
+                Assert.That(destinations.Count(value => value == Destination.Repair),
+                    Is.GreaterThanOrEqualTo(4), pack.Id);
+                Assert.That(destinations.Count(value => value == Destination.Storage),
+                    Is.GreaterThanOrEqualTo(4), pack.Id);
+                Assert.That(destinations.Count(value => value == Destination.Vault),
+                    Is.GreaterThanOrEqualTo(4), pack.Id);
+            }
+
+            var templates = ContentCatalog.CreateShiftTemplates();
+            Assert.That(templates.Select(template => template.Id),
+                Is.EqualTo(new[] { "docket-band-1", "docket-band-2", "docket-band-3" }));
+            Assert.That(templates.Select(template => Pattern(template.Destinations)),
+                Is.EqualTo(new[]
+                {
+                    "RRSVRSVRSVSV",
+                    "VVRSRSVSSRVR",
+                    "RRSVSSVRRVSV"
+                }));
+            Assert.That(templates.Select(template => template.MinimumRequiredHolds),
+                Is.EqualTo(new[] { 1, 2, 3 }));
+            var analyzer = new DocketSequenceAnalyzer();
+            foreach (var template in templates)
+            {
+                Assert.That(analyzer.MinimumHolds(template.Destinations),
+                    Is.EqualTo(template.MinimumRequiredHolds), template.Id);
             }
         }
 
@@ -82,6 +124,19 @@ namespace CurioClerk.Tests.EditMode
         private static object Property(object item, string name) => item.GetType().GetProperty(name).GetValue(item);
 
         private static string String(object item, string name) => (string)Property(item, name);
+
+        private static string Pattern(IEnumerable<Destination> destinations)
+        {
+            return string.Concat(destinations.Select(destination =>
+            {
+                switch (destination)
+                {
+                    case Destination.Repair: return "R";
+                    case Destination.Storage: return "S";
+                    case Destination.Vault: return "V";
+                    default: throw new ArgumentOutOfRangeException(nameof(destination));
+                }
+            }));
+        }
     }
 }
-

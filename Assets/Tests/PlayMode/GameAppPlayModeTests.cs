@@ -63,6 +63,11 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(GameObject.Find("RepairButton"), Is.Not.Null);
             Assert.That(GameObject.Find("StorageButton"), Is.Not.Null);
             Assert.That(GameObject.Find("VaultButton"), Is.Not.Null);
+            Assert.That(GameObject.Find("DocketProgress"), Is.Not.Null);
+            Assert.That(GameObject.Find("DocketCounter"), Is.Not.Null);
+            Assert.That(GameObject.Find("DocketStampRepair"), Is.Not.Null);
+            Assert.That(GameObject.Find("DocketStampStorage"), Is.Not.Null);
+            Assert.That(GameObject.Find("DocketStampVault"), Is.Not.Null);
             var dragType = Type.GetType("CurioClerk.Presentation.ArtifactDragHandler, CurioClerk.Runtime");
             Assert.That(dragType, Is.Not.Null, "Missing card drag interaction type.");
             Assert.That(GameObject.Find("CurrentArtifactCard").GetComponent(dragType), Is.Not.Null,
@@ -70,6 +75,24 @@ namespace CurioClerk.Tests.PlayMode
 
             UnityEngine.Object.Destroy(host);
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator DuplicateDesk_DisablesThatDeskAndSuggestsHold()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            app.StartNewShift(4242);
+
+            var first = ExpectedDestination(app);
+            ChooseDestination(app, Convert.ToInt32(first));
+            yield return null;
+
+            Assert.That(first.ToString(), Is.EqualTo("Repair"));
+            Assert.That(GameObject.Find("RepairButton").GetComponent<UnityEngine.UI.Button>().interactable,
+                Is.False);
+            Assert.That(HasEnabledOutline("HoldButton"), Is.True);
+            Assert.That(ObjectText("DocketCounter"), Does.Contain("1 / 4"));
         }
 
         [UnityTest]
@@ -378,8 +401,8 @@ namespace CurioClerk.Tests.PlayMode
             var held = GameObject.Find("HeldPreviewArtwork")?.GetComponent<UnityEngine.UI.Image>();
             Assert.That(held, Is.Not.Null, "The hold preview must provide an artwork surface.");
             Assert.That(held.sprite?.name, Is.EqualTo("thimble-storm"));
-            Assert.That(nextOne.enabled, Is.False,
-                "Holding into the last queued artifact must not also show that current artifact as next.");
+            Assert.That(nextOne.sprite?.name, Is.EqualTo("thimble-storm"),
+                "The held artifact must preview its return after the final queued artifact.");
             SetTutorialCompleted(app, tutorialBefore);
         }
 
@@ -518,11 +541,14 @@ namespace CurioClerk.Tests.PlayMode
             SetEnglishLocale(app);
             app.StartNewShift(4242);
 
+            var artifactIdBefore = CurrentArtifactId(app);
             var expected = ExpectedDestination(app);
             var incorrect = Enum.ToObject(expected.GetType(), (Convert.ToInt32(expected) + 1) % 3);
             typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { incorrect });
             yield return null;
 
+            Assert.That(CurrentArtifactId(app), Is.EqualTo(artifactIdBefore),
+                "A wrong sort must keep the current artifact available for correction.");
             Assert.That(GameObject.Find("SortFeedbackPanel"), Is.Not.Null);
             Assert.That(ObjectText("SortFeedback"), Does.StartWith("WRONG · "));
             Assert.That(ObjectText("SortFeedback"), Does.Contain(EnglishDestinationName(expected)));
@@ -556,21 +582,8 @@ namespace CurioClerk.Tests.PlayMode
 
             appType.GetMethod("StartNewShift").Invoke(app, new object[] { 4242 });
             var sessionField = appType.GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic);
-            var rulesField = appType.GetField("_activeRules", BindingFlags.Instance | BindingFlags.NonPublic);
-            var choose = appType.GetMethod("ChooseDestination");
-            var ruleEngine = Activator.CreateInstance(ruleEngineType);
-            var resolve = ruleEngineType.GetMethod("Resolve");
-
-            for (var index = 0; index < 12; index++)
-            {
-                var session = sessionField.GetValue(app);
-                var artifact = session.GetType().GetProperty("CurrentArtifact").GetValue(session);
-                var expected = resolve.Invoke(ruleEngine, new[] { artifact, rulesField.GetValue(app) });
-                var selected = index == 0
-                    ? Enum.ToObject(destinationType, ((int)expected + 1) % 3)
-                    : expected;
-                choose.Invoke(app, new[] { selected });
-            }
+            SortCurrentIncorrectly(app);
+            CompleteActiveShift(app);
 
             yield return null;
             Assert.That(appType.GetProperty("ActiveScreen").GetValue(app).ToString(), Is.EqualTo("Results"));
@@ -580,8 +593,8 @@ namespace CurioClerk.Tests.PlayMode
                 "The result summary must avoid symbols that are missing from the release font atlas.");
             Assert.That((int)completedField.GetValue(save), Is.EqualTo(completedBefore + 1),
                 "A completed result must be durable before the player leaves the results screen.");
-            Assert.That(discovered.Count, Is.EqualTo(11),
-                "The incorrectly sorted artifact must remain undiscovered.");
+            Assert.That(discovered.Count, Is.EqualTo(12),
+                "The corrected artifact and every other item must be discovered.");
 
             var coinsField = saveType.GetField("coins");
             var coinsBeforeReward = (int)coinsField.GetValue(save);
@@ -783,11 +796,7 @@ namespace CurioClerk.Tests.PlayMode
             yield return null;
             app.StartNewShift(4242);
 
-            for (var index = 0; index < 11; index++)
-            {
-                var expected = ExpectedDestination(app);
-                typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { expected });
-            }
+            CompleteUntilCorrectSorts(app, 11);
 
             feedback.Cues.Clear();
             var finalDestination = ExpectedDestination(app);
@@ -811,11 +820,10 @@ namespace CurioClerk.Tests.PlayMode
             yield return null;
             app.StartNewShift(4242);
 
-            for (var index = 0; index < 11; index++)
-            {
-                var expected = ExpectedDestination(app);
-                typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { expected });
-            }
+            SortCurrentIncorrectly(app);
+            SortCurrentIncorrectly(app);
+            Assert.That(SessionState(app), Is.EqualTo("Active"));
+            Assert.That(SessionHearts(app), Is.EqualTo(1));
 
             feedback.Cues.Clear();
             SortCurrentIncorrectly(app);
@@ -956,41 +964,52 @@ namespace CurioClerk.Tests.PlayMode
 
         private static void CompleteShift(GameApp app)
         {
-            var appType = typeof(GameApp);
-            var ruleEngineType = Type.GetType("CurioClerk.Core.Rules.RuleEngine, CurioClerk.Core");
             app.StartNewShift(4242);
-            var sessionField = appType.GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic);
-            var rulesField = appType.GetField("_activeRules", BindingFlags.Instance | BindingFlags.NonPublic);
-            var choose = appType.GetMethod("ChooseDestination");
-            var ruleEngine = Activator.CreateInstance(ruleEngineType);
-            var resolve = ruleEngineType.GetMethod("Resolve");
-
-            for (var index = 0; index < 12; index++)
-            {
-                var session = sessionField.GetValue(app);
-                var artifact = session.GetType().GetProperty("CurrentArtifact").GetValue(session);
-                var expected = resolve.Invoke(ruleEngine, new[] { artifact, rulesField.GetValue(app) });
-                choose.Invoke(app, new[] { expected });
-            }
+            CompleteActiveShift(app);
         }
 
         private static void CompleteActiveShift(GameApp app)
         {
-            var appType = typeof(GameApp);
-            var ruleEngineType = Type.GetType("CurioClerk.Core.Rules.RuleEngine, CurioClerk.Core");
-            var sessionField = appType.GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic);
-            var rulesField = appType.GetField("_activeRules", BindingFlags.Instance | BindingFlags.NonPublic);
-            var choose = appType.GetMethod("ChooseDestination");
-            var ruleEngine = Activator.CreateInstance(ruleEngineType);
-            var resolve = ruleEngineType.GetMethod("Resolve");
-
-            for (var index = 0; index < 12; index++)
+            for (var safety = 0; safety < 64 && SessionState(app) == "Active"; safety++)
             {
-                var session = sessionField.GetValue(app);
-                var artifact = session.GetType().GetProperty("CurrentArtifact").GetValue(session);
-                var expected = resolve.Invoke(ruleEngine, new[] { artifact, rulesField.GetValue(app) });
-                choose.Invoke(app, new[] { expected });
+                var expected = ExpectedDestination(app);
+                var button = GameObject.Find(DestinationButtonName(expected))
+                    .GetComponent<UnityEngine.UI.Button>();
+                if (button.interactable)
+                {
+                    typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { expected });
+                }
+                else
+                {
+                    app.HoldCurrent();
+                }
             }
+
+            Assert.That(SessionState(app), Is.EqualTo("Completed"),
+                "The generated plan must complete within the safety bound using one Hold slot.");
+        }
+
+        private static void CompleteUntilCorrectSorts(GameApp app, int targetCorrectSorts)
+        {
+            for (var safety = 0;
+                 safety < 64 && SessionState(app) == "Active" &&
+                 SessionCorrectSorts(app) < targetCorrectSorts;
+                 safety++)
+            {
+                var expected = ExpectedDestination(app);
+                var button = GameObject.Find(DestinationButtonName(expected))
+                    .GetComponent<UnityEngine.UI.Button>();
+                if (button.interactable)
+                {
+                    typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { expected });
+                }
+                else
+                {
+                    app.HoldCurrent();
+                }
+            }
+
+            Assert.That(SessionCorrectSorts(app), Is.EqualTo(targetCorrectSorts));
         }
 
         private static void StartDailyShift(GameApp app)
@@ -1020,8 +1039,21 @@ namespace CurioClerk.Tests.PlayMode
         private static void SortCurrentIncorrectly(GameApp app)
         {
             var expected = ExpectedDestination(app);
-            var incorrect = Enum.ToObject(expected.GetType(), (Convert.ToInt32(expected) + 1) % 3);
-            typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { incorrect });
+            var session = Session(app);
+            var canSort = session.GetType().GetMethod("CanSort");
+            for (var offset = 1; offset < 3; offset++)
+            {
+                var incorrect = Enum.ToObject(
+                    expected.GetType(),
+                    (Convert.ToInt32(expected) + offset) % 3);
+                if ((bool)canSort.Invoke(session, new[] { incorrect }))
+                {
+                    typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { incorrect });
+                    return;
+                }
+            }
+
+            Assert.Fail("The current docket has no available incorrect destination.");
         }
 
         private static object ExpectedDestination(GameApp app)
@@ -1120,6 +1152,11 @@ namespace CurioClerk.Tests.PlayMode
         private static int SessionScore(GameApp app)
         {
             return (int)Session(app).GetType().GetProperty("Score").GetValue(Session(app));
+        }
+
+        private static int SessionCorrectSorts(GameApp app)
+        {
+            return (int)Session(app).GetType().GetProperty("CorrectSorts").GetValue(Session(app));
         }
 
         private static string SessionState(GameApp app)

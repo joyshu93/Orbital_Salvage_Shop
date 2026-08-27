@@ -2,6 +2,7 @@
   "name": "CurioClerk.PlayModeTests",
   "rootNamespace": "CurioClerk.Tests.PlayMode",
   "references": [
+    "CurioClerk.Core",
     "CurioClerk.Runtime"
   ],
   "optionalUnityReferences": [

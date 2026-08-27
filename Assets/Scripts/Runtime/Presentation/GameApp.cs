@@ -50,7 +50,7 @@ namespace CurioClerk.Presentation
         private static readonly Color Sage = Hex("#6F8A6B");
         private static readonly Color DustyRose = Hex("#B56D78");
 
-        private readonly ShiftGenerator _shiftGenerator = new ShiftGenerator();
+        private readonly ShiftPlanGenerator _shiftPlanGenerator = new ShiftPlanGenerator();
         private readonly RuleEngine _ruleEngine = new RuleEngine();
         private readonly ProgressionService _progression = new ProgressionService();
         private readonly HashSet<string> _seenThisShift = new HashSet<string>(StringComparer.Ordinal);
@@ -58,6 +58,7 @@ namespace CurioClerk.Presentation
         private Dictionary<string, ArtifactContent> _artifactById;
         private IReadOnlyList<SortingRule> _activeRules;
         private IReadOnlyList<Artifact> _plannedQueue;
+        private ShiftPlan _activePlan;
         private ShiftSession _session;
         private PlayerSaveData _save;
         private ISaveStore _saveStore;
@@ -86,8 +87,8 @@ namespace CurioClerk.Presentation
         private Image _sortFeedbackPanel;
         private TMP_Text _statusText;
         private TMP_Text _hudText;
+        private DocketProgressView _docketProgress;
         private ShiftFeedbackAnimator _feedbackAnimator;
-        private int _sortedCount;
         private bool _resultApplied;
         private int _appliedResultCoins;
         private bool _adConsentResolved;
@@ -172,7 +173,7 @@ namespace CurioClerk.Presentation
         public void StartNewShift(int seed)
         {
             _tutorialStage = TutorialStage.None;
-            var band = Mathf.Clamp(1 + _save.completedShifts / 5, 1, 5);
+            var band = Mathf.Clamp(1 + _save.completedShifts / 5, 1, 3);
             StartShift(seed, band, false, string.Empty);
         }
 
@@ -189,12 +190,18 @@ namespace CurioClerk.Presentation
         {
             _isDailyShift = isDailyShift;
             _dailyDateKey = dailyDateKey ?? string.Empty;
+            var supportedBand = Mathf.Clamp(band, 1, 3);
             var artifacts = _artifactContent.Select(item => item.ToArtifact()).ToArray();
-            _plannedQueue = _shiftGenerator.GenerateArtifactQueue(seed, artifacts, 12);
-            _activeRules = ContentCatalog.CreateRulesForBand(band, seed);
-            _session = ShiftSession.CreateLegacySession(_plannedQueue, _activeRules);
+            _activePlan = _shiftPlanGenerator.Generate(
+                seed,
+                supportedBand,
+                artifacts,
+                ContentCatalog.CreateRulePacks(),
+                ContentCatalog.CreateShiftTemplates());
+            _plannedQueue = _activePlan.Queue;
+            _activeRules = _activePlan.Rules;
+            _session = new ShiftSession(_plannedQueue, _activeRules);
             _seenThisShift.Clear();
-            _sortedCount = 0;
             _resultApplied = false;
             _appliedResultCoins = 0;
             _rewardFeedbackKey = null;
@@ -216,29 +223,41 @@ namespace CurioClerk.Presentation
 
             var artifactId = _session.CurrentArtifact.Id;
             var outcome = _session.Sort(destination);
-            _sortedCount++;
-            if (outcome.WasCorrect)
+            if (outcome.Disposition == SortDisposition.Correct)
             {
                 _seenThisShift.Add(artifactId);
             }
 
-            var completedShift = _session.State == ShiftState.Completed;
-            var terminalCorrectSort = completedShift && outcome.WasCorrect;
-            ShowSortFeedback(outcome.WasCorrect, destination, outcome.ExpectedDestination, !terminalCorrectSort);
-
-            if (_session.State == ShiftState.Active)
+            if (outcome.Disposition == SortDisposition.Blocked)
             {
-                RefreshShiftView();
+                ShowBlockedFeedback();
             }
             else
             {
-                if (_session.State == ShiftState.Completed && outcome.WasCorrect)
+                var terminalCorrectSort = outcome.DidCompleteShift && outcome.WasCorrect;
+                ShowSortFeedback(
+                    outcome.WasCorrect,
+                    destination,
+                    outcome.ExpectedDestination,
+                    !terminalCorrectSort);
+                if (outcome.DidCompleteDocket && !outcome.DidCompleteShift)
+                {
+                    _feedbackAnimator?.PlayDocketComplete();
+                }
+            }
+
+            if (outcome.DidCompleteShift || _session.State == ShiftState.Failed)
+            {
+                if (outcome.DidCompleteShift && outcome.WasCorrect)
                 {
                     _feedbackService.Play(PlayerFeedbackCue.ShiftComplete);
                 }
 
                 ShowResults();
+                return;
             }
+
+            RefreshShiftView(outcome.Disposition == SortDisposition.Correct);
         }
 
         public void HoldCurrent()
@@ -249,14 +268,8 @@ namespace CurioClerk.Presentation
                 return;
             }
 
-            var consumesQueuedArtifact = _session?.HeldArtifact == null;
             if (_session != null && _session.Hold())
             {
-                if (consumesQueuedArtifact)
-                {
-                    _sortedCount++;
-                }
-
                 _feedbackService.Play(PlayerFeedbackCue.Hold);
                 RefreshShiftView();
             }
@@ -418,9 +431,17 @@ namespace CurioClerk.Presentation
                 CreateEquippedCosmeticArtwork(page, equipped, new Vector2(0.80f, 0.78f), new Vector2(0.95f, 0.90f), false);
             }
 
-            _nextIllustrations[0] = CreateArtifactPreview(page, "NextPreviewCard0", "NextPreviewArtwork0", "NextPreview0", Paper, new Vector2(0.05f, 0.59f), new Vector2(0.34f, 0.66f), out _nextTexts[0]);
-            _nextIllustrations[1] = CreateArtifactPreview(page, "NextPreviewCard1", "NextPreviewArtwork1", "NextPreview1", Paper, new Vector2(0.355f, 0.59f), new Vector2(0.645f, 0.66f), out _nextTexts[1]);
-            _heldIllustration = CreateArtifactPreview(page, "HeldPreviewCard", "HeldPreviewArtwork", "HeldArtifactText", Amber, new Vector2(0.66f, 0.59f), new Vector2(0.95f, 0.66f), out _heldText);
+            _docketProgress = null;
+            var previewBottom = IsTutorialActive ? 0.59f : 0.535f;
+            var previewTop = IsTutorialActive ? 0.66f : 0.60f;
+            if (!IsTutorialActive)
+            {
+                BuildDocketProgress(page);
+            }
+
+            _nextIllustrations[0] = CreateArtifactPreview(page, "NextPreviewCard0", "NextPreviewArtwork0", "NextPreview0", Paper, new Vector2(0.05f, previewBottom), new Vector2(0.34f, previewTop), out _nextTexts[0]);
+            _nextIllustrations[1] = CreateArtifactPreview(page, "NextPreviewCard1", "NextPreviewArtwork1", "NextPreview1", Paper, new Vector2(0.355f, previewBottom), new Vector2(0.645f, previewTop), out _nextTexts[1]);
+            _heldIllustration = CreateArtifactPreview(page, "HeldPreviewCard", "HeldPreviewArtwork", "HeldArtifactText", Amber, new Vector2(0.66f, previewBottom), new Vector2(0.95f, previewTop), out _heldText);
             _tutorialCoach = null;
             if (IsTutorialActive)
             {
@@ -430,7 +451,8 @@ namespace CurioClerk.Presentation
                 _tutorialCoach = CreateText(coachPanel, "TutorialCoach", string.Empty, 20, Paper, TextAlignmentOptions.Center, new Vector2(0.04f, 0.05f), new Vector2(0.96f, 0.95f), true);
             }
 
-            var card = CreatePanel(page, "CurrentArtifactCard", Paper, new Vector2(0.08f, 0.27f), new Vector2(0.92f, 0.58f));
+            var cardTop = IsTutorialActive ? 0.58f : 0.525f;
+            var card = CreatePanel(page, "CurrentArtifactCard", Paper, new Vector2(0.08f, 0.27f), new Vector2(0.92f, cardTop));
             AddSurfaceChrome(card, Amber, 3f, 0.34f);
             _artifactIllustration = CreateArtworkImage(card, "ArtifactIllustration", new Vector2(0.035f, 0.18f), new Vector2(0.39f, 0.92f));
             _currentSymbol = CreateText(card, "ArtifactSymbol", string.Empty, 84, Wine, TextAlignmentOptions.Center, new Vector2(0.05f, 0.31f), new Vector2(0.37f, 0.83f), true);
@@ -488,8 +510,8 @@ namespace CurioClerk.Presentation
                 new SortingRule("tutorial-fallback-storage", ArtifactTraits.None, ArtifactTraits.None, Destination.Storage, true)
             };
             _session = ShiftSession.CreateLegacySession(_plannedQueue, _activeRules);
+            _activePlan = null;
             _seenThisShift.Clear();
-            _sortedCount = 0;
             _resultApplied = false;
             _appliedResultCoins = 0;
             _rewardFeedbackKey = null;
@@ -516,7 +538,6 @@ namespace CurioClerk.Presentation
             }
 
             var outcome = _session.Sort(destination);
-            _sortedCount++;
             var completingTutorial = _tutorialStage == TutorialStage.FinalSort;
             ShowSortFeedback(true, destination, outcome.ExpectedDestination, !completingTutorial);
             switch (_tutorialStage)
@@ -549,14 +570,8 @@ namespace CurioClerk.Presentation
                 return;
             }
 
-            var consumesQueuedArtifact = _session.HeldArtifact == null;
             if (_session.Hold())
             {
-                if (consumesQueuedArtifact)
-                {
-                    _sortedCount++;
-                }
-
                 _feedbackService.Play(PlayerFeedbackCue.Hold);
                 _tutorialStage = TutorialStage.SortAfterHold;
                 RefreshShiftView();
@@ -658,7 +673,19 @@ namespace CurioClerk.Presentation
             }
         }
 
-        private void RefreshShiftView()
+        private void ShowBlockedFeedback()
+        {
+            _sortFeedbackPanel.color = Wine;
+            _statusText.text = _localizer.Get("blocked");
+            _statusText.color = Paper;
+            _holdHighlight.enabled = true;
+            for (var index = 0; index < _destinationHighlights.Length; index++)
+            {
+                _destinationHighlights[index].enabled = false;
+            }
+        }
+
+        private void RefreshShiftView(bool animateArtifact = true)
         {
             if (_session?.CurrentArtifact == null)
             {
@@ -688,10 +715,10 @@ namespace CurioClerk.Presentation
 
             for (var index = 0; index < _nextTexts.Length; index++)
             {
-                var queueIndex = _sortedCount + index + 1;
-                if (queueIndex < _plannedQueue.Count)
+                var nextArtifact = _session.PeekNextArtifact(index);
+                if (nextArtifact != null)
                 {
-                    var nextContent = _artifactById[_plannedQueue[queueIndex].Id];
+                    var nextContent = _artifactById[nextArtifact.Id];
                     _nextTexts[index].text = _localizer.Get("next") + " " + (index + 1) + "\n" + nextContent.Symbol + "  " + Name(nextContent);
                     SetPreviewArtwork(_nextIllustrations[index], nextContent.Id);
                 }
@@ -702,8 +729,35 @@ namespace CurioClerk.Presentation
                 }
             }
 
-            _hudText.text = $"♥ {_session.Hearts}     {_localizer.Get("coins")} {_session.Coins}";
-            _feedbackAnimator?.PlayArtifactEntrance();
+            for (var index = 0; index < _destinationButtons.Length; index++)
+            {
+                _destinationButtons[index].interactable = _session.CanSort((Destination)index);
+            }
+
+            _holdHighlight.enabled = _session.ShouldSuggestHold;
+            if (_session.RequiredDockets > 0)
+            {
+                _docketProgress?.Refresh(
+                    _session.CurrentDocket,
+                    _session.CompletedDockets,
+                    _session.RequiredDockets);
+                _hudText.text = _localizer.Get(
+                    "shift_hud",
+                    _session.Hearts,
+                    _session.CompletedDockets + 1,
+                    _session.RequiredDockets,
+                    _session.PristineDocketStreak,
+                    _session.Coins);
+            }
+            else
+            {
+                _hudText.text = $"♥ {_session.Hearts}     {_localizer.Get("coins")} {_session.Coins}";
+            }
+
+            if (animateArtifact)
+            {
+                _feedbackAnimator?.PlayArtifactEntrance();
+            }
         }
 
         private void ShowResults()
@@ -1101,6 +1155,69 @@ namespace CurioClerk.Presentation
             image.preserveAspect = true;
             image.raycastTarget = false;
             return image;
+        }
+
+        private void BuildDocketProgress(Transform parent)
+        {
+            var panel = CreatePanel(
+                parent,
+                "DocketProgress",
+                new Color(Wine.r, Wine.g, Wine.b, 0.88f),
+                new Vector2(0.05f, 0.605f),
+                new Vector2(0.95f, 0.67f));
+            AddSurfaceChrome(panel, Amber, 1.5f, 0.22f);
+            CreateText(
+                panel,
+                "DocketLabel",
+                _localizer.Get("docket"),
+                17,
+                Amber,
+                TextAlignmentOptions.Center,
+                new Vector2(0.02f, 0.08f),
+                new Vector2(0.16f, 0.92f),
+                true);
+            var counter = CreateText(
+                panel,
+                "DocketCounter",
+                string.Empty,
+                21,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.16f, 0.08f),
+                new Vector2(0.31f, 0.92f),
+                true);
+            var stamps = new[]
+            {
+                CreateDocketStamp(panel, "DocketStampRepair", VisualAssetLibrary.RepairIcon,
+                    DustyRose, new Vector2(0.34f, 0.14f), new Vector2(0.52f, 0.86f)),
+                CreateDocketStamp(panel, "DocketStampStorage", VisualAssetLibrary.StorageIcon,
+                    Sage, new Vector2(0.56f, 0.14f), new Vector2(0.74f, 0.86f)),
+                CreateDocketStamp(panel, "DocketStampVault", VisualAssetLibrary.VaultIcon,
+                    Amber, new Vector2(0.78f, 0.14f), new Vector2(0.96f, 0.86f))
+            };
+
+            _docketProgress = panel.gameObject.AddComponent<DocketProgressView>();
+            _docketProgress.Configure(
+                counter,
+                stamps,
+                new Color(Paper.r, Paper.g, Paper.b, 0.16f),
+                new Color(Amber.r, Amber.g, Amber.b, 0.72f));
+        }
+
+        private static Image CreateDocketStamp(
+            Transform parent,
+            string name,
+            Sprite iconSprite,
+            Color iconColor,
+            Vector2 min,
+            Vector2 max)
+        {
+            var stamp = CreatePanel(parent, name, Color.clear, min, max);
+            AddSurfaceChrome(stamp, iconColor, 1f, 0.12f);
+            var icon = CreateArtworkImage(stamp, name + "Icon", new Vector2(0.20f, 0.12f), new Vector2(0.80f, 0.88f));
+            icon.sprite = iconSprite;
+            icon.color = iconColor;
+            return stamp.GetComponent<Image>();
         }
 
         private static Image CreateArtifactPreview(Transform parent, string panelName, string artworkName, string labelName, Color accent, Vector2 min, Vector2 max, out TMP_Text label)

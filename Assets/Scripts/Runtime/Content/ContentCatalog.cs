@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using CurioClerk.Core.Artifacts;
 using CurioClerk.Core.Rules;
@@ -56,29 +55,6 @@ namespace CurioClerk.Content
                 R("fragile-time-repair", ArtifactTraits.Fragile | ArtifactTraits.Temporal, ArtifactTraits.None, Destination.Repair),
                 R("wet-or-metal-storage", ArtifactTraits.None, ArtifactTraits.Wet | ArtifactTraits.Metallic, Destination.Storage)
             };
-        }
-
-        public static IReadOnlyList<SortingRule> CreateRulesForBand(int band, int seed)
-        {
-            if (band < 1 || band > 5)
-            {
-                throw new ArgumentOutOfRangeException(nameof(band));
-            }
-
-            var templates = new List<SortingRule>(CreateRuleTemplates());
-            var random = new Random(seed ^ (band * 397));
-            for (var index = templates.Count - 1; index > 0; index--)
-            {
-                var swap = random.Next(index + 1);
-                var item = templates[index];
-                templates[index] = templates[swap];
-                templates[swap] = item;
-            }
-
-            var activeCount = band <= 2 ? 2 : band <= 4 ? 3 : 4;
-            var active = templates.GetRange(0, activeCount);
-            active.Add(new SortingRule("fallback-storage", ArtifactTraits.None, ArtifactTraits.None, Destination.Storage, true));
-            return active;
         }
 
         public static IReadOnlyList<ShiftRulePack> CreateRulePacks()

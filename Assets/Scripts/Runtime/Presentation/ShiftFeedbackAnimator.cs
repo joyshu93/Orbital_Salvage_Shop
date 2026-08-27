@@ -41,12 +41,17 @@ namespace CurioClerk.Presentation
 
         public void PlayCorrect()
         {
-            StartFeedbackAnimation(false);
+            StartFeedbackAnimation(false, 0.045f);
+        }
+
+        public void PlayDocketComplete()
+        {
+            StartFeedbackAnimation(false, 0.11f);
         }
 
         public void PlayWrong()
         {
-            StartFeedbackAnimation(true);
+            StartFeedbackAnimation(true, 0f);
         }
 
         private IEnumerator AnimateArtifactEntrance()
@@ -68,7 +73,7 @@ namespace CurioClerk.Presentation
             _artifactRoutine = null;
         }
 
-        private void StartFeedbackAnimation(bool shake)
+        private void StartFeedbackAnimation(bool shake, float pulseScale)
         {
             if (_feedbackPanel == null)
             {
@@ -80,10 +85,10 @@ namespace CurioClerk.Presentation
                 StopCoroutine(_feedbackRoutine);
             }
 
-            _feedbackRoutine = StartCoroutine(AnimateFeedback(shake));
+            _feedbackRoutine = StartCoroutine(AnimateFeedback(shake, pulseScale));
         }
 
-        private IEnumerator AnimateFeedback(bool shake)
+        private IEnumerator AnimateFeedback(bool shake, float pulseScale)
         {
             var elapsed = 0f;
             while (elapsed < FeedbackDuration)
@@ -98,7 +103,7 @@ namespace CurioClerk.Presentation
                 }
                 else
                 {
-                    var pulse = Mathf.Sin(progress * Mathf.PI) * 0.045f;
+                    var pulse = Mathf.Sin(progress * Mathf.PI) * pulseScale;
                     _feedbackPanel.localScale = Vector3.one * (1f + pulse);
                     _feedbackPanel.anchoredPosition = _feedbackRestPosition;
                 }

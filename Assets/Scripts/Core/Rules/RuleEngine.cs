@@ -7,6 +7,9 @@ namespace CurioClerk.Core.Rules
     public sealed class RuleEngine
     {
         public Destination Resolve(Artifact artifact, IReadOnlyList<SortingRule> rules)
+            => ResolveDetailed(artifact, rules).Destination;
+
+        public RuleResolution ResolveDetailed(Artifact artifact, IReadOnlyList<SortingRule> rules)
         {
             if (artifact == null)
             {
@@ -19,7 +22,7 @@ namespace CurioClerk.Core.Rules
             {
                 if (rules[index].Matches(artifact))
                 {
-                    return rules[index].Destination;
+                    return new RuleResolution(rules[index].Id, rules[index].Destination);
                 }
             }
 

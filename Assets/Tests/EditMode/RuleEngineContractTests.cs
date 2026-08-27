@@ -1,5 +1,7 @@
 using System;
 using System.Reflection;
+using CurioClerk.Core.Artifacts;
+using CurioClerk.Core.Rules;
 using NUnit.Framework;
 
 namespace CurioClerk.Tests.EditMode
@@ -7,6 +9,24 @@ namespace CurioClerk.Tests.EditMode
     public sealed class RuleEngineContractTests
     {
         private const string AssemblyName = "CurioClerk.Core";
+
+        [Test]
+        public void ResolveDetailed_ReturnsTheFirstMatchingRuleIdAndDestination()
+        {
+            var artifact = new Artifact("tooth", ArtifactTraits.Cursed | ArtifactTraits.Fragile);
+            var rules = new[]
+            {
+                new SortingRule("cursed-vault", ArtifactTraits.Cursed, ArtifactTraits.None, Destination.Vault, false),
+                new SortingRule("fragile-repair", ArtifactTraits.Fragile, ArtifactTraits.None, Destination.Repair, false),
+                new SortingRule("fallback-storage", ArtifactTraits.None, ArtifactTraits.None, Destination.Storage, true)
+            };
+
+            var result = new RuleEngine().ResolveDetailed(artifact, rules);
+
+            Assert.That(result.RuleId, Is.EqualTo("cursed-vault"));
+            Assert.That(result.Destination, Is.EqualTo(Destination.Vault));
+            Assert.That(new RuleEngine().Resolve(artifact, rules), Is.EqualTo(Destination.Vault));
+        }
 
         [Test]
         public void Resolve_UsesTheFirstMatchingRule()

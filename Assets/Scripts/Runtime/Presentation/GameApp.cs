@@ -192,7 +192,7 @@ namespace CurioClerk.Presentation
             var artifacts = _artifactContent.Select(item => item.ToArtifact()).ToArray();
             _plannedQueue = _shiftGenerator.GenerateArtifactQueue(seed, artifacts, 12);
             _activeRules = ContentCatalog.CreateRulesForBand(band, seed);
-            _session = new ShiftSession(_plannedQueue, _activeRules);
+            _session = ShiftSession.CreateLegacySession(_plannedQueue, _activeRules);
             _seenThisShift.Clear();
             _sortedCount = 0;
             _resultApplied = false;
@@ -487,7 +487,7 @@ namespace CurioClerk.Presentation
                 new SortingRule("tutorial-cursed-vault", ArtifactTraits.Cursed, ArtifactTraits.None, Destination.Vault, false),
                 new SortingRule("tutorial-fallback-storage", ArtifactTraits.None, ArtifactTraits.None, Destination.Storage, true)
             };
-            _session = new ShiftSession(_plannedQueue, _activeRules);
+            _session = ShiftSession.CreateLegacySession(_plannedQueue, _activeRules);
             _seenThisShift.Clear();
             _sortedCount = 0;
             _resultApplied = false;
@@ -702,7 +702,7 @@ namespace CurioClerk.Presentation
                 }
             }
 
-            _hudText.text = $"♥ {_session.Hearts}     COMBO {_session.Combo}     {_localizer.Get("coins")} {_session.Coins}";
+            _hudText.text = $"♥ {_session.Hearts}     {_localizer.Get("coins")} {_session.Coins}";
             _feedbackAnimator?.PlayArtifactEntrance();
         }
 

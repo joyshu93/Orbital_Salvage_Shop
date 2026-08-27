@@ -1,5 +1,7 @@
 using System;
-using System.Reflection;
+using CurioClerk.Core.Artifacts;
+using CurioClerk.Core.Rules;
+using CurioClerk.Core.Shifts;
 using NUnit.Framework;
 
 namespace CurioClerk.Tests.EditMode
@@ -7,141 +9,174 @@ namespace CurioClerk.Tests.EditMode
     public sealed class ShiftSessionContractTests
     {
         [Test]
-        public void CorrectSorts_BuildComboScoreAndCoinsThenCompleteTheShift()
+        public void DuplicateCorrectDestination_IsBlockedWithoutAdvancingOrChargingAHeart()
         {
-            var api = SessionApi.Create(2);
+            var session = CreateReferenceSession();
+            session.Sort(Destination.Vault);
+            var before = session.CurrentArtifact.Id;
 
-            api.Sort("Vault");
-            api.Sort("Vault");
+            var outcome = session.Sort(Destination.Vault);
 
-            Assert.That(api.Int("Combo"), Is.EqualTo(2));
-            Assert.That(api.Int("Score"), Is.EqualTo(220));
-            Assert.That(api.Int("Coins"), Is.EqualTo(11));
-            Assert.That(api.Value("State").ToString(), Is.EqualTo("Completed"));
+            Assert.That(outcome.Disposition, Is.EqualTo(SortDisposition.Blocked));
+            Assert.That(session.CurrentArtifact.Id, Is.EqualTo(before));
+            Assert.That(session.Hearts, Is.EqualTo(3));
+            Assert.That(session.CurrentDocket.StampCount, Is.EqualTo(1));
+            Assert.That(session.CanSort(Destination.Vault), Is.False);
+            Assert.That(session.ShouldSuggestHold, Is.True);
         }
 
         [Test]
-        public void ThreeMistakes_FailAndOnlyOneReviveCanBeClaimed()
+        public void WrongSort_LosesAHeartButKeepsTheArtifactAndDocket()
         {
-            var api = SessionApi.Create(4);
+            var session = CreateReferenceSession();
+            var before = session.CurrentArtifact.Id;
 
-            api.Sort("Repair");
-            api.Sort("Repair");
-            api.Sort("Repair");
+            var outcome = session.Sort(Destination.Storage);
 
-            Assert.That(api.Int("Hearts"), Is.Zero);
-            Assert.That(api.Value("State").ToString(), Is.EqualTo("Failed"));
-            Assert.That(api.CallBool("TryRevive"), Is.True);
-            Assert.That(api.Int("Hearts"), Is.EqualTo(1));
-            Assert.That(api.Value("State").ToString(), Is.EqualTo("Active"));
-            Assert.That(api.CallBool("TryRevive"), Is.False);
-            Assert.That(api.Bool("RewardClaimed"), Is.True);
+            Assert.That(outcome.Disposition, Is.EqualTo(SortDisposition.Wrong));
+            Assert.That(session.CurrentArtifact.Id, Is.EqualTo(before));
+            Assert.That(session.Hearts, Is.EqualTo(2));
+            Assert.That(session.Mistakes, Is.EqualTo(1));
+            Assert.That(session.CurrentDocket.IsPristine, Is.False);
+            Assert.That(session.CurrentDocket.StampCount, Is.Zero);
         }
 
         [Test]
-        public void CompletedShift_CanDoubleCoinsOnlyOnce()
+        public void ReferenceFlow_CompletesFourPristineDocketsWithTwoHolds()
         {
-            var api = SessionApi.Create(1);
-            api.Sort("Vault");
+            var session = CreateReferenceSession();
 
-            Assert.That(api.CallBool("TryDoubleCoins"), Is.True);
-            Assert.That(api.Int("Coins"), Is.EqualTo(10));
-            Assert.That(api.CallBool("TryDoubleCoins"), Is.False);
-            Assert.That(api.Bool("RewardClaimed"), Is.True);
+            session.Sort(Destination.Vault);
+            Assert.That(session.Hold(), Is.True);
+            session.Sort(Destination.Repair);
+            session.Sort(Destination.Storage);
+            session.Sort(Destination.Repair);
+            session.Sort(Destination.Storage);
+            session.Sort(Destination.Vault);
+            session.Sort(Destination.Storage);
+            Assert.That(session.Hold(), Is.True);
+            session.Sort(Destination.Vault);
+            session.Sort(Destination.Repair);
+            session.Sort(Destination.Vault);
+            session.Sort(Destination.Repair);
+            session.Sort(Destination.Storage);
+
+            Assert.That(session.State, Is.EqualTo(ShiftState.Completed));
+            Assert.That(session.CompletedDockets, Is.EqualTo(4));
+            Assert.That(session.CorrectSorts, Is.EqualTo(12));
+            Assert.That(session.Score, Is.EqualTo(2800));
+            Assert.That(session.Coins, Is.EqualTo(100));
+            Assert.That(session.CompletedDocketPristine,
+                Is.EqualTo(new[] { true, true, true, true }));
         }
 
         [Test]
-        public void Hold_CannotRepeatUntilTheCurrentArtifactIsSorted()
+        public void Hold_CannotRepeatUntilSortAndPreviewIncludesHeldTail()
         {
-            var api = SessionApi.Create(3);
+            var session = CreateSession("VRS");
 
-            Assert.That(api.StringFromObjectProperty("CurrentArtifact", "Id"), Is.EqualTo("artifact-0"));
-            Assert.That(api.CallBool("Hold"), Is.True);
-            Assert.That(api.StringFromObjectProperty("CurrentArtifact", "Id"), Is.EqualTo("artifact-1"));
-            Assert.That(api.StringFromObjectProperty("HeldArtifact", "Id"), Is.EqualTo("artifact-0"));
-            Assert.That(api.CallBool("Hold"), Is.False);
+            Assert.That(session.CurrentArtifact.Id, Is.EqualTo("artifact-0"));
+            Assert.That(session.PeekNextArtifact(0).Id, Is.EqualTo("artifact-1"));
+            Assert.That(session.PeekNextArtifact(1).Id, Is.EqualTo("artifact-2"));
+            Assert.That(session.Hold(), Is.True);
+            Assert.That(session.CurrentArtifact.Id, Is.EqualTo("artifact-1"));
+            Assert.That(session.HeldArtifact.Id, Is.EqualTo("artifact-0"));
+            Assert.That(session.PeekNextArtifact(0).Id, Is.EqualTo("artifact-2"));
+            Assert.That(session.Hold(), Is.False);
 
-            api.Sort("Vault");
-            Assert.That(api.StringFromObjectProperty("CurrentArtifact", "Id"), Is.EqualTo("artifact-2"));
-            Assert.That(api.CallBool("Hold"), Is.True);
-            Assert.That(api.StringFromObjectProperty("CurrentArtifact", "Id"), Is.EqualTo("artifact-0"));
-            Assert.That(api.StringFromObjectProperty("HeldArtifact", "Id"), Is.EqualTo("artifact-2"));
+            session.Sort(Destination.Repair);
+            Assert.That(session.CurrentArtifact.Id, Is.EqualTo("artifact-2"));
+            Assert.That(session.PeekNextArtifact(0).Id, Is.EqualTo("artifact-0"));
+            session.Sort(Destination.Storage);
+            Assert.That(session.CurrentArtifact.Id, Is.EqualTo("artifact-0"));
+            Assert.That(session.PeekNextArtifact(0), Is.Null);
+            session.Sort(Destination.Vault);
+
+            Assert.That(session.State, Is.EqualTo(ShiftState.Completed));
         }
 
-        private sealed class SessionApi
+        [Test]
+        public void ThreeMistakes_FailWithoutAdvancingAndOnlyOneReviveCanBeClaimed()
         {
-            private readonly object _session;
-            private readonly Type _sessionType;
-            private readonly Type _destinationType;
+            var session = CreateSession("VRS");
 
-            private SessionApi(object session, Type sessionType, Type destinationType)
+            session.Sort(Destination.Storage);
+            session.Sort(Destination.Storage);
+            session.Sort(Destination.Storage);
+
+            Assert.That(session.CurrentArtifact.Id, Is.EqualTo("artifact-0"));
+            Assert.That(session.Hearts, Is.Zero);
+            Assert.That(session.State, Is.EqualTo(ShiftState.Failed));
+            Assert.That(session.TryRevive(), Is.True);
+            Assert.That(session.Hearts, Is.EqualTo(1));
+            Assert.That(session.State, Is.EqualTo(ShiftState.Active));
+            Assert.That(session.TryRevive(), Is.False);
+            Assert.That(session.RewardClaimed, Is.True);
+        }
+
+        [Test]
+        public void CompletedDocketShift_CanDoubleCoinsOnlyOnce()
+        {
+            var session = CreateSession("VRS");
+            session.Sort(Destination.Vault);
+            session.Sort(Destination.Repair);
+            session.Sort(Destination.Storage);
+
+            Assert.That(session.State, Is.EqualTo(ShiftState.Completed));
+            Assert.That(session.Coins, Is.EqualTo(40));
+            Assert.That(session.TryDoubleCoins(), Is.True);
+            Assert.That(session.Coins, Is.EqualTo(80));
+            Assert.That(session.TryDoubleCoins(), Is.False);
+            Assert.That(session.RewardClaimed, Is.True);
+        }
+
+        [Test]
+        public void Constructor_RejectsQueueThatCannotFormCompleteDockets()
+        {
+            var artifacts = new[]
             {
-                _session = session;
-                _sessionType = sessionType;
-                _destinationType = destinationType;
+                new Artifact("one", ArtifactTraits.Cursed),
+                new Artifact("two", ArtifactTraits.Fragile)
+            };
+
+            Assert.Throws<ArgumentException>(() => new ShiftSession(artifacts, CreateRules()));
+        }
+
+        private static ShiftSession CreateReferenceSession()
+            => CreateSession("VVRSRSVSSRVR");
+
+        private static ShiftSession CreateSession(string destinations)
+        {
+            var artifacts = new Artifact[destinations.Length];
+            for (var index = 0; index < destinations.Length; index++)
+            {
+                artifacts[index] = new Artifact($"artifact-{index}", TraitFor(destinations[index]));
             }
 
-            public static SessionApi Create(int artifactCount)
+            return new ShiftSession(artifacts, CreateRules());
+        }
+
+        private static SortingRule[] CreateRules()
+        {
+            return new[]
             {
-                var artifactType = Require("CurioClerk.Core.Artifacts.Artifact");
-                var traitsType = Require("CurioClerk.Core.Artifacts.ArtifactTraits");
-                var ruleType = Require("CurioClerk.Core.Rules.SortingRule");
-                var destinationType = Require("CurioClerk.Core.Rules.Destination");
-                var sessionType = Require("CurioClerk.Core.Shifts.ShiftSession");
-                var cursed = Enum.Parse(traitsType, "Cursed");
-                var none = Enum.Parse(traitsType, "None");
-                var vault = Enum.Parse(destinationType, "Vault");
-                var storage = Enum.Parse(destinationType, "Storage");
+                new SortingRule("cursed-vault", ArtifactTraits.Cursed, ArtifactTraits.None,
+                    Destination.Vault, false),
+                new SortingRule("fragile-repair", ArtifactTraits.Fragile, ArtifactTraits.None,
+                    Destination.Repair, false),
+                new SortingRule("fallback-storage", ArtifactTraits.None, ArtifactTraits.None,
+                    Destination.Storage, true)
+            };
+        }
 
-                var artifacts = Array.CreateInstance(artifactType, artifactCount);
-                for (var index = 0; index < artifactCount; index++)
-                {
-                    artifacts.SetValue(Activator.CreateInstance(artifactType, $"artifact-{index}", cursed), index);
-                }
-
-                var rules = Array.CreateInstance(ruleType, 2);
-                rules.SetValue(Activator.CreateInstance(ruleType, "cursed", cursed, none, vault, false), 0);
-                rules.SetValue(Activator.CreateInstance(ruleType, "fallback", none, none, storage, true), 1);
-                var session = Activator.CreateInstance(sessionType, artifacts, rules);
-                return new SessionApi(session, sessionType, destinationType);
-            }
-
-            public void Sort(string destination)
+        private static ArtifactTraits TraitFor(char destination)
+        {
+            switch (destination)
             {
-                var method = _sessionType.GetMethod("Sort", BindingFlags.Public | BindingFlags.Instance);
-                Assert.That(method, Is.Not.Null);
-                method.Invoke(_session, new[] { Enum.Parse(_destinationType, destination) });
-            }
-
-            public bool CallBool(string methodName)
-            {
-                var method = _sessionType.GetMethod(methodName, BindingFlags.Public | BindingFlags.Instance);
-                Assert.That(method, Is.Not.Null);
-                return (bool)method.Invoke(_session, null);
-            }
-
-            public object Value(string propertyName)
-            {
-                var property = _sessionType.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
-                Assert.That(property, Is.Not.Null);
-                return property.GetValue(_session);
-            }
-
-            public int Int(string propertyName) => (int)Value(propertyName);
-
-            public bool Bool(string propertyName) => (bool)Value(propertyName);
-
-            public string StringFromObjectProperty(string propertyName, string childPropertyName)
-            {
-                var value = Value(propertyName);
-                return (string)value.GetType().GetProperty(childPropertyName).GetValue(value);
-            }
-
-            private static Type Require(string fullName)
-            {
-                var type = Type.GetType($"{fullName}, CurioClerk.Core");
-                Assert.That(type, Is.Not.Null, $"Missing production type: {fullName}");
-                return type;
+                case 'V': return ArtifactTraits.Cursed;
+                case 'R': return ArtifactTraits.Fragile;
+                case 'S': return ArtifactTraits.Metallic;
+                default: throw new ArgumentOutOfRangeException(nameof(destination));
             }
         }
     }

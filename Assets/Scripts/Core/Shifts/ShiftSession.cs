@@ -11,22 +11,12 @@ namespace CurioClerk.Core.Shifts
         private readonly IReadOnlyList<SortingRule> _rules;
         private readonly RuleEngine _ruleEngine = new RuleEngine();
         private readonly List<bool> _completedDocketPristine = new List<bool>();
-        private readonly bool _legacyMode;
         private int _nextIndex;
-        private int _legacyCombo;
         private bool _canHold = true;
 
         public ShiftSession(IReadOnlyList<Artifact> queue, IReadOnlyList<SortingRule> rules)
-            : this(queue, rules, false)
         {
-        }
-
-        private ShiftSession(
-            IReadOnlyList<Artifact> queue,
-            IReadOnlyList<SortingRule> rules,
-            bool legacyMode)
-        {
-            if (queue == null || queue.Count == 0 || (!legacyMode && queue.Count % 3 != 0))
+            if (queue == null || queue.Count == 0 || queue.Count % 3 != 0)
             {
                 throw new ArgumentException(
                     "A docket shift requires a positive artifact count divisible by three.",
@@ -35,8 +25,7 @@ namespace CurioClerk.Core.Shifts
 
             _queue = queue;
             _rules = rules ?? throw new ArgumentNullException(nameof(rules));
-            _legacyMode = legacyMode;
-            RequiredDockets = legacyMode ? 0 : queue.Count / 3;
+            RequiredDockets = queue.Count / 3;
             CurrentDocket = new DocketState();
             CurrentArtifact = queue[0] ??
                 throw new ArgumentException("Artifact queues cannot contain null entries.", nameof(queue));
@@ -44,11 +33,6 @@ namespace CurioClerk.Core.Shifts
             Hearts = 3;
             State = ShiftState.Active;
         }
-
-        public static ShiftSession CreateLegacySession(
-            IReadOnlyList<Artifact> queue,
-            IReadOnlyList<SortingRule> rules)
-            => new ShiftSession(queue, rules, true);
 
         public Artifact CurrentArtifact { get; private set; }
 
@@ -107,7 +91,7 @@ namespace CurioClerk.Core.Shifts
         }
 
         public SortOutcome Sort(Destination destination)
-            => _legacyMode ? SortLegacy(destination) : SortDocket(destination);
+            => SortDocket(destination);
 
         public bool Hold()
         {
@@ -237,51 +221,6 @@ namespace CurioClerk.Core.Shifts
                 resolution,
                 completedDocket,
                 completedShift,
-                scoreDelta,
-                coinDelta);
-        }
-
-        private SortOutcome SortLegacy(Destination destination)
-        {
-            EnsureActive();
-            var resolution = _ruleEngine.ResolveDetailed(CurrentArtifact, _rules);
-            var wasCorrect = destination == resolution.Destination;
-            var scoreDelta = 0;
-            var coinDelta = 0;
-
-            if (wasCorrect)
-            {
-                _legacyCombo++;
-                CorrectSorts++;
-                scoreDelta = 100 + (_legacyCombo - 1) * 20;
-                coinDelta = 5 + Math.Min(_legacyCombo - 1, 5);
-                Score += scoreDelta;
-                Coins += coinDelta;
-            }
-            else
-            {
-                Hearts--;
-                Mistakes++;
-                _legacyCombo = 0;
-            }
-
-            Advance();
-            _canHold = true;
-            if (Hearts <= 0)
-            {
-                State = ShiftState.Failed;
-            }
-            else if (CurrentArtifact == null)
-            {
-                State = ShiftState.Completed;
-            }
-
-            return Outcome(
-                wasCorrect ? SortDisposition.Correct : SortDisposition.Wrong,
-                destination,
-                resolution,
-                false,
-                State == ShiftState.Completed,
                 scoreDelta,
                 coinDelta);
         }

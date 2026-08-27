@@ -227,7 +227,7 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator Tutorial_BeginsFourArtifactGuidedShiftWithoutCompletingSave()
+        public IEnumerator Tutorial_BeginsSixArtifactTwoDocketLessonWithoutCompletingSave()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
             yield return null;
@@ -243,9 +243,26 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Shift));
             Assert.That(TutorialCompleted(app), Is.False,
                 "Opening the guided shift must not mark the tutorial complete.");
-            Assert.That(PlannedQueue(app).Count, Is.EqualTo(4));
-            Assert.That(CurrentArtifactId(app), Is.EqualTo("sleeping-teacup"));
-            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("1 / 4"));
+            var expectedIds = new[]
+            {
+                "whispering-key",
+                "borrowed-shadow",
+                "sleeping-teacup",
+                "clockwork-moth",
+                "rain-jar",
+                "moon-umbrella"
+            };
+            var queue = PlannedQueue(app);
+            Assert.That(queue.Count, Is.EqualTo(expectedIds.Length));
+            for (var index = 0; index < expectedIds.Length; index++)
+            {
+                Assert.That(ArtifactId(queue[index]), Is.EqualTo(expectedIds[index]),
+                    $"Tutorial queue item {index + 1} must teach the approved two-docket sequence.");
+            }
+
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("whispering-key"));
+            Assert.That(SessionInt(app, "RequiredDockets"), Is.EqualTo(2));
+            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("1 / 7"));
             Assert.That(CompletedShifts(app), Is.EqualTo(completedBefore));
             Assert.That(Coins(app), Is.EqualTo(coinsBefore));
             SetTutorialCompleted(app, tutorialBefore);
@@ -261,18 +278,18 @@ namespace CurioClerk.Tests.PlayMode
             SetTutorialCompleted(app, false);
             BeginTutorial(app);
 
-            ChooseDestination(app, 1);
+            ChooseDestination(app, 0);
             yield return null;
 
-            Assert.That(CurrentArtifactId(app), Is.EqualTo("sleeping-teacup"));
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("whispering-key"));
             Assert.That(SessionHearts(app), Is.EqualTo(3));
-            Assert.That(ObjectText("SortFeedback"), Does.Contain("REPAIR"));
-            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("1 / 4"));
+            Assert.That(ObjectText("SortFeedback"), Does.Contain("VAULT"));
+            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("1 / 7"));
             SetTutorialCompleted(app, tutorialBefore);
         }
 
         [UnityTest]
-        public IEnumerator Tutorial_ThirdLessonRequiresHoldBeforeSorting()
+        public IEnumerator Tutorial_DuplicateVaultRequiresHoldAndClosesFirstDocket()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
             yield return null;
@@ -280,23 +297,35 @@ namespace CurioClerk.Tests.PlayMode
             var tutorialBefore = TutorialCompleted(app);
             SetTutorialCompleted(app, false);
             BeginTutorial(app);
-            ChooseDestination(app, 0);
-            ChooseDestination(app, 0);
+            ChooseDestination(app, 2);
 
-            Assert.That(CurrentArtifactId(app), Is.EqualTo("thimble-storm"));
-            ChooseDestination(app, 1);
-            yield return null;
-
-            Assert.That(CurrentArtifactId(app), Is.EqualTo("thimble-storm"));
-            Assert.That(SessionHearts(app), Is.EqualTo(3));
-            Assert.That(ObjectText("TutorialCoach"), Does.Contain("HOLD"));
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("borrowed-shadow"));
+            Assert.That(GameObject.Find("VaultButton").GetComponent<UnityEngine.UI.Button>().interactable,
+                Is.False, "A stamped destination must be unavailable for the next matching artifact.");
+            Assert.That(GameObject.Find("HoldButton").GetComponent<UnityEngine.UI.Button>().interactable,
+                Is.True);
+            Assert.That(HasEnabledOutline("HoldButton"), Is.True,
+                "Hold must be the only highlighted route past the duplicate Vault.");
+            Assert.That(HasEnabledOutline("RepairButton"), Is.False);
+            Assert.That(HasEnabledOutline("StorageButton"), Is.False);
+            Assert.That(HasEnabledOutline("VaultButton"), Is.False);
+            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("2 / 7"));
 
             app.HoldCurrent();
             yield return null;
 
-            Assert.That(CurrentArtifactId(app), Is.EqualTo("whispering-key"));
-            Assert.That(HeldArtifactId(app), Is.EqualTo("thimble-storm"));
-            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("3 / 4"));
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("sleeping-teacup"));
+            Assert.That(HeldArtifactId(app), Is.EqualTo("borrowed-shadow"));
+            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("3 / 7"));
+
+            ChooseDestination(app, 0);
+            ChooseDestination(app, 1);
+            yield return null;
+
+            Assert.That(SessionInt(app, "CompletedDockets"), Is.EqualTo(1));
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("rain-jar"));
+            Assert.That(HeldArtifactId(app), Is.EqualTo("borrowed-shadow"));
+            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("5 / 7"));
             SetTutorialCompleted(app, tutorialBefore);
         }
 
@@ -313,12 +342,23 @@ namespace CurioClerk.Tests.PlayMode
             var discoveredBefore = DiscoveredCount(app);
             BeginTutorial(app);
 
-            ChooseDestination(app, 0);
-            ChooseDestination(app, 0);
-            app.HoldCurrent();
+            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("1 / 7"));
             ChooseDestination(app, 2);
-            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("4 / 4"));
+            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("2 / 7"));
+            app.HoldCurrent();
+            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("3 / 7"));
+            ChooseDestination(app, 0);
+            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("4 / 7"));
             ChooseDestination(app, 1);
+            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("5 / 7"));
+            ChooseDestination(app, 1);
+            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("6 / 7"));
+            ChooseDestination(app, 0);
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("borrowed-shadow"),
+                "The held shadow must return automatically after the six queued items.");
+            Assert.That(HeldArtifactId(app), Is.Null);
+            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("7 / 7"));
+            ChooseDestination(app, 2);
             yield return null;
 
             Assert.That(TutorialCompleted(app), Is.True);
@@ -345,7 +385,7 @@ namespace CurioClerk.Tests.PlayMode
             var artifact = GameObject.Find("ArtifactIllustration").GetComponent<UnityEngine.UI.Image>();
             Assert.That(desk.sprite, Is.Not.Null, "The vertical slice must use the illustrated desk backdrop.");
             Assert.That(artifact.sprite, Is.Not.Null, "The current artifact card must use release-facing artwork.");
-            Assert.That(artifact.sprite.name, Is.EqualTo("sleeping-teacup"));
+            Assert.That(artifact.sprite.name, Is.EqualTo("whispering-key"));
             Assert.That(artifact.preserveAspect, Is.True);
 
             foreach (var iconName in new[]
@@ -361,10 +401,10 @@ namespace CurioClerk.Tests.PlayMode
                 Assert.That(icon.sprite, Is.Not.Null, iconName + " must use a readable sprite.");
             }
 
-            ChooseDestination(app, 0);
+            ChooseDestination(app, 2);
             yield return null;
 
-            Assert.That(artifact.sprite.name, Is.EqualTo("mirror-seed"),
+            Assert.That(artifact.sprite.name, Is.EqualTo("borrowed-shadow"),
                 "The artifact illustration must follow the authoritative current artifact.");
             SetTutorialCompleted(app, tutorialBefore);
         }
@@ -385,24 +425,22 @@ namespace CurioClerk.Tests.PlayMode
             var nextTwo = GameObject.Find("NextPreviewArtwork1")?.GetComponent<UnityEngine.UI.Image>();
             Assert.That(nextOne, Is.Not.Null, "The first next preview must provide an artwork surface.");
             Assert.That(nextTwo, Is.Not.Null, "The second next preview must provide an artwork surface.");
-            Assert.That(nextOne.sprite?.name, Is.EqualTo("mirror-seed"));
-            Assert.That(nextTwo.sprite?.name, Is.EqualTo("thimble-storm"));
+            Assert.That(nextOne.sprite?.name, Is.EqualTo("borrowed-shadow"));
+            Assert.That(nextTwo.sprite?.name, Is.EqualTo("sleeping-teacup"));
 
-            ChooseDestination(app, 0);
-            ChooseDestination(app, 0);
-            yield return null;
-
-            Assert.That(nextOne.sprite?.name, Is.EqualTo("whispering-key"));
-            Assert.That(nextTwo.enabled, Is.False);
-
+            ChooseDestination(app, 2);
             app.HoldCurrent();
+            ChooseDestination(app, 0);
+            ChooseDestination(app, 1);
             yield return null;
+
+            Assert.That(nextOne.sprite?.name, Is.EqualTo("moon-umbrella"));
+            Assert.That(nextTwo.sprite?.name, Is.EqualTo("borrowed-shadow"),
+                "The held artifact must preview its queue-end return.");
 
             var held = GameObject.Find("HeldPreviewArtwork")?.GetComponent<UnityEngine.UI.Image>();
             Assert.That(held, Is.Not.Null, "The hold preview must provide an artwork surface.");
-            Assert.That(held.sprite?.name, Is.EqualTo("thimble-storm"));
-            Assert.That(nextOne.sprite?.name, Is.EqualTo("thimble-storm"),
-                "The held artifact must preview its return after the final queued artifact.");
+            Assert.That(held.sprite?.name, Is.EqualTo("borrowed-shadow"));
             SetTutorialCompleted(app, tutorialBefore);
         }
 
@@ -1181,6 +1219,16 @@ namespace CurioClerk.Tests.PlayMode
             return (IList)typeof(GameApp)
                 .GetField("_plannedQueue", BindingFlags.Instance | BindingFlags.NonPublic)
                 .GetValue(app);
+        }
+
+        private static string ArtifactId(object artifact)
+        {
+            return (string)artifact.GetType().GetProperty("Id").GetValue(artifact);
+        }
+
+        private static int SessionInt(GameApp app, string propertyName)
+        {
+            return (int)Session(app).GetType().GetProperty(propertyName).GetValue(Session(app));
         }
 
         private static string CurrentArtifactId(GameApp app)

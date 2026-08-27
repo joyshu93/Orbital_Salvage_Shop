@@ -27,11 +27,13 @@ namespace CurioClerk.Presentation
         private enum TutorialStage
         {
             None,
-            FirstSort,
-            PrioritySort,
-            Hold,
-            SortAfterHold,
-            FinalSort,
+            FirstVault,
+            HoldDuplicateVault,
+            FirstRepair,
+            FirstStorage,
+            SecondStorage,
+            SecondRepair,
+            FinalHeldVault,
             Complete
         }
 
@@ -494,37 +496,42 @@ namespace CurioClerk.Presentation
         }
 
         private bool IsTutorialActive =>
-            _tutorialStage >= TutorialStage.FirstSort &&
-            _tutorialStage <= TutorialStage.FinalSort;
+            _tutorialStage >= TutorialStage.FirstVault &&
+            _tutorialStage <= TutorialStage.FinalHeldVault;
 
         private void StartTutorialShift()
         {
             _isDailyShift = false;
             _dailyDateKey = string.Empty;
-            var tutorialIds = new[] { "sleeping-teacup", "mirror-seed", "thimble-storm", "whispering-key" };
-            _plannedQueue = tutorialIds.Select(id => _artifactById[id].ToArtifact()).ToArray();
-            _activeRules = new[]
+            var tutorialIds = new[]
             {
-                new SortingRule("tutorial-fragile-repair", ArtifactTraits.Fragile, ArtifactTraits.None, Destination.Repair, false),
-                new SortingRule("tutorial-cursed-vault", ArtifactTraits.Cursed, ArtifactTraits.None, Destination.Vault, false),
-                new SortingRule("tutorial-fallback-storage", ArtifactTraits.None, ArtifactTraits.None, Destination.Storage, true)
+                "whispering-key",
+                "borrowed-shadow",
+                "sleeping-teacup",
+                "clockwork-moth",
+                "rain-jar",
+                "moon-umbrella"
             };
-            _session = ShiftSession.CreateLegacySession(_plannedQueue, _activeRules);
+            _plannedQueue = tutorialIds.Select(id => _artifactById[id].ToArtifact()).ToArray();
+            _activeRules = ContentCatalog.CreateRulePacks()
+                .Single(pack => pack.Id == "pack-cursed-fragile")
+                .Rules;
+            _session = new ShiftSession(_plannedQueue, _activeRules);
             _activePlan = null;
             _seenThisShift.Clear();
             _resultApplied = false;
             _appliedResultCoins = 0;
             _rewardFeedbackKey = null;
-            _tutorialStage = TutorialStage.FirstSort;
+            _tutorialStage = TutorialStage.FirstVault;
             BuildShiftScreen();
         }
 
         private void ChooseTutorialDestination(Destination destination)
         {
-            if (_tutorialStage == TutorialStage.Hold)
+            if (_tutorialStage == TutorialStage.HoldDuplicateVault)
             {
                 _sortFeedbackPanel.color = Wine;
-                _statusText.text = _localizer.Get("tutorial_hold_first");
+                _statusText.text = _localizer.Get("tutorial_blocked");
                 _statusText.color = Paper;
                 RefreshTutorialGuidance();
                 return;
@@ -538,20 +545,26 @@ namespace CurioClerk.Presentation
             }
 
             var outcome = _session.Sort(destination);
-            var completingTutorial = _tutorialStage == TutorialStage.FinalSort;
+            var completingTutorial = _tutorialStage == TutorialStage.FinalHeldVault;
             ShowSortFeedback(true, destination, outcome.ExpectedDestination, !completingTutorial);
             switch (_tutorialStage)
             {
-                case TutorialStage.FirstSort:
-                    _tutorialStage = TutorialStage.PrioritySort;
+                case TutorialStage.FirstVault:
+                    _tutorialStage = TutorialStage.HoldDuplicateVault;
                     break;
-                case TutorialStage.PrioritySort:
-                    _tutorialStage = TutorialStage.Hold;
+                case TutorialStage.FirstRepair:
+                    _tutorialStage = TutorialStage.FirstStorage;
                     break;
-                case TutorialStage.SortAfterHold:
-                    _tutorialStage = TutorialStage.FinalSort;
+                case TutorialStage.FirstStorage:
+                    _tutorialStage = TutorialStage.SecondStorage;
                     break;
-                case TutorialStage.FinalSort:
+                case TutorialStage.SecondStorage:
+                    _tutorialStage = TutorialStage.SecondRepair;
+                    break;
+                case TutorialStage.SecondRepair:
+                    _tutorialStage = TutorialStage.FinalHeldVault;
+                    break;
+                case TutorialStage.FinalHeldVault:
                     CompleteTutorial();
                     return;
             }
@@ -562,7 +575,7 @@ namespace CurioClerk.Presentation
 
         private void HoldTutorialArtifact()
         {
-            if (_tutorialStage != TutorialStage.Hold)
+            if (_tutorialStage != TutorialStage.HoldDuplicateVault)
             {
                 _sortFeedbackPanel.color = Wine;
                 _statusText.text = _localizer.Get("tutorial_follow_step");
@@ -573,7 +586,7 @@ namespace CurioClerk.Presentation
             if (_session.Hold())
             {
                 _feedbackService.Play(PlayerFeedbackCue.Hold);
-                _tutorialStage = TutorialStage.SortAfterHold;
+                _tutorialStage = TutorialStage.FirstRepair;
                 RefreshShiftView();
                 RefreshTutorialGuidance();
             }
@@ -586,34 +599,44 @@ namespace CurioClerk.Presentation
                 return;
             }
 
-            var guidanceKey = "tutorial_step_one";
+            var guidanceKey = "tutorial_step_first_vault";
             var highlightedRule = -1;
             var highlightedDestination = -1;
             var holdEnabled = false;
-            var destinationsEnabled = true;
             switch (_tutorialStage)
             {
-                case TutorialStage.FirstSort:
+                case TutorialStage.FirstVault:
                     highlightedRule = 0;
-                    highlightedDestination = (int)Destination.Repair;
-                    break;
-                case TutorialStage.PrioritySort:
-                    guidanceKey = "tutorial_step_two";
-                    highlightedRule = 0;
-                    highlightedDestination = (int)Destination.Repair;
-                    break;
-                case TutorialStage.Hold:
-                    guidanceKey = "tutorial_step_hold";
-                    holdEnabled = true;
-                    destinationsEnabled = false;
-                    break;
-                case TutorialStage.SortAfterHold:
-                    guidanceKey = "tutorial_step_after_hold";
-                    highlightedRule = 1;
                     highlightedDestination = (int)Destination.Vault;
                     break;
-                case TutorialStage.FinalSort:
-                    guidanceKey = "tutorial_step_final";
+                case TutorialStage.HoldDuplicateVault:
+                    guidanceKey = "tutorial_step_hold";
+                    holdEnabled = true;
+                    break;
+                case TutorialStage.FirstRepair:
+                    guidanceKey = "tutorial_step_first_repair";
+                    highlightedRule = 1;
+                    highlightedDestination = (int)Destination.Repair;
+                    break;
+                case TutorialStage.FirstStorage:
+                    guidanceKey = "tutorial_step_first_storage";
+                    highlightedRule = 2;
+                    highlightedDestination = (int)Destination.Storage;
+                    break;
+                case TutorialStage.SecondStorage:
+                    guidanceKey = "tutorial_step_second_storage";
+                    highlightedRule = 2;
+                    highlightedDestination = (int)Destination.Storage;
+                    break;
+                case TutorialStage.SecondRepair:
+                    guidanceKey = "tutorial_step_second_repair";
+                    highlightedRule = 1;
+                    highlightedDestination = (int)Destination.Repair;
+                    break;
+                case TutorialStage.FinalHeldVault:
+                    guidanceKey = "tutorial_step_final_vault";
+                    highlightedRule = 0;
+                    highlightedDestination = (int)Destination.Vault;
                     break;
             }
 
@@ -623,7 +646,7 @@ namespace CurioClerk.Presentation
             _holdHighlight.enabled = holdEnabled;
             for (var index = 0; index < _destinationButtons.Length; index++)
             {
-                _destinationButtons[index].interactable = destinationsEnabled;
+                _destinationButtons[index].interactable = _session.CanSort((Destination)index);
                 _destinationHighlights[index].enabled = index == highlightedDestination;
             }
         }

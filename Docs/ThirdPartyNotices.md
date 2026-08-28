@@ -1,6 +1,6 @@
 # Third-party notices register
 
-Last reviewed: 2026-08-27 (KST)
+Last reviewed: 2026-08-28 (KST)
 
 This is the working inventory for externally sourced material. It is not yet the final in-app notice. Before an RC build, remove unused material, resolve every open item, and make required notices easily viewable in the distributed product or its accompanying materials.
 
@@ -23,6 +23,7 @@ This is the working inventory for externally sourced material. It is not yet the
 | Desk charm illustration set | Six selected ImageGen PNGs recorded with hashes as `ART-COSMETICS-001` in `Docs/AIAssetProvenance.md`; normalized prompts are retained in `Docs/VisualSlicePrompts.md`. | Original text prompts only; no third-party asset or reference was supplied. | **No third-party attribution identified. Prototype only; final similarity/trademark and human release review remain open.** Update this row if any external element is introduced. |
 | Casebook and cosmetics bilingual copy | `Assets/Scripts/Runtime/Localization/Localizer.cs`; provenance entry `TEXT-UI-002` in `Docs/AIAssetProvenance.md`. | Project-authored functional English/Korean labels; no third-party prose or attribution identified. | **No third-party notice required.** Bilingual visual review remains open before RC. |
 | Three-Seal bilingual gameplay copy | `Assets/Scripts/Runtime/Localization/Localizer.cs`, `Assets/Scripts/Runtime/Content/ContentCatalog.cs`, generated localization tables, and generated Artifact assets; provenance entry `TEXT-GAMEPLAY-003` in `Docs/AIAssetProvenance.md`. | Existing project-authored names/descriptions and the approved Three-Seal design only; no third-party prose or attribution identified. | **No third-party notice required.** Human bilingual review remains required before RC. |
+| Narrative occupational puzzle design reference | `Docs/superpowers/specs/2026-08-28-narrative-occupational-puzzle-design.md` and `Docs/Design/NarrativeOccupationalPuzzle/curio-narrative-ux-board.html`; provenance entry `DESIGN-NARRATIVE-001`. | Developer-approved product direction, repository content, original prose, and CSS shapes only; no third-party art, prose, font, or reference input is bundled. | **No third-party notice required.** Internal design material only; promotional reuse requires a separate audit. |
 
 ### Gowun Batang Bold
 

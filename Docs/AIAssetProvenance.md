@@ -1,6 +1,6 @@
 # AI asset provenance and release policy
 
-Last reviewed: 2026-08-27 (KST)
+Last reviewed: 2026-08-28 (KST)
 
 This document is the release evidence ledger for AI-assisted work in **Curio Clerk: Night Shift**. It is an internal risk-control record, not legal advice. Update it whenever an AI tool creates or edits source code, art, audio, text, video, localization, or store material.
 
@@ -42,6 +42,22 @@ Do not request or accept:
 Describe visual characteristics in generic production terms instead: palette, materials, line weight, lighting, camera, composition, mood, and readability target.
 
 ## Provenance ledger
+
+### DESIGN-NARRATIVE-001 — narrative occupational puzzle specification and visual board
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Docs/superpowers/specs/2026-08-28-narrative-occupational-puzzle-design.md`; `Docs/Design/NarrativeOccupationalPuzzle/curio-narrative-ux-board.html`; rendered PNG when present beside the HTML source |
+| Asset type and intended use | Internal product specification and editable visual reference for the approved narrative occupational puzzle redesign; not an in-game or store asset |
+| Tool | OpenAI Codex authored the text, layout, and CSS from the developer-approved design dialogue |
+| Creation date | 2026-08-28 KST |
+| Reference inputs | Existing Curio Clerk product constraints, repository artifact catalog, Three-Seal Docket design, and developer feedback; no third-party prose, image, or style reference supplied |
+| Human direction | The developer selected the caretaker fantasy, case-shift plus Free Shift structure, visual-novel framing, first-person clerk, one senior clerk, bold presentation, warm restrained effects, linear story with reactive outcomes, 12-incident arc, first-slice boundary, and playtest gates. |
+| Human edits | The developer repeatedly rejected or redirected shallow collection, short-campaign, weak-hook, small-screen, and restrained-feedback concepts, and explicitly approved each final design section. No claim is made that Codex output alone constitutes final shipped creative authorship. |
+| Third-party elements | None. The editable board uses repository-authored text and CSS shapes only; it does not bundle fonts, images, or copied UI assets. |
+| Intended uses | Internal reference, implementation planning, before/after product review, and future design iteration. |
+| Store submission decision | Not submitted to a store and not included in the player build. If reused in promotional material, create a separate provenance and store-media decision. |
+| Release status | **Approved as internal design documentation; game implementation and final creative assets remain subject to separate review.** |
 
 ### ART-BRAND-001 — current application icon concept
 

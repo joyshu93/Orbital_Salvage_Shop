@@ -99,6 +99,7 @@ namespace CurioClerk.Presentation
         private TMP_Text _hudText;
         private DocketProgressView _docketProgress;
         private ShiftFeedbackAnimator _feedbackAnimator;
+        private ArtifactDragHandler _artifactDragHandler;
         private bool _resultApplied;
         private int _appliedResultCoins;
         private string _lastCorrectArtifactId;
@@ -110,6 +111,7 @@ namespace CurioClerk.Presentation
         private string _cosmeticFeedback;
         private bool _isDailyShift;
         private string _dailyDateKey = string.Empty;
+        private bool _inputLocked;
 
         public AppScreen ActiveScreen { get; private set; }
 
@@ -222,7 +224,7 @@ namespace CurioClerk.Presentation
 
         public void ChooseDestination(Destination destination)
         {
-            if (_session == null || _session.State != ShiftState.Active)
+            if (_inputLocked || _session == null || _session.State != ShiftState.Active)
             {
                 return;
             }
@@ -246,38 +248,62 @@ namespace CurioClerk.Presentation
             if (outcome.Disposition == SortDisposition.Blocked)
             {
                 ShowBlockedFeedback();
-            }
-            else
-            {
-                var terminalCorrectSort = outcome.DidCompleteShift && outcome.WasCorrect;
-                ShowSortFeedback(
-                    artifact,
-                    content,
-                    outcome,
-                    !terminalCorrectSort);
-                if (outcome.DidCompleteDocket && !outcome.DidCompleteShift)
-                {
-                    _feedbackAnimator?.PlayDocketComplete();
-                }
-            }
-
-            if (outcome.DidCompleteShift || _session.State == ShiftState.Failed)
-            {
-                if (outcome.DidCompleteShift && outcome.WasCorrect)
-                {
-                    _feedbackService.Play(PlayerFeedbackCue.ShiftComplete);
-                }
-
-                ShowResults();
+                RefreshShiftView(false, false);
                 return;
             }
 
-            var artifactAdvanced = outcome.Disposition == SortDisposition.Correct;
-            RefreshShiftView(artifactAdvanced, artifactAdvanced);
+            if (outcome.Disposition == SortDisposition.Wrong)
+            {
+                if (_session.State == ShiftState.Failed)
+                {
+                    ShowSortFeedback(artifact, content, outcome, true, false);
+                    RefreshShiftView(false, false);
+                    SetShiftInputLocked(true);
+                    _feedbackAnimator?.SetIdleEnabled(false);
+                    if (_feedbackAnimator == null)
+                    {
+                        CompleteTerminalWrongTransition();
+                    }
+                    else
+                    {
+                        _feedbackAnimator.PlayWrong(CompleteTerminalWrongTransition);
+                    }
+
+                    return;
+                }
+
+                ShowSortFeedback(artifact, content, outcome);
+                RefreshShiftView(false, false);
+                return;
+            }
+
+            var terminalCorrectSort = outcome.DidCompleteShift;
+            ShowSortFeedback(artifact, content, outcome, false);
+            if (!terminalCorrectSort)
+            {
+                _feedbackService.Play(PlayerFeedbackCue.Correct);
+            }
+
+            RefreshDocketDuringTransition(outcome);
+            SetShiftInputLocked(true);
+            _feedbackAnimator?.SetIdleEnabled(false);
+            if (_feedbackAnimator == null)
+            {
+                CompleteCorrectTransition(outcome);
+            }
+            else
+            {
+                _feedbackAnimator.PlayCorrect(() => CompleteCorrectTransition(outcome));
+            }
         }
 
         public void HoldCurrent()
         {
+            if (_inputLocked)
+            {
+                return;
+            }
+
             if (IsTutorialActive)
             {
                 HoldTutorialArtifact();
@@ -287,7 +313,16 @@ namespace CurioClerk.Presentation
             if (_session != null && _session.Hold())
             {
                 _feedbackService.Play(PlayerFeedbackCue.Hold);
-                RefreshShiftView();
+                SetShiftInputLocked(true);
+                _feedbackAnimator?.SetIdleEnabled(false);
+                if (_feedbackAnimator == null)
+                {
+                    CompleteHoldTransition();
+                }
+                else
+                {
+                    _feedbackAnimator.PlayHold(CompleteHoldTransition);
+                }
             }
         }
 
@@ -442,6 +477,7 @@ namespace CurioClerk.Presentation
 
         private void BuildShiftScreen()
         {
+            _inputLocked = false;
             ActiveScreen = AppScreen.Shift;
             var page = CreatePage("ShiftScreen");
             var equipped = ContentCatalog.CreateCosmetics().FirstOrDefault(item => item.Id == _save.equippedCosmeticId);
@@ -493,7 +529,11 @@ namespace CurioClerk.Presentation
             _sortFeedbackPanel = feedbackPanel.GetComponent<Image>();
             _statusText = CreateText(feedbackPanel, "SortFeedback", string.Empty, 24, Paper, TextAlignmentOptions.Center, Vector2.zero, Vector2.one, true);
             _feedbackAnimator = page.gameObject.AddComponent<ShiftFeedbackAnimator>();
-            _feedbackAnimator.Configure(card, feedbackPanel);
+            _feedbackAnimator.Configure(
+                card,
+                _artifactIllustration.rectTransform,
+                feedbackPanel,
+                _heldIllustration.rectTransform);
 
             var repair = CreateButton(page, "RepairButton", _localizer.Get("repair"), new Vector2(0.05f, 0.035f), new Vector2(0.32f, 0.145f), DustyRose, Paper, () => ChooseDestination(Destination.Repair), 30);
             var storage = CreateButton(page, "StorageButton", _localizer.Get("storage"), new Vector2(0.365f, 0.035f), new Vector2(0.635f, 0.145f), Sage, Paper, () => ChooseDestination(Destination.Storage), 30);
@@ -507,7 +547,8 @@ namespace CurioClerk.Presentation
             _destinationHighlights[(int)Destination.Repair] = CreateButtonHighlight(repair);
             _destinationHighlights[(int)Destination.Storage] = CreateButtonHighlight(storage);
             _destinationHighlights[(int)Destination.Vault] = CreateButtonHighlight(vault);
-            card.gameObject.AddComponent<ArtifactDragHandler>().Configure(
+            _artifactDragHandler = card.gameObject.AddComponent<ArtifactDragHandler>();
+            _artifactDragHandler.Configure(
                 new[]
                 {
                     repair.GetComponent<RectTransform>(),
@@ -582,31 +623,28 @@ namespace CurioClerk.Presentation
 
             var outcome = _session.Sort(destination);
             var completingTutorial = _tutorialStage == TutorialStage.FinalHeldVault;
-            ShowSortFeedback(artifact, content, outcome, !completingTutorial);
-            switch (_tutorialStage)
+            var nextStage = NextTutorialStage(_tutorialStage);
+            ShowSortFeedback(artifact, content, outcome, false);
+            if (!completingTutorial)
             {
-                case TutorialStage.FirstVault:
-                    _tutorialStage = TutorialStage.HoldDuplicateVault;
-                    break;
-                case TutorialStage.FirstRepair:
-                    _tutorialStage = TutorialStage.FirstStorage;
-                    break;
-                case TutorialStage.FirstStorage:
-                    _tutorialStage = TutorialStage.SecondStorage;
-                    break;
-                case TutorialStage.SecondStorage:
-                    _tutorialStage = TutorialStage.SecondRepair;
-                    break;
-                case TutorialStage.SecondRepair:
-                    _tutorialStage = TutorialStage.FinalHeldVault;
-                    break;
-                case TutorialStage.FinalHeldVault:
-                    CompleteTutorial();
-                    return;
+                _feedbackService.Play(PlayerFeedbackCue.Correct);
             }
 
-            RefreshShiftView();
-            RefreshTutorialGuidance();
+            RefreshDocketDuringTransition(outcome);
+            SetShiftInputLocked(true);
+            _feedbackAnimator?.SetIdleEnabled(false);
+            Action completed = () => CompleteTutorialSortTransition(
+                outcome,
+                nextStage,
+                completingTutorial);
+            if (_feedbackAnimator == null)
+            {
+                completed();
+            }
+            else
+            {
+                _feedbackAnimator.PlayCorrect(completed);
+            }
         }
 
         private void HoldTutorialArtifact()
@@ -622,9 +660,163 @@ namespace CurioClerk.Presentation
             if (_session.Hold())
             {
                 _feedbackService.Play(PlayerFeedbackCue.Hold);
-                _tutorialStage = TutorialStage.FirstRepair;
+                SetShiftInputLocked(true);
+                _feedbackAnimator?.SetIdleEnabled(false);
+                if (_feedbackAnimator == null)
+                {
+                    CompleteTutorialHoldTransition();
+                }
+                else
+                {
+                    _feedbackAnimator.PlayHold(CompleteTutorialHoldTransition);
+                }
+            }
+        }
+
+        private static TutorialStage NextTutorialStage(TutorialStage stage)
+        {
+            switch (stage)
+            {
+                case TutorialStage.FirstVault: return TutorialStage.HoldDuplicateVault;
+                case TutorialStage.FirstRepair: return TutorialStage.FirstStorage;
+                case TutorialStage.FirstStorage: return TutorialStage.SecondStorage;
+                case TutorialStage.SecondStorage: return TutorialStage.SecondRepair;
+                case TutorialStage.SecondRepair: return TutorialStage.FinalHeldVault;
+                case TutorialStage.FinalHeldVault: return TutorialStage.Complete;
+                default: return stage;
+            }
+        }
+
+        private void CompleteCorrectTransition(SortOutcome outcome)
+        {
+            if (outcome.DidCompleteDocket && _docketProgress != null)
+            {
+                _docketProgress.PlayComplete(() => FinishCorrectTransition(outcome));
+                return;
+            }
+
+            FinishCorrectTransition(outcome);
+        }
+
+        private void FinishCorrectTransition(SortOutcome outcome)
+        {
+            if (outcome.DidCompleteShift)
+            {
+                _inputLocked = false;
+                _feedbackService.Play(PlayerFeedbackCue.ShiftComplete);
+                ShowResults();
+                return;
+            }
+
+            RefreshShiftView();
+            SetShiftInputLocked(false);
+        }
+
+        private void CompleteHoldTransition()
+        {
+            RefreshShiftView();
+            SetShiftInputLocked(false);
+        }
+
+        private void CompleteTerminalWrongTransition()
+        {
+            _inputLocked = false;
+            ShowResults();
+        }
+
+        private void CompleteTutorialSortTransition(
+            SortOutcome outcome,
+            TutorialStage nextStage,
+            bool completingTutorial)
+        {
+            Action finish = () =>
+            {
+                if (completingTutorial)
+                {
+                    _inputLocked = false;
+                    CompleteTutorial();
+                    return;
+                }
+
+                _tutorialStage = nextStage;
                 RefreshShiftView();
+                SetShiftInputLocked(false);
+            };
+
+            if (outcome.DidCompleteDocket && _docketProgress != null)
+            {
+                _docketProgress.PlayComplete(finish);
+            }
+            else
+            {
+                finish();
+            }
+        }
+
+        private void CompleteTutorialHoldTransition()
+        {
+            _tutorialStage = TutorialStage.FirstRepair;
+            RefreshShiftView();
+            SetShiftInputLocked(false);
+        }
+
+        private void RefreshDocketDuringTransition(SortOutcome outcome)
+        {
+            if (_docketProgress == null || _session.RequiredDockets <= 0)
+            {
+                return;
+            }
+
+            var docket = _session.CurrentDocket;
+            var completedDockets = _session.CompletedDockets;
+            if (outcome.DidCompleteDocket)
+            {
+                docket = new DocketState();
+                docket.TryStamp(Destination.Repair);
+                docket.TryStamp(Destination.Storage);
+                docket.TryStamp(Destination.Vault);
+                completedDockets = Math.Max(0, completedDockets - 1);
+            }
+
+            _docketProgress.Refresh(
+                docket,
+                completedDockets,
+                _session.RequiredDockets,
+                _localizer.Get("docket_empty"),
+                _localizer.Get("docket_complete"));
+        }
+
+        private void SetShiftInputLocked(bool locked)
+        {
+            _inputLocked = locked;
+            _artifactDragHandler?.SetInputEnabled(!locked);
+            if (_holdButton == null)
+            {
+                return;
+            }
+
+            if (locked)
+            {
+                _holdButton.interactable = false;
+                for (var index = 0; index < _destinationButtons.Length; index++)
+                {
+                    _destinationButtons[index].interactable = false;
+                }
+
+                return;
+            }
+
+            if (IsTutorialActive)
+            {
                 RefreshTutorialGuidance();
+                return;
+            }
+
+            _holdButton.interactable = true;
+            for (var index = 0; index < _destinationButtons.Length; index++)
+            {
+                _destinationButtons[index].interactable =
+                    !_inputLocked && _session.CanSort((Destination)index);
             }
         }
 
@@ -678,11 +870,12 @@ namespace CurioClerk.Presentation
 
             _tutorialCoach.text = _localizer.Get(guidanceKey);
             _ruleListText.text = RulesText(highlightedRule);
-            _holdButton.interactable = holdEnabled;
+            _holdButton.interactable = !_inputLocked && holdEnabled;
             _holdHighlight.enabled = holdEnabled;
             for (var index = 0; index < _destinationButtons.Length; index++)
             {
-                _destinationButtons[index].interactable = _session.CanSort((Destination)index);
+                _destinationButtons[index].interactable =
+                    !_inputLocked && _session.CanSort((Destination)index);
                 _destinationHighlights[index].enabled = index == highlightedDestination;
             }
         }
@@ -704,7 +897,8 @@ namespace CurioClerk.Presentation
             Artifact artifact,
             ArtifactContent content,
             SortOutcome outcome,
-            bool playCue = true)
+            bool playCue = true,
+            bool playAnimation = true)
         {
             var wasCorrect = outcome.WasCorrect;
             var reason = RuleReason(artifact, outcome);
@@ -720,11 +914,7 @@ namespace CurioClerk.Presentation
             {
                 _feedbackService.Play(wasCorrect ? PlayerFeedbackCue.Correct : PlayerFeedbackCue.Wrong);
             }
-            if (wasCorrect)
-            {
-                _feedbackAnimator?.PlayCorrect();
-            }
-            else
+            if (!wasCorrect && playAnimation)
             {
                 _feedbackAnimator?.PlayWrong();
             }
@@ -866,7 +1056,8 @@ namespace CurioClerk.Presentation
 
             for (var index = 0; index < _destinationButtons.Length; index++)
             {
-                _destinationButtons[index].interactable = _session.CanSort((Destination)index);
+                _destinationButtons[index].interactable =
+                    !_inputLocked && _session.CanSort((Destination)index);
             }
 
             if (refreshDecisionMessage)
@@ -898,6 +1089,8 @@ namespace CurioClerk.Presentation
             {
                 _feedbackAnimator?.PlayArtifactEntrance();
             }
+
+            _feedbackAnimator?.SetIdleEnabled(true);
         }
 
         private void ShowResults()

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using CurioClerk.Core.Rules;
 using CurioClerk.Core.Shifts;
@@ -15,6 +16,12 @@ namespace CurioClerk.Presentation
         private TMP_Text[] _labels;
         private Color _openColor;
         private Color[] _stampedColors;
+        private Color[] _completionRestColors;
+        private Vector3[] _completionRestScales;
+        private Coroutine _completionRoutine;
+        private bool _hasCompletionRestState;
+
+        private const float CompletionDuration = 0.70f;
 
         public void Configure(
             TMP_Text counter,
@@ -57,6 +64,8 @@ namespace CurioClerk.Presentation
             }
 
             _openColor = openColor;
+            _completionRestColors = new Color[_stamps.Length];
+            _completionRestScales = new Vector3[_stamps.Length];
         }
 
         public void Refresh(
@@ -78,6 +87,98 @@ namespace CurioClerk.Presentation
                 var stamped = docket != null && docket.IsStamped((Destination)index);
                 _stamps[index].color = stamped ? _stampedColors[index] : _openColor;
                 _labels[index].text = stamped ? completedLabel : openLabel;
+            }
+        }
+
+        public void PlayComplete(Action completed)
+        {
+            if (_stamps == null)
+            {
+                completed?.Invoke();
+                return;
+            }
+
+            if (_completionRoutine != null)
+            {
+                StopCompletion();
+                RestoreCompletionState();
+                _hasCompletionRestState = false;
+            }
+
+            for (var index = 0; index < _stamps.Length; index++)
+            {
+                _completionRestColors[index] = _stamps[index].color;
+                _completionRestScales[index] = _stamps[index].rectTransform.localScale;
+            }
+
+            _hasCompletionRestState = true;
+            _completionRoutine = StartCoroutine(AnimateComplete(completed));
+        }
+
+        private IEnumerator AnimateComplete(Action completed)
+        {
+            var elapsed = 0f;
+            while (elapsed < CompletionDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                var progress = Mathf.Clamp01(elapsed / CompletionDuration);
+                var pulse = Mathf.Sin(progress * Mathf.PI);
+                for (var index = 0; index < _stamps.Length; index++)
+                {
+                    _stamps[index].rectTransform.localScale =
+                        _completionRestScales[index] * (1f + pulse * 0.13f);
+                    _stamps[index].color = Color.Lerp(
+                        _completionRestColors[index],
+                        Color.white,
+                        pulse * 0.32f);
+                }
+
+                yield return null;
+            }
+
+            RestoreCompletionState();
+            _hasCompletionRestState = false;
+            _completionRoutine = null;
+            completed?.Invoke();
+        }
+
+        private void OnDisable()
+        {
+            StopCompletion();
+            RestoreCompletionState();
+            _hasCompletionRestState = false;
+        }
+
+        private void StopCompletion()
+        {
+            if (_completionRoutine == null)
+            {
+                return;
+            }
+
+            StopCoroutine(_completionRoutine);
+            _completionRoutine = null;
+        }
+
+        private void RestoreCompletionState()
+        {
+            if (_stamps == null || _completionRestColors == null || _completionRestScales == null)
+            {
+                return;
+            }
+
+            for (var index = 0; index < _stamps.Length; index++)
+            {
+                if (_stamps[index] == null)
+                {
+                    continue;
+                }
+
+                if (_hasCompletionRestState)
+                {
+                    _stamps[index].rectTransform.localScale = _completionRestScales[index];
+                    _stamps[index].color = _completionRestColors[index];
+                }
             }
         }
     }

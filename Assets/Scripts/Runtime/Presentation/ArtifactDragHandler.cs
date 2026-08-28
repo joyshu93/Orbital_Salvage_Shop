@@ -13,6 +13,9 @@ namespace CurioClerk.Presentation
         private Vector2 _restingPosition;
         private Vector3 _restingScale;
         private float _canvasScale = 1f;
+        private bool _inputEnabled = true;
+        private bool _isDragging;
+        private int _activePointerId = int.MinValue;
 
         public void Configure(RectTransform[] dropTargets, Action<int> dropped)
         {
@@ -20,8 +23,24 @@ namespace CurioClerk.Presentation
             _dropped = dropped;
         }
 
+        public void SetInputEnabled(bool enabled)
+        {
+            _inputEnabled = enabled;
+            if (!enabled)
+            {
+                CancelActiveDrag();
+            }
+        }
+
         public void OnBeginDrag(PointerEventData eventData)
         {
+            if (!_inputEnabled || _isDragging)
+            {
+                return;
+            }
+
+            _isDragging = true;
+            _activePointerId = eventData.pointerId;
             _rectTransform = GetComponent<RectTransform>();
             _restingPosition = _rectTransform.anchoredPosition;
             _restingScale = _rectTransform.localScale;
@@ -32,7 +51,7 @@ namespace CurioClerk.Presentation
 
         public void OnDrag(PointerEventData eventData)
         {
-            if (_rectTransform == null)
+            if (!_inputEnabled || !_isDragging || eventData.pointerId != _activePointerId || _rectTransform == null)
             {
                 return;
             }
@@ -42,8 +61,13 @@ namespace CurioClerk.Presentation
 
         public void OnEndDrag(PointerEventData eventData)
         {
+            if (!_inputEnabled || !_isDragging || eventData.pointerId != _activePointerId)
+            {
+                return;
+            }
+
             var targetIndex = FindTarget(eventData.position, eventData.pressEventCamera);
-            ResetVisual();
+            CancelActiveDrag();
             if (targetIndex >= 0)
             {
                 _dropped?.Invoke(targetIndex);
@@ -62,6 +86,13 @@ namespace CurioClerk.Presentation
             }
 
             return -1;
+        }
+
+        private void CancelActiveDrag()
+        {
+            ResetVisual();
+            _isDragging = false;
+            _activePointerId = int.MinValue;
         }
 
         private void ResetVisual()

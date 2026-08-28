@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 
@@ -5,53 +6,116 @@ namespace CurioClerk.Presentation
 {
     public sealed class ShiftFeedbackAnimator : MonoBehaviour
     {
-        private const float EntranceDuration = 0.18f;
-        private const float FeedbackDuration = 0.22f;
+        private const float EntranceDuration = 0.20f;
+        private const float CorrectDuration = 0.42f;
+        private const float WrongDuration = 0.28f;
+        private const float HoldDuration = 0.34f;
+
         private RectTransform _artifactCard;
+        private RectTransform _artwork;
         private RectTransform _feedbackPanel;
-        private Vector2 _artifactRestPosition;
-        private Vector2 _feedbackRestPosition;
-        private Coroutine _artifactRoutine;
-        private Coroutine _feedbackRoutine;
+        private RectTransform _heldPreview;
+        private TransformState _cardRest;
+        private TransformState _artworkRest;
+        private TransformState _feedbackRest;
+        private TransformState _heldRest;
+        private Coroutine _motionRoutine;
+        private Coroutine _idleRoutine;
+        private bool _idleEnabled;
 
         public void Configure(RectTransform artifactCard, RectTransform feedbackPanel)
         {
-            _artifactCard = artifactCard;
-            _feedbackPanel = feedbackPanel;
-            _artifactRestPosition = artifactCard.anchoredPosition;
-            _feedbackRestPosition = feedbackPanel.anchoredPosition;
+            Configure(artifactCard, artifactCard, feedbackPanel, feedbackPanel);
+        }
+
+        public void Configure(
+            RectTransform artifactCard,
+            RectTransform artwork,
+            RectTransform feedbackPanel,
+            RectTransform heldPreview)
+        {
+            _artifactCard = artifactCard ?? throw new ArgumentNullException(nameof(artifactCard));
+            _artwork = artwork ?? throw new ArgumentNullException(nameof(artwork));
+            _feedbackPanel = feedbackPanel ?? throw new ArgumentNullException(nameof(feedbackPanel));
+            _heldPreview = heldPreview ?? throw new ArgumentNullException(nameof(heldPreview));
+            _cardRest = TransformState.Capture(_artifactCard);
+            _artworkRest = TransformState.Capture(_artwork);
+            _feedbackRest = TransformState.Capture(_feedbackPanel);
+            _heldRest = TransformState.Capture(_heldPreview);
         }
 
         public void PlayArtifactEntrance()
         {
-            if (_artifactCard == null)
+            if (IsConfigured)
             {
+                StartMotion(AnimateArtifactEntrance());
+            }
+        }
+
+        public void PlayCorrect(Action completed)
+        {
+            if (!IsConfigured)
+            {
+                completed?.Invoke();
                 return;
             }
 
-            if (_artifactRoutine != null)
-            {
-                StopCoroutine(_artifactRoutine);
-            }
-
-            _artifactCard.anchoredPosition = _artifactRestPosition + Vector2.down * 18f;
-            _artifactCard.localScale = Vector3.one * 0.94f;
-            _artifactRoutine = StartCoroutine(AnimateArtifactEntrance());
-        }
-
-        public void PlayCorrect()
-        {
-            StartFeedbackAnimation(false, 0.045f);
-        }
-
-        public void PlayDocketComplete()
-        {
-            StartFeedbackAnimation(false, 0.11f);
+            StartMotion(AnimateCorrect(completed));
         }
 
         public void PlayWrong()
         {
-            StartFeedbackAnimation(true, 0f);
+            PlayWrong(null);
+        }
+
+        public void PlayWrong(Action completed)
+        {
+            if (IsConfigured)
+            {
+                StartMotion(AnimateWrong(completed));
+            }
+            else
+            {
+                completed?.Invoke();
+            }
+        }
+
+        public void PlayHold(Action completed)
+        {
+            if (!IsConfigured)
+            {
+                completed?.Invoke();
+                return;
+            }
+
+            StartMotion(AnimateHold(completed));
+        }
+
+        public void SetIdleEnabled(bool enabled)
+        {
+            _idleEnabled = enabled;
+            if (!enabled)
+            {
+                StopIdle();
+                RestoreArtwork();
+                return;
+            }
+
+            ResumeIdle();
+        }
+
+        private bool IsConfigured =>
+            _artifactCard != null &&
+            _artwork != null &&
+            _feedbackPanel != null &&
+            _heldPreview != null;
+
+        private void StartMotion(IEnumerator animation)
+        {
+            StopMotion();
+            StopIdle();
+            RestoreAll();
+            _motionRoutine = StartCoroutine(animation);
         }
 
         private IEnumerator AnimateArtifactEntrance()
@@ -62,85 +126,188 @@ namespace CurioClerk.Presentation
                 elapsed += Time.unscaledDeltaTime;
                 var progress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / EntranceDuration));
                 _artifactCard.anchoredPosition = Vector2.Lerp(
-                    _artifactRestPosition + Vector2.down * 18f,
-                    _artifactRestPosition,
+                    _cardRest.Position + Vector2.down * 18f,
+                    _cardRest.Position,
                     progress);
-                _artifactCard.localScale = Vector3.one * Mathf.Lerp(0.94f, 1f, progress);
+                _artifactCard.localScale = Vector3.Lerp(
+                    _cardRest.Scale * 0.94f,
+                    _cardRest.Scale,
+                    progress);
                 yield return null;
             }
 
-            ResetArtifact();
-            _artifactRoutine = null;
+            RestoreCard();
+            CompleteMotion(null);
         }
 
-        private void StartFeedbackAnimation(bool shake, float pulseScale)
+        private IEnumerator AnimateCorrect(Action completed)
         {
-            if (_feedbackPanel == null)
+            var elapsed = 0f;
+            while (elapsed < CorrectDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                var progress = Mathf.Clamp01(elapsed / CorrectDuration);
+                var lift = Mathf.Sin(progress * Mathf.PI);
+                _artwork.anchoredPosition = _artworkRest.Position + Vector2.up * (28f * lift);
+                _artwork.localScale = _artworkRest.Scale * (1f + 0.045f * lift);
+                _feedbackPanel.localScale = _feedbackRest.Scale * (1f + 0.075f * lift);
+                yield return null;
+            }
+
+            RestoreArtwork();
+            RestoreFeedback();
+            CompleteMotion(completed);
+        }
+
+        private IEnumerator AnimateWrong(Action completed)
+        {
+            var elapsed = 0f;
+            while (elapsed < WrongDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                var progress = Mathf.Clamp01(elapsed / WrongDuration);
+                var offset = Mathf.Sin(progress * Mathf.PI * 6f) * (1f - progress) * 13f;
+                _artifactCard.anchoredPosition = _cardRest.Position + Vector2.right * offset;
+                _artifactCard.localRotation = Quaternion.Euler(0f, 0f, offset * -0.16f);
+                yield return null;
+            }
+
+            RestoreCard();
+            CompleteMotion(completed);
+        }
+
+        private IEnumerator AnimateHold(Action completed)
+        {
+            var worldTarget = _heldPreview.TransformPoint(_heldPreview.rect.center);
+            var localTarget = (Vector2)_artwork.parent.InverseTransformPoint(worldTarget);
+            var artworkLocal = (Vector2)_artwork.localPosition;
+            var target = _artworkRest.Position + (localTarget - artworkLocal) * 0.68f;
+            var elapsed = 0f;
+            while (elapsed < HoldDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                var progress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / HoldDuration));
+                _artwork.anchoredPosition = Vector2.Lerp(_artworkRest.Position, target, progress);
+                _artwork.localScale = Vector3.Lerp(_artworkRest.Scale, _artworkRest.Scale * 0.72f, progress);
+                _artwork.localRotation = Quaternion.Slerp(
+                    _artworkRest.Rotation,
+                    Quaternion.Euler(0f, 0f, -5f),
+                    progress);
+                yield return null;
+            }
+
+            RestoreArtwork();
+            CompleteMotion(completed);
+        }
+
+        private IEnumerator AnimateIdle()
+        {
+            var elapsed = 0f;
+            while (_idleEnabled)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                var wave = Mathf.Sin(elapsed * 1.8f);
+                _artwork.anchoredPosition = _artworkRest.Position + Vector2.up * (wave * 3f);
+                _artwork.localRotation = Quaternion.Euler(0f, 0f, wave * 0.45f);
+                yield return null;
+            }
+
+            RestoreArtwork();
+            _idleRoutine = null;
+        }
+
+        private void CompleteMotion(Action completed)
+        {
+            _motionRoutine = null;
+            completed?.Invoke();
+            if (_motionRoutine == null)
+            {
+                ResumeIdle();
+            }
+        }
+
+        private void ResumeIdle()
+        {
+            if (!_idleEnabled || !IsConfigured || _motionRoutine != null || _idleRoutine != null || !isActiveAndEnabled)
             {
                 return;
             }
 
-            if (_feedbackRoutine != null)
-            {
-                StopCoroutine(_feedbackRoutine);
-            }
-
-            _feedbackRoutine = StartCoroutine(AnimateFeedback(shake, pulseScale));
+            _idleRoutine = StartCoroutine(AnimateIdle());
         }
 
-        private IEnumerator AnimateFeedback(bool shake, float pulseScale)
+        private void StopMotion()
         {
-            var elapsed = 0f;
-            while (elapsed < FeedbackDuration)
+            if (_motionRoutine != null)
             {
-                elapsed += Time.unscaledDeltaTime;
-                var progress = Mathf.Clamp01(elapsed / FeedbackDuration);
-                if (shake)
-                {
-                    var offset = Mathf.Sin(progress * Mathf.PI * 6f) * (1f - progress) * 12f;
-                    _feedbackPanel.anchoredPosition = _feedbackRestPosition + Vector2.right * offset;
-                    _feedbackPanel.localScale = Vector3.one;
-                }
-                else
-                {
-                    var pulse = Mathf.Sin(progress * Mathf.PI) * pulseScale;
-                    _feedbackPanel.localScale = Vector3.one * (1f + pulse);
-                    _feedbackPanel.anchoredPosition = _feedbackRestPosition;
-                }
-
-                yield return null;
+                StopCoroutine(_motionRoutine);
+                _motionRoutine = null;
             }
+        }
 
-            ResetFeedback();
-            _feedbackRoutine = null;
+        private void StopIdle()
+        {
+            if (_idleRoutine != null)
+            {
+                StopCoroutine(_idleRoutine);
+                _idleRoutine = null;
+            }
         }
 
         private void OnDisable()
         {
-            ResetArtifact();
-            ResetFeedback();
+            StopAllCoroutines();
+            _motionRoutine = null;
+            _idleRoutine = null;
+            RestoreAll();
         }
 
-        private void ResetArtifact()
+        private void RestoreAll()
         {
-            if (_artifactCard == null)
-            {
-                return;
-            }
-
-            _artifactCard.anchoredPosition = _artifactRestPosition;
-            _artifactCard.localScale = Vector3.one;
+            RestoreCard();
+            RestoreArtwork();
+            RestoreFeedback();
+            _heldRest.Restore(_heldPreview);
         }
 
-        private void ResetFeedback()
+        private void RestoreCard() => _cardRest.Restore(_artifactCard);
+
+        private void RestoreArtwork() => _artworkRest.Restore(_artwork);
+
+        private void RestoreFeedback() => _feedbackRest.Restore(_feedbackPanel);
+
+        private readonly struct TransformState
         {
-            if (_feedbackPanel == null)
+            public TransformState(Vector2 position, Vector3 scale, Quaternion rotation)
             {
-                return;
+                Position = position;
+                Scale = scale;
+                Rotation = rotation;
             }
 
-            _feedbackPanel.anchoredPosition = _feedbackRestPosition;
-            _feedbackPanel.localScale = Vector3.one;
+            public Vector2 Position { get; }
+            public Vector3 Scale { get; }
+            public Quaternion Rotation { get; }
+
+            public static TransformState Capture(RectTransform transform)
+            {
+                return new TransformState(
+                    transform.anchoredPosition,
+                    transform.localScale,
+                    transform.localRotation);
+            }
+
+            public void Restore(RectTransform transform)
+            {
+                if (transform == null)
+                {
+                    return;
+                }
+
+                transform.anchoredPosition = Position;
+                transform.localScale = Scale;
+                transform.localRotation = Rotation;
+            }
         }
     }
 }

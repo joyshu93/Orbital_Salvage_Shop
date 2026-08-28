@@ -16,6 +16,7 @@ using CurioClerk.Presentation;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
 
 namespace CurioClerk.Tests.PlayMode
@@ -143,7 +144,7 @@ namespace CurioClerk.Tests.PlayMode
 
             var first = ExpectedDestination(app);
             ChooseDestination(app, Convert.ToInt32(first));
-            yield return null;
+            yield return WaitForFilingTransition(app);
 
             Assert.That(first.ToString(), Is.EqualTo("Repair"));
             Assert.That(GameObject.Find("RepairButton").GetComponent<UnityEngine.UI.Button>().interactable,
@@ -168,7 +169,7 @@ namespace CurioClerk.Tests.PlayMode
             app.StartNewShift(4242);
             first = ExpectedDestination(app);
             ChooseDestination(app, Convert.ToInt32(first));
-            yield return null;
+            yield return WaitForFilingTransition(app);
 
             Assert.That(ObjectText("SortFeedback"),
                 Does.Contain("수리실").And.Contain("이미 찼어요"));
@@ -208,8 +209,7 @@ namespace CurioClerk.Tests.PlayMode
             SetSaveInt(app, "dailyBestScore", 0);
 
             StartDailyShift(app);
-            CompleteActiveShift(app);
-            yield return null;
+            yield return CompleteActiveShift(app);
 
             var completedScore = SessionScore(app);
             Assert.That(SaveString(app, "lastDailyCompletedDate"), Is.EqualTo("2026-08-26"));
@@ -235,6 +235,8 @@ namespace CurioClerk.Tests.PlayMode
             {
                 SortCurrentIncorrectly(app);
             }
+
+            yield return WaitForFilingTransition(app);
 
             Assert.That(SessionState(app), Is.EqualTo("Failed"));
             Assert.That(SaveString(app, "lastDailyCompletedDate"), Is.Empty);
@@ -295,7 +297,7 @@ namespace CurioClerk.Tests.PlayMode
                     locale + " next preview must identify the upcoming artifact by name.");
 
                 app.HoldCurrent();
-                yield return null;
+                yield return WaitForFilingTransition(app);
 
                 var heldArtifact = Session(app).GetType().GetProperty("HeldArtifact").GetValue(Session(app));
                 var heldId = (string)heldArtifact.GetType().GetProperty("Id").GetValue(heldArtifact);
@@ -378,6 +380,7 @@ namespace CurioClerk.Tests.PlayMode
             SetTutorialCompleted(app, false);
             BeginTutorial(app);
             ChooseDestination(app, 2);
+            yield return WaitForFilingTransition(app);
 
             Assert.That(CurrentArtifactId(app), Is.EqualTo("borrowed-shadow"));
             Assert.That(GameObject.Find("VaultButton").GetComponent<UnityEngine.UI.Button>().interactable,
@@ -392,15 +395,16 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(ObjectText("TutorialCoach"), Does.StartWith("2 / 7"));
 
             app.HoldCurrent();
-            yield return null;
+            yield return WaitForFilingTransition(app);
 
             Assert.That(CurrentArtifactId(app), Is.EqualTo("sleeping-teacup"));
             Assert.That(HeldArtifactId(app), Is.EqualTo("borrowed-shadow"));
             Assert.That(ObjectText("TutorialCoach"), Does.StartWith("3 / 7"));
 
             ChooseDestination(app, 0);
+            yield return WaitForFilingTransition(app);
             ChooseDestination(app, 1);
-            yield return null;
+            yield return WaitForFilingTransition(app);
 
             Assert.That(SessionInt(app, "CompletedDockets"), Is.EqualTo(1));
             Assert.That(CurrentArtifactId(app), Is.EqualTo("rain-jar"));
@@ -424,22 +428,34 @@ namespace CurioClerk.Tests.PlayMode
 
             Assert.That(ObjectText("TutorialCoach"), Does.StartWith("1 / 7"));
             ChooseDestination(app, 2);
+            yield return WaitForFilingTransition(app);
             Assert.That(ObjectText("TutorialCoach"), Does.StartWith("2 / 7"));
             app.HoldCurrent();
+            yield return WaitForFilingTransition(app);
             Assert.That(ObjectText("TutorialCoach"), Does.StartWith("3 / 7"));
             ChooseDestination(app, 0);
+            yield return WaitForFilingTransition(app);
             Assert.That(ObjectText("TutorialCoach"), Does.StartWith("4 / 7"));
             ChooseDestination(app, 1);
+            yield return WaitForFilingTransition(app);
             Assert.That(ObjectText("TutorialCoach"), Does.StartWith("5 / 7"));
             ChooseDestination(app, 1);
+            yield return WaitForFilingTransition(app);
             Assert.That(ObjectText("TutorialCoach"), Does.StartWith("6 / 7"));
             ChooseDestination(app, 0);
+            yield return WaitForFilingTransition(app);
             Assert.That(CurrentArtifactId(app), Is.EqualTo("borrowed-shadow"),
                 "The held shadow must return automatically after the six queued items.");
             Assert.That(HeldArtifactId(app), Is.Null);
             Assert.That(ObjectText("TutorialCoach"), Does.StartWith("7 / 7"));
             ChooseDestination(app, 2);
-            yield return null;
+
+            yield return new WaitForSecondsRealtime(0.65f);
+            Assert.That(TutorialCompleted(app), Is.False,
+                "The final tutorial docket must pulse before the completion screen replaces it.");
+            Assert.That(GameObject.Find("ShiftScreen"), Is.Not.Null);
+
+            yield return WaitForFilingTransition(app);
 
             Assert.That(TutorialCompleted(app), Is.True);
             Assert.That(GameObject.Find("TutorialCompleteScreen"), Is.Not.Null);
@@ -482,7 +498,7 @@ namespace CurioClerk.Tests.PlayMode
             }
 
             ChooseDestination(app, 2);
-            yield return null;
+            yield return WaitForFilingTransition(app);
 
             Assert.That(artifact.sprite.name, Is.EqualTo("borrowed-shadow"),
                 "The artifact illustration must follow the authoritative current artifact.");
@@ -509,10 +525,13 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(nextTwo.sprite?.name, Is.EqualTo("sleeping-teacup"));
 
             ChooseDestination(app, 2);
+            yield return WaitForFilingTransition(app);
             app.HoldCurrent();
+            yield return WaitForFilingTransition(app);
             ChooseDestination(app, 0);
+            yield return WaitForFilingTransition(app);
             ChooseDestination(app, 1);
-            yield return null;
+            yield return WaitForFilingTransition(app);
 
             Assert.That(nextOne.sprite?.name, Is.EqualTo("moon-umbrella"));
             Assert.That(nextTwo.sprite?.name, Is.EqualTo("borrowed-shadow"),
@@ -638,7 +657,7 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator FreshArtifact_ShowsOnlyCurrentDecisionPrompt()
+        public IEnumerator CorrectSort_KeepsOutgoingCurioUntilTransitionCompletes()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
             yield return null;
@@ -650,12 +669,88 @@ namespace CurioClerk.Tests.PlayMode
 
             var precedingResolution = CatalogResolution("mirror-seed", "en");
             app.ChooseDestination(Destination.Vault);
-            yield return null;
+
+            Assert.That(GameObject.Find("ArtifactIllustration")
+                    .GetComponent<UnityEngine.UI.Image>().sprite?.name,
+                Is.EqualTo("mirror-seed"));
+            Assert.That(ObjectText("SortFeedback"), Does.Contain(precedingResolution));
+
+            yield return new WaitForSecondsRealtime(0.9f);
 
             Assert.That(CurrentArtifactId(app), Is.EqualTo("clockwork-moth"));
+            Assert.That(GameObject.Find("ArtifactIllustration")
+                    .GetComponent<UnityEngine.UI.Image>().sprite?.name,
+                Is.EqualTo("clockwork-moth"));
             Assert.That(ObjectText("SortFeedback"),
                 Is.EqualTo("Compare its traits with tonight's rules."));
             Assert.That(ObjectText("SortFeedback"), Does.Not.Contain(precedingResolution));
+        }
+
+        [UnityTest]
+        public IEnumerator FilingTransition_PreventsCardDragUntilTheNextCurioAppears()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            StartAuthoredShift(app, "mirror-seed", "clockwork-moth", "sleeping-teacup");
+            yield return new WaitForSecondsRealtime(0.25f);
+
+            var card = GameObject.Find("CurrentArtifactCard").GetComponent<RectTransform>();
+            var drag = card.GetComponent<ArtifactDragHandler>();
+            var restPosition = card.anchoredPosition;
+            app.ChooseDestination(Destination.Vault);
+
+            var pointer = new PointerEventData(EventSystem.current)
+            {
+                delta = new Vector2(42f, 26f),
+                position = Vector2.zero
+            };
+            drag.OnBeginDrag(pointer);
+            drag.OnDrag(pointer);
+
+            Assert.That(Vector2.Distance(card.anchoredPosition, restPosition), Is.LessThan(0.01f),
+                "Locked filing transitions must ignore drag visuals as well as drop callbacks.");
+
+            yield return WaitForFilingTransition(app);
+            drag.OnBeginDrag(pointer);
+            drag.OnDrag(pointer);
+            Assert.That(Vector2.Distance(card.anchoredPosition, restPosition), Is.GreaterThan(1f),
+                "Card dragging must be restored for the next decision.");
+            drag.OnEndDrag(pointer);
+        }
+
+        [UnityTest]
+        public IEnumerator FilingTransition_CancelsDragThatEndsAfterTheNextCurioAppears()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            StartAuthoredShift(app, "mirror-seed", "clockwork-moth", "sleeping-teacup");
+            yield return new WaitForSecondsRealtime(0.25f);
+
+            var card = GameObject.Find("CurrentArtifactCard").GetComponent<RectTransform>();
+            var drag = card.GetComponent<ArtifactDragHandler>();
+            var pointer = new PointerEventData(EventSystem.current)
+            {
+                pointerId = 7,
+                delta = new Vector2(24f, 18f),
+                position = RectTransformUtility.WorldToScreenPoint(null, card.position)
+            };
+            drag.OnBeginDrag(pointer);
+            drag.OnDrag(pointer);
+
+            app.ChooseDestination(Destination.Vault);
+            yield return WaitForFilingTransition(app);
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("clockwork-moth"));
+            var correctBeforeStaleEnd = SessionCorrectSorts(app);
+            var storage = GameObject.Find("StorageButton").GetComponent<RectTransform>();
+            pointer.position = RectTransformUtility.WorldToScreenPoint(null, storage.position);
+
+            drag.OnEndDrag(pointer);
+
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("clockwork-moth"),
+                "A drag canceled by the filing lock must not sort the next curio when its old pointer ends.");
+            Assert.That(SessionCorrectSorts(app), Is.EqualTo(correctBeforeStaleEnd));
         }
 
         [UnityTest]
@@ -746,13 +841,17 @@ namespace CurioClerk.Tests.PlayMode
             appType.GetMethod("StartNewShift").Invoke(app, new object[] { 4242 });
             var sessionField = appType.GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic);
             SortCurrentIncorrectly(app);
-            CompleteUntilCorrectSorts(app, 11);
+            yield return CompleteUntilCorrectSorts(app, 11);
             var finalArtifactId = CurrentArtifactId(app);
             var finalResolution = CatalogResolution(finalArtifactId, "en");
             var finalDestination = ExpectedDestination(app);
             typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { finalDestination });
 
-            yield return null;
+            yield return new WaitForSecondsRealtime(0.65f);
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Shift),
+                "The final docket must pulse before the results screen replaces the desk.");
+
+            yield return WaitForFilingTransition(app);
             Assert.That(appType.GetProperty("ActiveScreen").GetValue(app).ToString(), Is.EqualTo("Results"));
             Assert.That(ObjectText("ResultScore"), Does.Contain("CORRECT"));
             Assert.That(ObjectText("ResultScore"), Does.Contain("MISTAKES"));
@@ -809,7 +908,7 @@ namespace CurioClerk.Tests.PlayMode
             var app = CreateApp(adService, new ControllablePrivacyService());
             yield return null;
             SetEnglishLocale(app);
-            CompleteShift(app);
+            yield return CompleteShift(app);
             var coinsBeforeReward = Coins(app);
             var baseCoins = SessionCoins(app);
 
@@ -830,7 +929,7 @@ namespace CurioClerk.Tests.PlayMode
             var app = CreateApp(adService, new ControllablePrivacyService());
             yield return null;
             SetEnglishLocale(app);
-            CompleteShift(app);
+            yield return CompleteShift(app);
             var coinsBeforeReward = Coins(app);
             var cases = new[]
             {
@@ -956,10 +1055,12 @@ namespace CurioClerk.Tests.PlayMode
             feedback.Cues.Clear();
             app.HoldCurrent();
             Assert.That(feedback.Cues, Does.Contain(PlayerFeedbackCue.Hold));
+            yield return WaitForFilingTransition(app);
 
             var expected = ExpectedDestination(app);
             typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { expected });
             Assert.That(feedback.Cues, Does.Contain(PlayerFeedbackCue.Correct));
+            yield return WaitForFilingTransition(app);
 
             SortCurrentIncorrectly(app);
             Assert.That(feedback.Cues, Does.Contain(PlayerFeedbackCue.Wrong));
@@ -973,12 +1074,13 @@ namespace CurioClerk.Tests.PlayMode
             yield return null;
             app.StartNewShift(4242);
 
-            CompleteUntilCorrectSorts(app, 11);
+            yield return CompleteUntilCorrectSorts(app, 11);
 
             feedback.Cues.Clear();
             var finalDestination = ExpectedDestination(app);
             typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { finalDestination });
 
+            yield return WaitForFilingTransition(app);
             Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Results));
             Assert.That(feedback.Cues, Is.EqualTo(new[] { PlayerFeedbackCue.ShiftComplete }),
                 "The terminal correct tone must not overlap the distinct completion cue.");
@@ -1006,9 +1108,14 @@ namespace CurioClerk.Tests.PlayMode
             feedback.Cues.Clear();
             SortCurrentIncorrectly(app);
 
-            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Results));
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Shift),
+                "The final wrong response must remain visible before results replace the desk.");
+            Assert.That(ObjectText("ShiftHud"), Does.Contain("HEARTS 0"),
+                "The visible desk must show the lost final heart during the wrong-response animation.");
             Assert.That(feedback.Cues, Is.EqualTo(new[] { PlayerFeedbackCue.Wrong }),
                 "A final wrong sort must retain its corrective tone and haptic without overlapping the completion tone.");
+            yield return new WaitForSecondsRealtime(0.35f);
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Results));
             for (var docket = 0; docket < 4; docket++)
             {
                 Assert.That(ObjectText("ResultDocket" + docket), Does.Contain("INKED"),
@@ -1028,7 +1135,7 @@ namespace CurioClerk.Tests.PlayMode
             var saveCoinsBefore = Coins(app);
             var completedShiftsBefore = CompletedShifts(app);
             var discoveredBefore = DiscoveredCount(app);
-            FailShift(app);
+            yield return FailShift(app);
 
             Assert.That(SessionState(app), Is.EqualTo("Failed"));
             Assert.That(SessionHearts(app), Is.Zero);
@@ -1052,6 +1159,7 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(SessionHearts(app), Is.EqualTo(1));
 
             SortCurrentIncorrectly(app);
+            yield return WaitForFilingTransition(app);
             Assert.That(SessionState(app), Is.EqualTo("Failed"));
             Assert.That(SessionHearts(app), Is.Zero);
             RequestFailedShiftReward(app);
@@ -1075,7 +1183,7 @@ namespace CurioClerk.Tests.PlayMode
             var saveCoinsBefore = Coins(app);
             var completedShiftsBefore = CompletedShifts(app);
             var discoveredBefore = DiscoveredCount(app);
-            FailShift(app);
+            yield return FailShift(app);
             var cases = new[]
             {
                 new RewardFeedbackCase(RewardedAdResult.Dismissed, "Ad dismissed. No changes were made."),
@@ -1148,10 +1256,10 @@ namespace CurioClerk.Tests.PlayMode
             typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { destination });
         }
 
-        private static void CompleteShift(GameApp app)
+        private static IEnumerator CompleteShift(GameApp app)
         {
             app.StartNewShift(4242);
-            CompleteActiveShift(app);
+            yield return CompleteActiveShift(app);
         }
 
         private static void StartAuthoredShift(GameApp app, params string[] artifactIds)
@@ -1202,10 +1310,10 @@ namespace CurioClerk.Tests.PlayMode
             var outcome = session.Sort(destination);
             typeof(GameApp)
                 .GetMethod("ShowSortFeedback", BindingFlags.Instance | BindingFlags.NonPublic)
-                .Invoke(app, new object[] { artifact, content, outcome, false });
+                .Invoke(app, new object[] { artifact, content, outcome, false, false });
         }
 
-        private static void CompleteActiveShift(GameApp app)
+        private static IEnumerator CompleteActiveShift(GameApp app)
         {
             for (var safety = 0; safety < 64 && SessionState(app) == "Active"; safety++)
             {
@@ -1220,13 +1328,15 @@ namespace CurioClerk.Tests.PlayMode
                 {
                     app.HoldCurrent();
                 }
+
+                yield return WaitForFilingTransition(app);
             }
 
             Assert.That(SessionState(app), Is.EqualTo("Completed"),
                 "The generated plan must complete within the safety bound using one Hold slot.");
         }
 
-        private static void CompleteUntilCorrectSorts(GameApp app, int targetCorrectSorts)
+        private static IEnumerator CompleteUntilCorrectSorts(GameApp app, int targetCorrectSorts)
         {
             for (var safety = 0;
                  safety < 64 && SessionState(app) == "Active" &&
@@ -1244,9 +1354,26 @@ namespace CurioClerk.Tests.PlayMode
                 {
                     app.HoldCurrent();
                 }
+
+                yield return WaitForFilingTransition(app);
             }
 
             Assert.That(SessionCorrectSorts(app), Is.EqualTo(targetCorrectSorts));
+        }
+
+        private static IEnumerator WaitForFilingTransition(GameApp app)
+        {
+            var inputLocked = typeof(GameApp)
+                .GetField("_inputLocked", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(inputLocked, Is.Not.Null);
+            var deadline = Time.realtimeSinceStartup + 1.5f;
+            while ((bool)inputLocked.GetValue(app) && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+
+            Assert.That((bool)inputLocked.GetValue(app), Is.False,
+                "The filing transition must release input within 1.5 seconds.");
         }
 
         private static void StartDailyShift(GameApp app)
@@ -1264,13 +1391,15 @@ namespace CurioClerk.Tests.PlayMode
                 .SetValue(app, new ShiftSeedProvider(clock));
         }
 
-        private static void FailShift(GameApp app)
+        private static IEnumerator FailShift(GameApp app)
         {
             app.StartNewShift(4242);
             for (var index = 0; index < 3; index++)
             {
                 SortCurrentIncorrectly(app);
             }
+
+            yield return WaitForFilingTransition(app);
         }
 
         private static void SortCurrentIncorrectly(GameApp app)

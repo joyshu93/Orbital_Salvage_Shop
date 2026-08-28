@@ -100,6 +100,7 @@ namespace CurioClerk.Presentation
         private DocketProgressView _docketProgress;
         private ShiftFeedbackAnimator _feedbackAnimator;
         private ArtifactDragHandler _artifactDragHandler;
+        private GameObject _tutorialDocketCompleteCard;
         private bool _resultApplied;
         private int _appliedResultCoins;
         private string _lastCorrectArtifactId;
@@ -178,8 +179,7 @@ namespace CurioClerk.Presentation
             ActiveScreen = AppScreen.Tutorial;
             var page = CreatePage("TutorialScreen");
             CreateText(page, "TutorialTitle", _localizer.Get("tutorial_title"), 48, Amber, TextAlignmentOptions.Center, new Vector2(0.10f, 0.72f), new Vector2(0.90f, 0.84f), true);
-            CreateText(page, "TutorialBody", _localizer.Get("tutorial_body"), 27, Paper, TextAlignmentOptions.Top, new Vector2(0.07f, 0.39f), new Vector2(0.93f, 0.69f));
-            CreateText(page, "TutorialIcons", _localizer.Get("tutorial_controls"), 25, Amber, TextAlignmentOptions.Center, new Vector2(0.08f, 0.24f), new Vector2(0.92f, 0.39f), true);
+            CreateText(page, "TutorialBody", _localizer.Get("tutorial_body"), 27, Paper, TextAlignmentOptions.Center, new Vector2(0.07f, 0.35f), new Vector2(0.93f, 0.66f), true);
             CreateButton(page, "BeginTutorialShiftButton", _localizer.Get("begin"), new Vector2(0.18f, 0.11f), new Vector2(0.82f, 0.20f), Amber, Ink, StartTutorialShift);
         }
 
@@ -596,9 +596,7 @@ namespace CurioClerk.Presentation
         {
             if (_tutorialStage == TutorialStage.HoldDuplicateVault)
             {
-                _sortFeedbackPanel.color = Wine;
-                _statusText.text = _localizer.Get("tutorial_blocked");
-                _statusText.color = Paper;
+                RefreshDecisionMessage();
                 RefreshTutorialGuidance();
                 return;
             }
@@ -731,6 +729,7 @@ namespace CurioClerk.Presentation
         {
             Action finish = () =>
             {
+                HideTutorialDocketCompleteCard();
                 if (completingTutorial)
                 {
                     _inputLocked = false;
@@ -745,6 +744,11 @@ namespace CurioClerk.Presentation
 
             if (outcome.DidCompleteDocket && _docketProgress != null)
             {
+                if (!completingTutorial && _session.CompletedDockets == 1)
+                {
+                    ShowTutorialDocketCompleteCard();
+                }
+
                 _docketProgress.PlayComplete(finish);
             }
             else
@@ -827,7 +831,6 @@ namespace CurioClerk.Presentation
                 return;
             }
 
-            var guidanceKey = "tutorial_step_first_vault";
             var highlightedRule = -1;
             var highlightedDestination = -1;
             var holdEnabled = false;
@@ -838,46 +841,80 @@ namespace CurioClerk.Presentation
                     highlightedDestination = (int)Destination.Vault;
                     break;
                 case TutorialStage.HoldDuplicateVault:
-                    guidanceKey = "tutorial_step_hold";
+                    highlightedRule = 0;
                     holdEnabled = true;
                     break;
                 case TutorialStage.FirstRepair:
-                    guidanceKey = "tutorial_step_first_repair";
                     highlightedRule = 1;
                     highlightedDestination = (int)Destination.Repair;
                     break;
                 case TutorialStage.FirstStorage:
-                    guidanceKey = "tutorial_step_first_storage";
                     highlightedRule = 2;
                     highlightedDestination = (int)Destination.Storage;
                     break;
                 case TutorialStage.SecondStorage:
-                    guidanceKey = "tutorial_step_second_storage";
                     highlightedRule = 2;
                     highlightedDestination = (int)Destination.Storage;
                     break;
                 case TutorialStage.SecondRepair:
-                    guidanceKey = "tutorial_step_second_repair";
                     highlightedRule = 1;
                     highlightedDestination = (int)Destination.Repair;
                     break;
                 case TutorialStage.FinalHeldVault:
-                    guidanceKey = "tutorial_step_final_vault";
                     highlightedRule = 0;
                     highlightedDestination = (int)Destination.Vault;
                     break;
             }
 
-            _tutorialCoach.text = _localizer.Get(guidanceKey);
+            _tutorialCoach.text = holdEnabled
+                ? _localizer.Get(
+                    "hold_required",
+                    DestinationName(_session.CurrentResolution.Destination))
+                : _localizer.Get("tutorial_goal");
             _ruleListText.text = RulesText(highlightedRule);
             _holdButton.interactable = !_inputLocked && holdEnabled;
             _holdHighlight.enabled = holdEnabled;
             for (var index = 0; index < _destinationButtons.Length; index++)
             {
                 _destinationButtons[index].interactable =
-                    !_inputLocked && _session.CanSort((Destination)index);
+                    !_inputLocked && !holdEnabled && _session.CanSort((Destination)index);
                 _destinationHighlights[index].enabled = index == highlightedDestination;
             }
+        }
+
+        private void ShowTutorialDocketCompleteCard()
+        {
+            HideTutorialDocketCompleteCard();
+            var card = CreatePanel(
+                _screenRoot,
+                "TutorialDocketCompleteCard",
+                Wine,
+                new Vector2(0.12f, 0.40f),
+                new Vector2(0.88f, 0.56f));
+            AddSurfaceChrome(card, Amber, 3f, 0.38f);
+            CreateText(
+                card,
+                "TutorialDocketCompleteMessage",
+                _localizer.Get("tutorial_first_docket_complete"),
+                28,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.05f, 0.10f),
+                new Vector2(0.95f, 0.90f),
+                true);
+            _tutorialDocketCompleteCard = card.gameObject;
+        }
+
+        private void HideTutorialDocketCompleteCard()
+        {
+            if (_tutorialDocketCompleteCard == null)
+            {
+                return;
+            }
+
+            _tutorialDocketCompleteCard.SetActive(false);
+            Destroy(_tutorialDocketCompleteCard);
+            _tutorialDocketCompleteCard = null;
         }
 
         private void CompleteTutorial()
@@ -889,7 +926,7 @@ namespace CurioClerk.Presentation
             ActiveScreen = AppScreen.Tutorial;
             var page = CreatePage("TutorialCompleteScreen");
             CreateText(page, "TutorialCompleteTitle", _localizer.Get("tutorial_complete_title"), 58, Amber, TextAlignmentOptions.Center, new Vector2(0.10f, 0.62f), new Vector2(0.90f, 0.76f), true, TextRole.Display);
-            CreateText(page, "TutorialCompleteBody", _localizer.Get("tutorial_complete_body"), 30, Paper, TextAlignmentOptions.Center, new Vector2(0.14f, 0.39f), new Vector2(0.86f, 0.58f));
+            CreateText(page, "TutorialCompleteBody", _localizer.Get("tutorial_finish"), 30, Paper, TextAlignmentOptions.Center, new Vector2(0.14f, 0.39f), new Vector2(0.86f, 0.58f));
             CreateButton(page, "TutorialStartShiftButton", _localizer.Get("tutorial_start_shift"), new Vector2(0.18f, 0.20f), new Vector2(0.82f, 0.30f), Amber, Ink, () => StartNewShift(_seedProvider.CreateStandardSeed(_save.completedShifts)));
         }
 
@@ -1025,7 +1062,9 @@ namespace CurioClerk.Presentation
             _currentSymbol.text = content.Symbol;
             _currentName.text = Name(content);
             _currentDescription.text = Description(content);
-            _currentTraits.text = TraitsText(content.Traits);
+            _currentTraits.text = TraitsText(
+                content.Traits,
+                IsTutorialActive ? TutorialEmphasizedTraits() : ArtifactTraits.None);
             if (_session.HeldArtifact == null)
             {
                 _heldText.text = _localizer.Get("hold") + "\n—";
@@ -1731,23 +1770,53 @@ namespace CurioClerk.Presentation
 
         private static string HighlightRule(string line) => "<color=#E0A24B><b>" + line + "</b></color>";
 
-        private string TraitsText(ArtifactTraits traits)
+        private ArtifactTraits TutorialEmphasizedTraits()
+        {
+            var resolution = _session?.CurrentResolution;
+            if (resolution == null || _activeRules == null)
+            {
+                return ArtifactTraits.None;
+            }
+
+            var rule = _activeRules.FirstOrDefault(candidate => candidate.Id == resolution.RuleId);
+            if (rule == null || rule.IsFallback)
+            {
+                return ArtifactTraits.None;
+            }
+
+            var required = rule.RequiredAll != ArtifactTraits.None
+                ? rule.RequiredAll
+                : rule.RequiredAny;
+            return required & _session.CurrentArtifact.Traits;
+        }
+
+        private string TraitsText(
+            ArtifactTraits traits,
+            ArtifactTraits emphasized = ArtifactTraits.None)
         {
             var labels = new List<string>(3);
-            AddTrait(labels, traits, ArtifactTraits.Cursed, "trait_cursed");
-            AddTrait(labels, traits, ArtifactTraits.Fragile, "trait_fragile");
-            AddTrait(labels, traits, ArtifactTraits.Alive, "trait_alive");
-            AddTrait(labels, traits, ArtifactTraits.Temporal, "trait_temporal");
-            AddTrait(labels, traits, ArtifactTraits.Wet, "trait_wet");
-            AddTrait(labels, traits, ArtifactTraits.Metallic, "trait_metallic");
+            AddTrait(labels, traits, ArtifactTraits.Cursed, "trait_cursed", emphasized);
+            AddTrait(labels, traits, ArtifactTraits.Fragile, "trait_fragile", emphasized);
+            AddTrait(labels, traits, ArtifactTraits.Alive, "trait_alive", emphasized);
+            AddTrait(labels, traits, ArtifactTraits.Temporal, "trait_temporal", emphasized);
+            AddTrait(labels, traits, ArtifactTraits.Wet, "trait_wet", emphasized);
+            AddTrait(labels, traits, ArtifactTraits.Metallic, "trait_metallic", emphasized);
             return string.Join(" · ", labels);
         }
 
-        private void AddTrait(ICollection<string> labels, ArtifactTraits value, ArtifactTraits trait, string key)
+        private void AddTrait(
+            ICollection<string> labels,
+            ArtifactTraits value,
+            ArtifactTraits trait,
+            string key,
+            ArtifactTraits emphasized)
         {
             if ((value & trait) != 0)
             {
-                labels.Add(_localizer.Get(key));
+                var label = _localizer.Get(key);
+                labels.Add((emphasized & trait) != 0
+                    ? "<color=#E0A24B><b>" + label + "</b></color>"
+                    : label);
             }
         }
 

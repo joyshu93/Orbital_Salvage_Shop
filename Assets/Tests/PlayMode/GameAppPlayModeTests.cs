@@ -319,7 +319,12 @@ namespace CurioClerk.Tests.PlayMode
             var completedBefore = CompletedShifts(app);
             var coinsBefore = Coins(app);
 
-            BeginTutorial(app);
+            app.ShowTutorial();
+            Assert.That(ObjectText("TutorialBody"),
+                Is.EqualTo("Clock in, then learn the three desks by sorting six curios."));
+            Assert.That(GameObject.Find("TutorialIcons"), Is.Null,
+                "The clock-in screen must not front-load a second block of control instructions.");
+            ClickButton("BeginTutorialShiftButton");
             yield return null;
 
             Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Shift));
@@ -344,9 +349,25 @@ namespace CurioClerk.Tests.PlayMode
 
             Assert.That(CurrentArtifactId(app), Is.EqualTo("whispering-key"));
             Assert.That(SessionInt(app, "RequiredDockets"), Is.EqualTo(2));
-            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("1 / 7"));
+            Assert.That(ObjectText("TutorialCoach"),
+                Does.Contain("one REPAIR, one STORAGE, and one VAULT"));
+            Assert.That(ObjectText("RuleList"),
+                Does.Contain("<color=#E0A24B><b>1.").And.Contain("CURSED"));
+            Assert.That(ObjectText("ArtifactTraits"),
+                Does.Contain("<color=#E0A24B><b>CURSED</b></color>"));
             Assert.That(CompletedShifts(app), Is.EqualTo(completedBefore));
             Assert.That(Coins(app), Is.EqualTo(coinsBefore));
+
+            SetLocale(app, "ko");
+            app.ShowTutorial();
+            Assert.That(ObjectText("TutorialBody"),
+                Is.EqualTo("출근해서 여섯 물건을 분류하며 세 장소를 배워보세요."));
+            Assert.That(GameObject.Find("TutorialIcons"), Is.Null);
+            ClickButton("BeginTutorialShiftButton");
+            Assert.That(ObjectText("TutorialCoach"),
+                Does.Contain("수리실·보관실·봉인고 도장이 하나씩"));
+            Assert.That(ObjectText("ArtifactTraits"),
+                Does.Contain("<color=#E0A24B><b>저주받음</b></color>"));
             SetTutorialCompleted(app, tutorialBefore);
         }
 
@@ -366,7 +387,11 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(CurrentArtifactId(app), Is.EqualTo("whispering-key"));
             Assert.That(SessionHearts(app), Is.EqualTo(3));
             Assert.That(ObjectText("SortFeedback"), Does.Contain("VAULT"));
-            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("1 / 7"));
+            Assert.That(ObjectText("TutorialCoach"),
+                Does.Contain("one REPAIR, one STORAGE, and one VAULT"));
+            Assert.That(ObjectText("RuleList"), Does.Contain("<color=#E0A24B><b>1."));
+            Assert.That(ObjectText("ArtifactTraits"),
+                Does.Contain("<color=#E0A24B><b>CURSED</b></color>"));
             SetTutorialCompleted(app, tutorialBefore);
         }
 
@@ -392,24 +417,51 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(HasEnabledOutline("RepairButton"), Is.False);
             Assert.That(HasEnabledOutline("StorageButton"), Is.False);
             Assert.That(HasEnabledOutline("VaultButton"), Is.False);
-            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("2 / 7"));
+            Assert.That(ObjectText("TutorialCoach"),
+                Does.Contain("correct desk").And.Contain("already full"));
+            Assert.That(ObjectText("RuleList"), Does.Contain("<color=#E0A24B><b>1."));
+            Assert.That(ObjectText("ArtifactTraits"),
+                Does.Contain("<color=#E0A24B><b>CURSED</b></color>"));
 
             app.HoldCurrent();
             yield return WaitForFilingTransition(app);
 
             Assert.That(CurrentArtifactId(app), Is.EqualTo("sleeping-teacup"));
             Assert.That(HeldArtifactId(app), Is.EqualTo("borrowed-shadow"));
-            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("3 / 7"));
+            Assert.That(ObjectText("ArtifactTraits"),
+                Does.Contain("<color=#E0A24B><b>FRAGILE</b></color>"));
 
             ChooseDestination(app, 0);
             yield return WaitForFilingTransition(app);
             ChooseDestination(app, 1);
+            yield return new WaitForSecondsRealtime(0.5f);
+
+            Assert.That(ObjectText("TutorialDocketCompleteCard"),
+                Does.Contain("used each desk once"));
             yield return WaitForFilingTransition(app);
 
             Assert.That(SessionInt(app, "CompletedDockets"), Is.EqualTo(1));
             Assert.That(CurrentArtifactId(app), Is.EqualTo("rain-jar"));
             Assert.That(HeldArtifactId(app), Is.EqualTo("borrowed-shadow"));
-            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("5 / 7"));
+
+            SetLocale(app, "ko");
+            BeginTutorial(app);
+            ChooseDestination(app, 2);
+            yield return WaitForFilingTransition(app);
+            Assert.That(ObjectText("TutorialCoach"),
+                Does.Contain("정답은 봉인고").And.Contain("이미 찼어요"));
+            Assert.That(ObjectText("RuleList"), Does.Contain("<color=#E0A24B><b>1."));
+            Assert.That(ObjectText("ArtifactTraits"),
+                Does.Contain("<color=#E0A24B><b>저주받음</b></color>"));
+            app.HoldCurrent();
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, 0);
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, 1);
+            yield return new WaitForSecondsRealtime(0.5f);
+            Assert.That(ObjectText("TutorialDocketCompleteCard"),
+                Does.Contain("세 장소를 한 번씩"));
+            yield return WaitForFilingTransition(app);
             SetTutorialCompleted(app, tutorialBefore);
         }
 
@@ -426,28 +478,23 @@ namespace CurioClerk.Tests.PlayMode
             var discoveredBefore = DiscoveredCount(app);
             BeginTutorial(app);
 
-            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("1 / 7"));
+            Assert.That(ObjectText("TutorialCoach"),
+                Does.Contain("one REPAIR, one STORAGE, and one VAULT"));
             ChooseDestination(app, 2);
             yield return WaitForFilingTransition(app);
-            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("2 / 7"));
             app.HoldCurrent();
             yield return WaitForFilingTransition(app);
-            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("3 / 7"));
             ChooseDestination(app, 0);
             yield return WaitForFilingTransition(app);
-            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("4 / 7"));
             ChooseDestination(app, 1);
             yield return WaitForFilingTransition(app);
-            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("5 / 7"));
             ChooseDestination(app, 1);
             yield return WaitForFilingTransition(app);
-            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("6 / 7"));
             ChooseDestination(app, 0);
             yield return WaitForFilingTransition(app);
             Assert.That(CurrentArtifactId(app), Is.EqualTo("borrowed-shadow"),
                 "The held shadow must return automatically after the six queued items.");
             Assert.That(HeldArtifactId(app), Is.Null);
-            Assert.That(ObjectText("TutorialCoach"), Does.StartWith("7 / 7"));
             ChooseDestination(app, 2);
 
             yield return new WaitForSecondsRealtime(0.65f);
@@ -459,9 +506,30 @@ namespace CurioClerk.Tests.PlayMode
 
             Assert.That(TutorialCompleted(app), Is.True);
             Assert.That(GameObject.Find("TutorialCompleteScreen"), Is.Not.Null);
+            Assert.That(ObjectText("TutorialCompleteBody"),
+                Does.Contain("Fill all three stamps").And.Contain("Hold"));
             Assert.That(CompletedShifts(app), Is.EqualTo(completedBefore));
             Assert.That(Coins(app), Is.EqualTo(coinsBefore));
             Assert.That(DiscoveredCount(app), Is.EqualTo(discoveredBefore));
+
+            SetLocale(app, "ko");
+            BeginTutorial(app);
+            ChooseDestination(app, 2);
+            yield return WaitForFilingTransition(app);
+            app.HoldCurrent();
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, 0);
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, 1);
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, 1);
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, 0);
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, 2);
+            yield return WaitForFilingTransition(app);
+            Assert.That(ObjectText("TutorialCompleteBody"),
+                Does.Contain("세 도장을").And.Contain("보류"));
             SetTutorialCompleted(app, tutorialBefore);
         }
 

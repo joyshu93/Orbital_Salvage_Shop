@@ -44,6 +44,17 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(run.Evaluate(CompletedResult(mistakes: 0)), Is.EqualTo(IncidentQuality.Precise));
         }
 
+        [TestCase(null)]
+        [TestCase("")]
+        public void StageRun_WithoutAnAuthoredHoldCannotResonate(string resonanceHoldArtifactId)
+        {
+            var run = new IncidentStageRun("ice-01-crack", resonanceHoldArtifactId);
+            run.RecordHold("unmelting-ice");
+
+            Assert.That(run.ResonanceConditionMet, Is.False);
+            Assert.That(run.Evaluate(CompletedResult(mistakes: 0)), Is.EqualTo(IncidentQuality.Precise));
+        }
+
         [Test]
         public void StageRun_FailedResultsCannotBeEvaluated()
         {
@@ -69,8 +80,15 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(runner.CurrentStageIndex, Is.EqualTo(1));
             Assert.That(runner.CurrentStageId, Is.EqualTo("ice-02"));
 
+            completion = runner.CompleteCurrentStage(IncidentQuality.Precise);
+            Assert.That(completion.CompletedStageIndex, Is.EqualTo(1));
+            Assert.That(completion.NextStageIndex, Is.EqualTo(2));
+            Assert.That(completion.IncidentCompleted, Is.True);
+            Assert.That(runner.IsComplete, Is.True);
+            Assert.That(runner.CurrentStageIndex, Is.EqualTo(2));
+
             Assert.Throws<InvalidOperationException>(() => runner.CompleteCurrentStage(IncidentQuality.Precise));
-            Assert.That(runner.CurrentStageIndex, Is.EqualTo(1));
+            Assert.That(runner.CurrentStageIndex, Is.EqualTo(2));
         }
 
         [Test]

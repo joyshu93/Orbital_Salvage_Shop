@@ -14,11 +14,6 @@ namespace CurioClerk.Core.Incidents
                 throw new ArgumentException("Stage IDs cannot be blank.", nameof(stageId));
             }
 
-            if (string.IsNullOrWhiteSpace(resonanceHoldArtifactId))
-            {
-                throw new ArgumentException("Resonance artifact IDs cannot be blank.", nameof(resonanceHoldArtifactId));
-            }
-
             StageId = stageId;
             _resonanceHoldArtifactId = resonanceHoldArtifactId;
         }
@@ -34,7 +29,7 @@ namespace CurioClerk.Core.Incidents
                 throw new ArgumentException("Artifact IDs cannot be blank.", nameof(artifactId));
             }
 
-            if (artifactId == _resonanceHoldArtifactId)
+            if (!string.IsNullOrWhiteSpace(_resonanceHoldArtifactId) && artifactId == _resonanceHoldArtifactId)
             {
                 ResonanceConditionMet = true;
             }

@@ -921,6 +921,8 @@ namespace CurioClerk.Tests.PlayMode
 
             yield return WaitForFilingTransition(app);
             Assert.That(appType.GetProperty("ActiveScreen").GetValue(app).ToString(), Is.EqualTo("Results"));
+            Assert.That(FindText("ResultTitle").font.name, Does.StartWith("GowunBatang-Bold"));
+            Assert.That(FindText("ResultResolution").font.name, Does.StartWith("GowunBatang-Bold"));
             Assert.That(ObjectText("ResultScore"), Does.Contain("CORRECT"));
             Assert.That(ObjectText("ResultScore"), Does.Contain("MISTAKES"));
             Assert.That(ObjectText("ResultScore"), Does.Not.Contain("✓").And.Not.Contain("✕"),
@@ -933,6 +935,11 @@ namespace CurioClerk.Tests.PlayMode
             for (var docket = 1; docket < 4; docket++)
             {
                 Assert.That(ObjectText("ResultDocket" + docket), Does.Contain("PRISTINE"));
+            }
+            for (var docket = 0; docket < 4; docket++)
+            {
+                Assert.That(GameObject.Find("ResultDocket" + docket).GetComponent<CanvasGroup>(),
+                    Is.Not.Null, "Each completed docket row must participate in the ledger reveal.");
             }
 
             Assert.That(ObjectText("ResultResolution"), Does.Contain(finalResolution),
@@ -1184,10 +1191,27 @@ namespace CurioClerk.Tests.PlayMode
                 "A final wrong sort must retain its corrective tone and haptic without overlapping the completion tone.");
             yield return new WaitForSecondsRealtime(0.35f);
             Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Results));
+            var failedLedgerRows = new CanvasGroup[4];
             for (var docket = 0; docket < 4; docket++)
             {
+                var row = GameObject.Find("ResultDocket" + docket);
                 Assert.That(ObjectText("ResultDocket" + docket), Does.Contain("INKED"),
                     "Unfinished docket rows must visibly remain unresolved.");
+                var group = row.GetComponent<CanvasGroup>();
+                Assert.That(group, Is.Not.Null,
+                    "Failed shifts must use the same ledger reveal as completed shifts.");
+                failedLedgerRows[docket] = group;
+            }
+            Assert.That(failedLedgerRows[0].alpha,
+                Is.GreaterThan(failedLedgerRows[3].alpha + 0.1f),
+                "Failed ledger rows must participate in the same ordered reveal.");
+
+            yield return new WaitForSecondsRealtime(0.8f);
+            for (var docket = 0; docket < 4; docket++)
+            {
+                var row = GameObject.Find("ResultDocket" + docket);
+                Assert.That(row.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f).Within(0.01f));
+                Assert.That(Vector3.Distance(row.transform.localScale, Vector3.one), Is.LessThan(0.01f));
             }
 
             Assert.That(GameObject.Find("RewardedAdButton"), Is.Null,

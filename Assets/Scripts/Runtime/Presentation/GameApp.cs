@@ -1140,6 +1140,7 @@ namespace CurioClerk.Presentation
             var completed = _session.State == ShiftState.Completed;
             var resultTitle = CreateText(page, "ResultTitle", _localizer.Get(completed ? "complete" : "failed"), 54, completed ? Amber : DustyRose, TextAlignmentOptions.Center, new Vector2(0.08f, 0.87f), new Vector2(0.92f, 0.96f), true, TextRole.Display);
             CreateText(page, "ResultDocketsHeader", _localizer.Get("result_dockets"), 25, Amber, TextAlignmentOptions.Center, new Vector2(0.12f, 0.81f), new Vector2(0.88f, 0.86f), true);
+            var resultRows = new List<CanvasGroup>(4);
             for (var docket = 0; docket < 4; docket++)
             {
                 var hasCompletedDocket = docket < _session.CompletedDocketPristine.Count;
@@ -1148,7 +1149,7 @@ namespace CurioClerk.Presentation
                     ? _localizer.Get("docket_pristine")
                     : _localizer.Get("docket_inked");
                 var rowTop = 0.80f - docket * 0.045f;
-                CreateText(
+                var row = CreateText(
                     page,
                     "ResultDocket" + docket,
                     (docket + 1) + " · " + status,
@@ -1158,7 +1159,12 @@ namespace CurioClerk.Presentation
                     new Vector2(0.20f, rowTop - 0.04f),
                     new Vector2(0.80f, rowTop),
                     true);
+                resultRows.Add(row.gameObject.AddComponent<CanvasGroup>());
             }
+
+            var ledgerAnimator = page.gameObject.AddComponent<ResultLedgerAnimator>();
+            ledgerAnimator.Configure(resultRows);
+            ledgerAnimator.Play();
 
             var resultResolution = _lastCorrectArtifactId != null && _artifactById.TryGetValue(_lastCorrectArtifactId, out var finalContent)
                 ? Resolution(finalContent)

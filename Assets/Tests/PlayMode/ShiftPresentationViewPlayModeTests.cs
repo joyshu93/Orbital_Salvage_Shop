@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using CurioClerk.Core.Rules;
 using CurioClerk.Core.Shifts;
@@ -19,7 +20,7 @@ namespace CurioClerk.Tests.PlayMode
         {
             if (_host != null)
             {
-                Object.DestroyImmediate(_host);
+                UnityEngine.Object.DestroyImmediate(_host);
             }
         }
 
@@ -173,6 +174,82 @@ namespace CurioClerk.Tests.PlayMode
             }
         }
 
+        [UnityTest]
+        public IEnumerator ResultLedgerAnimator_RevealsFourRowsInSequence()
+        {
+            var animator = CreateResultLedgerAnimator(out var rows);
+
+            animator.Play();
+
+            for (var index = 0; index < rows.Length; index++)
+            {
+                Assert.That(rows[index].alpha, Is.Zero);
+            }
+
+            yield return new WaitForSecondsRealtime(0.12f);
+            Assert.That(rows[0].alpha, Is.GreaterThan(rows[3].alpha + 0.1f),
+                "Completed docket rows must reveal in ledger order, not all at once.");
+
+            yield return new WaitForSecondsRealtime(0.7f);
+            for (var index = 0; index < rows.Length; index++)
+            {
+                Assert.That(rows[index].alpha, Is.EqualTo(1f).Within(0.01f));
+                Assert.That(Vector3.Distance(rows[index].transform.localScale, Vector3.one),
+                    Is.LessThan(0.01f));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ResultLedgerAnimator_DisableRestoresEveryRow()
+        {
+            var animator = CreateResultLedgerAnimator(out var rows);
+            animator.Play();
+            yield return new WaitForSecondsRealtime(0.12f);
+
+            _host.SetActive(false);
+
+            for (var index = 0; index < rows.Length; index++)
+            {
+                Assert.That(rows[index].alpha, Is.EqualTo(1f).Within(0.01f));
+                Assert.That(Vector3.Distance(rows[index].transform.localScale, Vector3.one),
+                    Is.LessThan(0.01f));
+            }
+        }
+
+        [Test]
+        public void ResultLedgerAnimator_RejectsInvalidRowCollections()
+        {
+            _host = new GameObject("ResultLedgerAnimatorValidationHost", typeof(RectTransform));
+            var animator = _host.AddComponent<ResultLedgerAnimator>();
+
+            Assert.Throws<ArgumentException>(() => animator.Configure(null));
+            Assert.Throws<ArgumentException>(() => animator.Configure(new CanvasGroup[3]));
+            Assert.Throws<ArgumentException>(() => animator.Configure(new CanvasGroup[4]));
+        }
+
+        [UnityTest]
+        public IEnumerator ResultLedgerAnimator_RepeatedPlayRestartsAndCompletesCleanly()
+        {
+            var animator = CreateResultLedgerAnimator(out var rows);
+            animator.Play();
+            yield return new WaitForSecondsRealtime(0.12f);
+
+            animator.Play();
+            for (var index = 0; index < rows.Length; index++)
+            {
+                Assert.That(rows[index].alpha, Is.Zero,
+                    "Restarting an in-flight reveal must reset every ledger row.");
+            }
+
+            yield return new WaitForSecondsRealtime(0.82f);
+            for (var index = 0; index < rows.Length; index++)
+            {
+                Assert.That(rows[index].alpha, Is.EqualTo(1f).Within(0.01f));
+                Assert.That(Vector3.Distance(rows[index].transform.localScale, Vector3.one),
+                    Is.LessThan(0.01f));
+            }
+        }
+
         private DocketProgressView CreateDocketView(out TMP_Text[] labels, out Image[] surfaces)
         {
             _host = new GameObject("DocketProgressViewTestHost", typeof(RectTransform));
@@ -220,6 +297,25 @@ namespace CurioClerk.Tests.PlayMode
             heldPreview = CreateRect("HeldPreview", new Vector2(80f, 30f));
             var animator = _host.AddComponent<ShiftFeedbackAnimator>();
             animator.Configure(card, artwork, feedback, heldPreview);
+            return animator;
+        }
+
+        private ResultLedgerAnimator CreateResultLedgerAnimator(out CanvasGroup[] rows)
+        {
+            _host = new GameObject("ResultLedgerAnimatorTestHost", typeof(RectTransform));
+            rows = new CanvasGroup[4];
+            for (var index = 0; index < rows.Length; index++)
+            {
+                var row = new GameObject(
+                    "ResultRow" + index,
+                    typeof(RectTransform),
+                    typeof(CanvasGroup));
+                row.transform.SetParent(_host.transform, false);
+                rows[index] = row.GetComponent<CanvasGroup>();
+            }
+
+            var animator = _host.AddComponent<ResultLedgerAnimator>();
+            animator.Configure(rows);
             return animator;
         }
 

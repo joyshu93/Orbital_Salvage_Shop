@@ -434,10 +434,12 @@ namespace CurioClerk.Tests.PlayMode
             ChooseDestination(app, 0);
             yield return WaitForFilingTransition(app);
             ChooseDestination(app, 1);
-            yield return new WaitForSecondsRealtime(0.5f);
+            yield return new WaitForSecondsRealtime(0.65f);
 
             Assert.That(ObjectText("TutorialDocketCompleteCard"),
                 Does.Contain("used each desk once"));
+            Assert.That(ObjectText("SortFeedback"),
+                Does.Contain("DOCKET COMPLETE").And.Contain("PRISTINE STREAK 1"));
             yield return WaitForFilingTransition(app);
 
             Assert.That(SessionInt(app, "CompletedDockets"), Is.EqualTo(1));
@@ -458,9 +460,11 @@ namespace CurioClerk.Tests.PlayMode
             ChooseDestination(app, 0);
             yield return WaitForFilingTransition(app);
             ChooseDestination(app, 1);
-            yield return new WaitForSecondsRealtime(0.5f);
+            yield return new WaitForSecondsRealtime(0.65f);
             Assert.That(ObjectText("TutorialDocketCompleteCard"),
                 Does.Contain("세 장소를 한 번씩"));
+            Assert.That(ObjectText("SortFeedback"),
+                Does.Contain("장부 완성").And.Contain("완벽 장부 연속 1"));
             yield return WaitForFilingTransition(app);
             SetTutorialCompleted(app, tutorialBefore);
         }
@@ -501,6 +505,8 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(TutorialCompleted(app), Is.False,
                 "The final tutorial docket must pulse before the completion screen replaces it.");
             Assert.That(GameObject.Find("ShiftScreen"), Is.Not.Null);
+            Assert.That(ObjectText("SortFeedback"),
+                Does.Contain("DOCKET COMPLETE").And.Contain("PRISTINE STREAK 2"));
 
             yield return WaitForFilingTransition(app);
 
@@ -860,6 +866,66 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator CorrectSort_ShowsAuthoredCurioFarewellBeforeNextDecision()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            StartAuthoredShift(app, "mirror-seed", "clockwork-moth", "sleeping-teacup");
+            var resolution = CatalogResolution("mirror-seed", "en");
+            var cardRestColor = GameObject.Find("CurrentArtifactCard").GetComponent<UnityEngine.UI.Image>().color;
+
+            app.ChooseDestination(Destination.Vault);
+
+            Assert.That(ObjectText("CurioResolution"), Is.EqualTo(resolution));
+            Assert.That(GameObject.Find("CurioFarewellSeal"), Is.Not.Null);
+            Assert.That(GameObject.Find("CurioFarewellSeal").GetComponent<UnityEngine.UI.Image>().sprite,
+                Is.Not.Null);
+            Assert.That(GameObject.Find("CurioFarewellSeal").GetComponent<UnityEngine.UI.Image>().sprite.name,
+                Is.EqualTo("vault-icon"));
+            Assert.That(GameObject.Find("CurrentArtifactCard").GetComponent<UnityEngine.UI.Image>().color,
+                Is.Not.EqualTo(cardRestColor),
+                "A correct filing must tint the curio card with its destination color.");
+
+            yield return WaitForFilingTransition(app);
+
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("clockwork-moth"));
+            Assert.That(GameObject.Find("CurioFarewellSeal"), Is.Null,
+                "The filing seal must clear before the next decision.");
+            Assert.That(GameObject.Find("CurioResolution"), Is.Null,
+                "The prior curio's resolution must not leak into the next card.");
+            Assert.That(GameObject.Find("ArtifactDescription"), Is.Not.Null);
+            Assert.That(GameObject.Find("CurrentArtifactCard").GetComponent<UnityEngine.UI.Image>().color,
+                Is.EqualTo(cardRestColor));
+        }
+
+        [UnityTest]
+        public IEnumerator CorrectFiling_DisableThenEnableRestoresTheNextDecision()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetEnglishLocale(app);
+            StartAuthoredShift(app, "mirror-seed", "clockwork-moth", "sleeping-teacup");
+            var cardRestColor = GameObject.Find("CurrentArtifactCard").GetComponent<UnityEngine.UI.Image>().color;
+
+            app.ChooseDestination(Destination.Vault);
+            yield return null;
+            app.gameObject.SetActive(false);
+            yield return null;
+            app.gameObject.SetActive(true);
+            yield return null;
+
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("clockwork-moth"));
+            Assert.That(GameObject.Find("ArtifactDescription"), Is.Not.Null);
+            Assert.That(GameObject.Find("CurioResolution"), Is.Null);
+            Assert.That(GameObject.Find("CurioFarewellSeal"), Is.Null);
+            Assert.That(GameObject.Find("CurrentArtifactCard").GetComponent<UnityEngine.UI.Image>().color,
+                Is.EqualTo(cardRestColor));
+            Assert.That(typeof(GameApp).GetField("_inputLocked", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app), Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator WrongSort_ShowsCorrectionBannerAndHighlightsExpectedDestination()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
@@ -882,6 +948,13 @@ namespace CurioClerk.Tests.PlayMode
                 "An incorrect sort must highlight the correct destination.");
             Assert.That(HasEnabledOutline(DestinationButtonName(incorrect)), Is.False,
                 "The incorrect selection must not remain highlighted as the answer.");
+            Assert.That(ObjectText("RuleList"), Does.Contain("<color=#E0A24B><b>"),
+                "A wrong filing must highlight the rule that determined the correct desk.");
+
+            typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { expected });
+            yield return WaitForFilingTransition(app);
+            Assert.That(ObjectText("RuleList"), Does.Not.Contain("<color=#E0A24B><b>"),
+                "The rule highlight must clear for the next curio.");
         }
 
         [UnityTest]
@@ -918,6 +991,9 @@ namespace CurioClerk.Tests.PlayMode
             yield return new WaitForSecondsRealtime(0.65f);
             Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Shift),
                 "The final docket must pulse before the results screen replaces the desk.");
+            Assert.That(ObjectText("SortFeedback"),
+                Does.Contain("DOCKET COMPLETE").And.Contain("+500").And.Contain("PRISTINE STREAK"),
+                "Completing a docket must make its score and clean streak emotionally legible.");
 
             yield return WaitForFilingTransition(app);
             Assert.That(appType.GetProperty("ActiveScreen").GetValue(app).ToString(), Is.EqualTo("Results"));

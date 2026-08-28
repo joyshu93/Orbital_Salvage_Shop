@@ -7,7 +7,7 @@ namespace CurioClerk.Presentation
     public sealed class ShiftFeedbackAnimator : MonoBehaviour
     {
         private const float EntranceDuration = 0.20f;
-        private const float CorrectDuration = 0.42f;
+        private const float CorrectDuration = 0.56f;
         private const float WrongDuration = 0.28f;
         private const float HoldDuration = 0.34f;
 
@@ -15,13 +15,19 @@ namespace CurioClerk.Presentation
         private RectTransform _artwork;
         private RectTransform _feedbackPanel;
         private RectTransform _heldPreview;
+        private RectTransform _farewellSeal;
+        private CanvasGroup _artworkGroup;
+        private CanvasGroup _farewellSealGroup;
         private TransformState _cardRest;
         private TransformState _artworkRest;
         private TransformState _feedbackRest;
         private TransformState _heldRest;
+        private Vector3 _farewellSealRestScale;
         private Coroutine _motionRoutine;
         private Coroutine _idleRoutine;
+        private Action _motionCompletion;
         private bool _idleEnabled;
+        private bool _resumeCompletionOnEnable;
 
         public void Configure(RectTransform artifactCard, RectTransform feedbackPanel)
         {
@@ -42,17 +48,31 @@ namespace CurioClerk.Presentation
             _artworkRest = TransformState.Capture(_artwork);
             _feedbackRest = TransformState.Capture(_feedbackPanel);
             _heldRest = TransformState.Capture(_heldPreview);
+            _artworkGroup = _artwork.GetComponent<CanvasGroup>();
+        }
+
+        public void ConfigureFarewell(RectTransform seal, CanvasGroup sealGroup)
+        {
+            _farewellSeal = seal ?? throw new ArgumentNullException(nameof(seal));
+            _farewellSealGroup = sealGroup ?? throw new ArgumentNullException(nameof(sealGroup));
+            _farewellSealRestScale = _farewellSeal.localScale;
+            RestoreFarewell();
         }
 
         public void PlayArtifactEntrance()
         {
             if (IsConfigured)
             {
-                StartMotion(AnimateArtifactEntrance());
+                StartMotion(AnimateArtifactEntrance(), null);
             }
         }
 
         public void PlayCorrect(Action completed)
+        {
+            PlayCorrect(null, completed);
+        }
+
+        public void PlayCorrect(RectTransform destinationTarget, Action completed)
         {
             if (!IsConfigured)
             {
@@ -60,7 +80,7 @@ namespace CurioClerk.Presentation
                 return;
             }
 
-            StartMotion(AnimateCorrect(completed));
+            StartMotion(AnimateCorrect(destinationTarget), completed);
         }
 
         public void PlayWrong()
@@ -72,7 +92,7 @@ namespace CurioClerk.Presentation
         {
             if (IsConfigured)
             {
-                StartMotion(AnimateWrong(completed));
+                StartMotion(AnimateWrong(), completed);
             }
             else
             {
@@ -88,7 +108,7 @@ namespace CurioClerk.Presentation
                 return;
             }
 
-            StartMotion(AnimateHold(completed));
+            StartMotion(AnimateHold(), completed);
         }
 
         public void SetIdleEnabled(bool enabled)
@@ -110,11 +130,12 @@ namespace CurioClerk.Presentation
             _feedbackPanel != null &&
             _heldPreview != null;
 
-        private void StartMotion(IEnumerator animation)
+        private void StartMotion(IEnumerator animation, Action completed)
         {
             StopMotion();
             StopIdle();
             RestoreAll();
+            _motionCompletion = completed;
             _motionRoutine = StartCoroutine(animation);
         }
 
@@ -137,29 +158,54 @@ namespace CurioClerk.Presentation
             }
 
             RestoreCard();
-            CompleteMotion(null);
+            CompleteMotion();
         }
 
-        private IEnumerator AnimateCorrect(Action completed)
+        private IEnumerator AnimateCorrect(RectTransform destinationTarget)
         {
+            var target = _artworkRest.Position;
+            var targetRotation = _artworkRest.Rotation;
+            if (destinationTarget != null)
+            {
+                var worldTarget = destinationTarget.TransformPoint(destinationTarget.rect.center);
+                var localTarget = (Vector2)_artwork.parent.InverseTransformPoint(worldTarget);
+                var artworkLocal = (Vector2)_artwork.localPosition;
+                target = _artworkRest.Position + (localTarget - artworkLocal) * 0.76f;
+                var direction = Mathf.Sign(localTarget.x - artworkLocal.x);
+                targetRotation = Quaternion.Euler(0f, 0f, direction * -7f);
+            }
+
             var elapsed = 0f;
             while (elapsed < CorrectDuration)
             {
                 elapsed += Time.unscaledDeltaTime;
                 var progress = Mathf.Clamp01(elapsed / CorrectDuration);
-                var lift = Mathf.Sin(progress * Mathf.PI);
-                _artwork.anchoredPosition = _artworkRest.Position + Vector2.up * (28f * lift);
-                _artwork.localScale = _artworkRest.Scale * (1f + 0.045f * lift);
+                var liftProgress = Mathf.Clamp01(progress / 0.58f);
+                var lift = Mathf.Sin(liftProgress * Mathf.PI);
+                var exit = destinationTarget == null
+                    ? 0f
+                    : Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((progress - 0.30f) / 0.70f));
+                var liftedPosition = _artworkRest.Position + Vector2.up * (24f * lift);
+                _artwork.anchoredPosition = Vector2.Lerp(liftedPosition, target, exit);
+                _artwork.localScale = _artworkRest.Scale * (1f + 0.045f * lift) * (1f - 0.52f * exit);
+                _artwork.localRotation = Quaternion.Slerp(_artworkRest.Rotation, targetRotation, exit);
                 _feedbackPanel.localScale = _feedbackRest.Scale * (1f + 0.075f * lift);
+                if (_artworkGroup != null)
+                {
+                    _artworkGroup.alpha = 1f - 0.82f * exit;
+                }
+
+                AnimateFarewellSeal(progress);
                 yield return null;
             }
 
             RestoreArtwork();
             RestoreFeedback();
-            CompleteMotion(completed);
+            RestoreFarewell();
+            CompleteMotion();
         }
 
-        private IEnumerator AnimateWrong(Action completed)
+        private IEnumerator AnimateWrong()
         {
             var elapsed = 0f;
             while (elapsed < WrongDuration)
@@ -173,10 +219,10 @@ namespace CurioClerk.Presentation
             }
 
             RestoreCard();
-            CompleteMotion(completed);
+            CompleteMotion();
         }
 
-        private IEnumerator AnimateHold(Action completed)
+        private IEnumerator AnimateHold()
         {
             var worldTarget = _heldPreview.TransformPoint(_heldPreview.rect.center);
             var localTarget = (Vector2)_artwork.parent.InverseTransformPoint(worldTarget);
@@ -193,11 +239,28 @@ namespace CurioClerk.Presentation
                     _artworkRest.Rotation,
                     Quaternion.Euler(0f, 0f, -5f),
                     progress);
+                var arrivalPulse = Mathf.Sin(progress * Mathf.PI);
+                _heldPreview.localScale = _heldRest.Scale * (1f + arrivalPulse * 0.10f);
                 yield return null;
             }
 
             RestoreArtwork();
-            CompleteMotion(completed);
+            _heldRest.Restore(_heldPreview);
+            CompleteMotion();
+        }
+
+        private void AnimateFarewellSeal(float progress)
+        {
+            if (_farewellSeal == null || _farewellSealGroup == null)
+            {
+                return;
+            }
+
+            var reveal = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(progress / 0.25f));
+            var fade = 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((progress - 0.72f) / 0.28f));
+            _farewellSealGroup.alpha = reveal * fade;
+            _farewellSeal.localScale = _farewellSealRestScale * Mathf.Lerp(0.55f, 1.08f, reveal);
+            _farewellSeal.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(-12f, -2f, reveal));
         }
 
         private IEnumerator AnimateIdle()
@@ -216,8 +279,10 @@ namespace CurioClerk.Presentation
             _idleRoutine = null;
         }
 
-        private void CompleteMotion(Action completed)
+        private void CompleteMotion()
         {
+            var completed = _motionCompletion;
+            _motionCompletion = null;
             _motionRoutine = null;
             completed?.Invoke();
             if (_motionRoutine == null)
@@ -243,6 +308,8 @@ namespace CurioClerk.Presentation
                 StopCoroutine(_motionRoutine);
                 _motionRoutine = null;
             }
+
+            _motionCompletion = null;
         }
 
         private void StopIdle()
@@ -256,10 +323,28 @@ namespace CurioClerk.Presentation
 
         private void OnDisable()
         {
+            _resumeCompletionOnEnable = _motionRoutine != null && _motionCompletion != null;
             StopAllCoroutines();
             _motionRoutine = null;
             _idleRoutine = null;
+            if (!_resumeCompletionOnEnable)
+            {
+                _motionCompletion = null;
+            }
             RestoreAll();
+        }
+
+        private void OnEnable()
+        {
+            if (_resumeCompletionOnEnable)
+            {
+                _resumeCompletionOnEnable = false;
+                var completed = _motionCompletion;
+                _motionCompletion = null;
+                completed?.Invoke();
+            }
+
+            ResumeIdle();
         }
 
         private void RestoreAll()
@@ -268,13 +353,33 @@ namespace CurioClerk.Presentation
             RestoreArtwork();
             RestoreFeedback();
             _heldRest.Restore(_heldPreview);
+            RestoreFarewell();
         }
 
         private void RestoreCard() => _cardRest.Restore(_artifactCard);
 
-        private void RestoreArtwork() => _artworkRest.Restore(_artwork);
+        private void RestoreArtwork()
+        {
+            _artworkRest.Restore(_artwork);
+            if (_artworkGroup != null)
+            {
+                _artworkGroup.alpha = 1f;
+            }
+        }
 
         private void RestoreFeedback() => _feedbackRest.Restore(_feedbackPanel);
+
+        private void RestoreFarewell()
+        {
+            if (_farewellSeal == null || _farewellSealGroup == null)
+            {
+                return;
+            }
+
+            _farewellSeal.localScale = _farewellSealRestScale;
+            _farewellSeal.localRotation = Quaternion.identity;
+            _farewellSealGroup.alpha = 0f;
+        }
 
         private readonly struct TransformState
         {

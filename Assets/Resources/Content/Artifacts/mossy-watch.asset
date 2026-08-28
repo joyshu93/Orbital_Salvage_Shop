@@ -20,3 +20,6 @@ MonoBehaviour:
   descriptionEnglish: The moss grows one minute ahead.
   descriptionKorean: "\uC774\uB07C\uAC00 \uC5B8\uC81C\uB098 1\uBD84 \uBA3C\uC800
     \uC790\uB780\uB2E4."
+  resolutionEnglish: The moss pauses and lets the present catch up.
+  resolutionKorean: "\uC774\uB07C\uAC00 \uBA48\uCDB0 \uC11C\uC11C \uD604\uC7AC\uAC00
+    \uB530\uB77C\uC624\uAC8C \uD574 \uC900\uB2E4."

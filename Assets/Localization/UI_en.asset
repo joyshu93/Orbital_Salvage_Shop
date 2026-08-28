@@ -47,8 +47,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1602203653
-    m_Localized: Read rules from top to bottom. The first matching rule wins. Training
-      mistakes do not cost hearts, so take your time and try Hold.
+    m_Localized: Clock in, then learn the three desks by sorting six curios.
     m_Metadata:
       m_Items: []
   - m_Id: 1602203654
@@ -225,7 +224,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 2069369047724034
-    m_Localized: "3 / 4 \xB7 Put this item on HOLD before sorting."
+    m_Localized: "2 / 7 \xB7 VAULT is already stamped. HOLD the shadow."
     m_Metadata:
       m_Items: []
   - m_Id: 2069369047724035
@@ -330,6 +329,134 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 2106105895301127
     m_Localized: '{0} equipped'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030039728128
+    m_Localized: Available
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059776
+    m_Localized: "Completed \xB7 Best {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059777
+    m_Localized: "DAILY FILE \xB7 {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059778
+    m_Localized: 'Today''s best: {0}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059779
+    m_Localized: "1 / 7 \xB7 CURSED goes to VAULT. File the key."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059780
+    m_Localized: "3 / 7 \xB7 Fill the missing REPAIR stamp."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059781
+    m_Localized: "4 / 7 \xB7 STORAGE closes the first docket."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059782
+    m_Localized: "5 / 7 \xB7 Begin the next docket with STORAGE."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059783
+    m_Localized: "6 / 7 \xB7 Add REPAIR. The held shadow will return."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059784
+    m_Localized: "7 / 7 \xB7 File the returned shadow to VAULT."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059785
+    m_Localized: That desk is already stamped. Use HOLD to reach a missing desk.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059786
+    m_Localized: HEARTS {0}   DOCKET {1}/{2}   CLEAN {3}   COINS {4}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059787
+    m_Localized: DOCKET
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059788
+    m_Localized: That desk is already stamped. Use HOLD.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059789
+    m_Localized: PRISTINE
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059790
+    m_Localized: INKED
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059791
+    m_Localized: '{0} -> {1}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059792
+    m_Localized: '{0} took priority -> {1}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059793
+    m_Localized: No special rule -> {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059794
+    m_Localized: NIGHT LEDGER
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059795
+    m_Localized: The remaining curios wait beneath a blanket for the next night clerk.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059796
+    m_Localized: AFTER FILING
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2830772230664192
+    m_Localized: Each docket needs one REPAIR, one STORAGE, and one VAULT stamp.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2830772272607232
+    m_Localized: One docket complete! You used each desk once.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2830772272607233
+    m_Localized: Fill all three stamps. If a curio's desk is already full, Hold it.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2830772272607234
+    m_Localized: HOLD FOR NEXT DOCKET
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2830772272607235
+    m_Localized: Compare its traits with tonight's rules.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2830772272607236
+    m_Localized: The correct desk is {0}, but it is already full. Hold this curio.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2830772272607237
+    m_Localized: EMPTY
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2830772272607238
+    m_Localized: COMPLETE
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2869194060181504
+    m_Localized: "DOCKET COMPLETE \xB7 +{0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2869194118901760
+    m_Localized: PRISTINE STREAK {0}
     m_Metadata:
       m_Items: []
   references:

@@ -74,22 +74,89 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator FeedbackAnimator_HoldInvokesCallbackAndRestoresArtwork()
+        public IEnumerator FeedbackAnimator_CorrectFilesArtworkTowardDestinationAndRevealsSeal()
         {
             var animator = CreateFeedbackAnimator(
                 out _,
                 out var artwork,
                 out _,
                 out _);
+            var destination = CreateRect("Destination", new Vector2(220f, -150f));
+            var seal = CreateChildRect(artwork, "FarewellSeal");
+            var sealGroup = seal.gameObject.AddComponent<CanvasGroup>();
+            sealGroup.alpha = 0f;
+            animator.ConfigureFarewell(seal, sealGroup);
+            var restWorldPosition = artwork.position;
+            var completed = false;
+
+            animator.PlayCorrect(destination, () => completed = true);
+            yield return new WaitForSecondsRealtime(0.16f);
+
+            Assert.That(sealGroup.alpha, Is.GreaterThan(0.2f),
+                "The destination seal must appear before the curio leaves the desk.");
+
+            yield return new WaitForSecondsRealtime(0.28f);
+            Assert.That(Vector3.Distance(artwork.position, destination.position),
+                Is.LessThan(Vector3.Distance(restWorldPosition, destination.position)),
+                "The curio artwork must travel toward the selected filing desk.");
+
+            yield return new WaitForSecondsRealtime(0.35f);
+            Assert.That(completed, Is.True);
+            Assert.That(sealGroup.alpha, Is.Zero.Within(0.01f));
+            Assert.That(Vector3.Distance(seal.localScale, Vector3.one), Is.LessThan(0.01f));
+            Assert.That(Quaternion.Angle(seal.localRotation, Quaternion.identity), Is.LessThan(0.01f));
+            Assert.That(artwork.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f).Within(0.01f));
+            Assert.That(Vector3.Distance(artwork.position, restWorldPosition), Is.LessThan(0.01f));
+        }
+
+        [UnityTest]
+        public IEnumerator FeedbackAnimator_HoldInvokesCallbackAndRestoresArtwork()
+        {
+            var animator = CreateFeedbackAnimator(
+                out _,
+                out var artwork,
+                out _,
+                out var heldPreview);
             var restPosition = artwork.anchoredPosition;
             var completed = false;
 
             animator.PlayHold(() => completed = true);
-            yield return new WaitForSecondsRealtime(0.6f);
+            yield return new WaitForSecondsRealtime(0.18f);
+
+            Assert.That(Vector3.Distance(heldPreview.localScale, Vector3.one), Is.GreaterThan(0.01f),
+                "The Hold slot must react when a curio is placed there.");
+
+            yield return new WaitForSecondsRealtime(0.42f);
 
             Assert.That(completed, Is.True);
             AssertPositionAtRest(artwork, restPosition);
             Assert.That(artwork.localScale, Is.EqualTo(Vector3.one));
+            Assert.That(heldPreview.localScale, Is.EqualTo(Vector3.one));
+        }
+
+        [UnityTest]
+        public IEnumerator FeedbackAnimator_DisableThenEnableCompletesPendingFilingOnce()
+        {
+            var animator = CreateFeedbackAnimator(out _, out _, out _, out _);
+            var destination = CreateRect("Destination", new Vector2(220f, -150f));
+            var completionCount = 0;
+
+            animator.PlayCorrect(destination, () => completionCount++);
+            yield return null;
+            _host.SetActive(false);
+            yield return null;
+            Assert.That(completionCount, Is.Zero,
+                "Disabling must not finish a transition while its screen is inactive.");
+
+            _host.SetActive(true);
+            yield return null;
+            Assert.That(completionCount, Is.EqualTo(1));
+
+            _host.SetActive(false);
+            _host.SetActive(true);
+            yield return null;
+            Assert.That(completionCount, Is.EqualTo(1),
+                "A resumed filing callback must run exactly once.");
         }
 
         [UnityTest]
@@ -137,6 +204,29 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator FeedbackAnimator_DisableThenEnableResumesIdleArtworkMotion()
+        {
+            var animator = CreateFeedbackAnimator(
+                out _,
+                out var artwork,
+                out _,
+                out _);
+            var restPosition = artwork.anchoredPosition;
+
+            animator.SetIdleEnabled(true);
+            yield return new WaitForSecondsRealtime(0.2f);
+            Assert.That(Vector2.Distance(artwork.anchoredPosition, restPosition), Is.GreaterThan(0.1f));
+
+            _host.SetActive(false);
+            AssertPositionAtRest(artwork, restPosition);
+
+            _host.SetActive(true);
+            yield return new WaitForSecondsRealtime(0.2f);
+            Assert.That(Vector2.Distance(artwork.anchoredPosition, restPosition), Is.GreaterThan(0.1f),
+                "Idle artwork motion must resume after its screen is re-enabled.");
+        }
+
+        [UnityTest]
         public IEnumerator DocketProgress_CompleteInvokesCallbackAndRestoresStampSurfaces()
         {
             var view = CreateDocketView(out _, out var surfaces);
@@ -172,6 +262,28 @@ namespace CurioClerk.Tests.PlayMode
                 Assert.That(Vector4.Distance(surfaces[index].color, restColors[index]),
                     Is.LessThan(0.001f));
             }
+        }
+
+        [UnityTest]
+        public IEnumerator DocketProgress_DisableThenEnableCompletesPendingPulseOnce()
+        {
+            var view = CreateDocketView(out _, out _);
+            var completionCount = 0;
+
+            view.PlayComplete(() => completionCount++);
+            yield return null;
+            _host.SetActive(false);
+            yield return null;
+            Assert.That(completionCount, Is.Zero);
+
+            _host.SetActive(true);
+            yield return null;
+            Assert.That(completionCount, Is.EqualTo(1));
+
+            _host.SetActive(false);
+            _host.SetActive(true);
+            yield return null;
+            Assert.That(completionCount, Is.EqualTo(1));
         }
 
         [UnityTest]
@@ -293,6 +405,7 @@ namespace CurioClerk.Tests.PlayMode
             artwork = CreateRect("Artwork", new Vector2(5f, 9f));
             artwork.SetParent(card, false);
             artwork.anchoredPosition = new Vector2(5f, 9f);
+            artwork.gameObject.AddComponent<CanvasGroup>();
             feedback = CreateRect("Feedback", new Vector2(3f, 7f));
             heldPreview = CreateRect("HeldPreview", new Vector2(80f, 30f));
             var animator = _host.AddComponent<ShiftFeedbackAnimator>();
@@ -326,6 +439,13 @@ namespace CurioClerk.Tests.PlayMode
             var rect = child.GetComponent<RectTransform>();
             rect.anchoredPosition = anchoredPosition;
             return rect;
+        }
+
+        private static RectTransform CreateChildRect(RectTransform parent, string name)
+        {
+            var child = new GameObject(name, typeof(RectTransform));
+            child.transform.SetParent(parent, false);
+            return child.GetComponent<RectTransform>();
         }
 
         private static void AssertTransformAtRest(RectTransform transform, Vector2 restPosition)

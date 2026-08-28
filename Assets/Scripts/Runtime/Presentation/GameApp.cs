@@ -81,8 +81,12 @@ namespace CurioClerk.Presentation
         private TMP_Text _currentSymbol;
         private TMP_Text _currentName;
         private TMP_Text _currentDescription;
+        private TMP_Text _curioResolution;
         private TMP_Text _currentTraits;
         private Image _artifactIllustration;
+        private Image _artifactCardSurface;
+        private Image _curioFarewellSeal;
+        private CanvasGroup _curioFarewellSealGroup;
         private TMP_Text _heldText;
         private readonly TMP_Text[] _nextTexts = new TMP_Text[2];
         private Image _heldIllustration;
@@ -278,6 +282,7 @@ namespace CurioClerk.Presentation
             }
 
             var terminalCorrectSort = outcome.DidCompleteShift;
+            PrepareCurioFarewell(content, outcome.SelectedDestination);
             ShowSortFeedback(artifact, content, outcome, false);
             if (!terminalCorrectSort)
             {
@@ -293,7 +298,9 @@ namespace CurioClerk.Presentation
             }
             else
             {
-                _feedbackAnimator.PlayCorrect(() => CompleteCorrectTransition(outcome));
+                _feedbackAnimator.PlayCorrect(
+                    _destinationButtons[(int)outcome.SelectedDestination].GetComponent<RectTransform>(),
+                    () => CompleteCorrectTransition(outcome));
             }
         }
 
@@ -514,11 +521,23 @@ namespace CurioClerk.Presentation
             }
 
             var card = CreatePanel(page, "CurrentArtifactCard", Paper, new Vector2(0.08f, 0.305f), new Vector2(0.92f, 0.615f));
+            _artifactCardSurface = card.GetComponent<Image>();
             AddSurfaceChrome(card, Amber, 3f, 0.34f);
             _artifactIllustration = CreateArtworkImage(card, "ArtifactIllustration", new Vector2(0.035f, 0.16f), new Vector2(0.46f, 0.94f));
+            _artifactIllustration.gameObject.AddComponent<CanvasGroup>();
+            _curioFarewellSeal = CreateArtworkImage(
+                _artifactIllustration.transform,
+                "CurioFarewellSeal",
+                new Vector2(0.23f, 0.23f),
+                new Vector2(0.77f, 0.77f));
+            _curioFarewellSealGroup = _curioFarewellSeal.gameObject.AddComponent<CanvasGroup>();
+            _curioFarewellSealGroup.alpha = 0f;
+            _curioFarewellSeal.gameObject.SetActive(false);
             _currentSymbol = CreateText(card, "ArtifactSymbol", string.Empty, 92, Wine, TextAlignmentOptions.Center, new Vector2(0.05f, 0.30f), new Vector2(0.44f, 0.86f), true);
             _currentName = CreateText(card, "ArtifactName", string.Empty, 42, Ink, TextAlignmentOptions.Left, new Vector2(0.47f, 0.72f), new Vector2(0.95f, 0.94f), true, TextRole.Display);
             _currentDescription = CreateText(card, "ArtifactDescription", string.Empty, 25, Ink, TextAlignmentOptions.TopLeft, new Vector2(0.47f, 0.30f), new Vector2(0.94f, 0.71f));
+            _curioResolution = CreateText(card, "CurioResolution", string.Empty, 23, Ink, TextAlignmentOptions.TopLeft, new Vector2(0.47f, 0.30f), new Vector2(0.94f, 0.71f), false, TextRole.Display);
+            _curioResolution.gameObject.SetActive(false);
             _currentTraits = CreateText(card, "ArtifactTraits", string.Empty, 24, Wine, TextAlignmentOptions.Center, new Vector2(0.08f, 0.06f), new Vector2(0.92f, 0.20f), true);
 
             _holdButton = CreateButton(page, "HoldButton", _localizer.Get("hold"), new Vector2(0.34f, 0.175f), new Vector2(0.66f, 0.225f), Wine, Paper, HoldCurrent, 28);
@@ -534,6 +553,9 @@ namespace CurioClerk.Presentation
                 _artifactIllustration.rectTransform,
                 feedbackPanel,
                 _heldIllustration.rectTransform);
+            _feedbackAnimator.ConfigureFarewell(
+                _curioFarewellSeal.rectTransform,
+                _curioFarewellSealGroup);
 
             var repair = CreateButton(page, "RepairButton", _localizer.Get("repair"), new Vector2(0.05f, 0.035f), new Vector2(0.32f, 0.145f), DustyRose, Paper, () => ChooseDestination(Destination.Repair), 30);
             var storage = CreateButton(page, "StorageButton", _localizer.Get("storage"), new Vector2(0.365f, 0.035f), new Vector2(0.635f, 0.145f), Sage, Paper, () => ChooseDestination(Destination.Storage), 30);
@@ -622,6 +644,7 @@ namespace CurioClerk.Presentation
             var outcome = _session.Sort(destination);
             var completingTutorial = _tutorialStage == TutorialStage.FinalHeldVault;
             var nextStage = NextTutorialStage(_tutorialStage);
+            PrepareCurioFarewell(content, outcome.SelectedDestination);
             ShowSortFeedback(artifact, content, outcome, false);
             if (!completingTutorial)
             {
@@ -641,7 +664,9 @@ namespace CurioClerk.Presentation
             }
             else
             {
-                _feedbackAnimator.PlayCorrect(completed);
+                _feedbackAnimator.PlayCorrect(
+                    _destinationButtons[(int)outcome.SelectedDestination].GetComponent<RectTransform>(),
+                    completed);
             }
         }
 
@@ -689,6 +714,7 @@ namespace CurioClerk.Presentation
         {
             if (outcome.DidCompleteDocket && _docketProgress != null)
             {
+                ShowDocketCompleteFeedback(outcome);
                 _docketProgress.PlayComplete(() => FinishCorrectTransition(outcome));
                 return;
             }
@@ -744,6 +770,7 @@ namespace CurioClerk.Presentation
 
             if (outcome.DidCompleteDocket && _docketProgress != null)
             {
+                ShowDocketCompleteFeedback(outcome);
                 if (!completingTutorial && _session.CompletedDockets == 1)
                 {
                     ShowTutorialDocketCompleteCard();
@@ -955,6 +982,10 @@ namespace CurioClerk.Presentation
             {
                 _feedbackAnimator?.PlayWrong();
             }
+            if (!wasCorrect && _ruleListText != null)
+            {
+                _ruleListText.text = RulesText(MatchedRuleIndex(outcome));
+            }
 
             var highlighted = wasCorrect ? outcome.SelectedDestination : outcome.ExpectedDestination;
             for (var index = 0; index < _destinationHighlights.Length; index++)
@@ -966,21 +997,7 @@ namespace CurioClerk.Presentation
 
         private string RuleReason(Artifact artifact, SortOutcome outcome)
         {
-            var matchedIndex = -1;
-            for (var index = 0; index < _activeRules.Count; index++)
-            {
-                if (_activeRules[index].Id == outcome.MatchedRuleId)
-                {
-                    matchedIndex = index;
-                    break;
-                }
-            }
-
-            if (matchedIndex < 0)
-            {
-                throw new InvalidOperationException("Sort outcome references an unknown active rule.");
-            }
-
+            var matchedIndex = MatchedRuleIndex(outcome);
             var matched = _activeRules[matchedIndex];
             var destination = DestinationName(outcome.ExpectedDestination);
             if (matched.IsFallback)
@@ -1007,6 +1024,43 @@ namespace CurioClerk.Presentation
                 destination);
         }
 
+        private int MatchedRuleIndex(SortOutcome outcome)
+        {
+            for (var index = 0; index < _activeRules.Count; index++)
+            {
+                if (_activeRules[index].Id == outcome.MatchedRuleId)
+                {
+                    return index;
+                }
+            }
+
+            throw new InvalidOperationException("Sort outcome references an unknown active rule.");
+        }
+
+        private void PrepareCurioFarewell(ArtifactContent content, Destination destination)
+        {
+            _currentDescription.gameObject.SetActive(false);
+            _curioResolution.text = Resolution(content);
+            _curioResolution.gameObject.SetActive(true);
+            _curioFarewellSeal.sprite = DestinationIcon(destination);
+            _curioFarewellSeal.color = DestinationColor(destination);
+            _curioFarewellSealGroup.alpha = 0f;
+            _curioFarewellSeal.gameObject.SetActive(true);
+            _artifactCardSurface.color = Color.Lerp(Paper, DestinationColor(destination), 0.24f);
+        }
+
+        private void ShowDocketCompleteFeedback(SortOutcome outcome)
+        {
+            var streak = _session.PristineDocketStreak;
+            _sortFeedbackPanel.color = streak > 0 ? Sage : DustyRose;
+            _statusText.color = Paper;
+            _statusText.text = _localizer.Get("docket_complete_feedback", outcome.ScoreDelta);
+            if (streak > 0)
+            {
+                _statusText.text += "\n" + _localizer.Get("docket_pristine_feedback", streak);
+            }
+        }
+
         private static Color DestinationColor(Destination destination)
         {
             switch (destination)
@@ -1014,6 +1068,16 @@ namespace CurioClerk.Presentation
                 case Destination.Repair: return DustyRose;
                 case Destination.Vault: return Amber;
                 default: return Sage;
+            }
+        }
+
+        private static Sprite DestinationIcon(Destination destination)
+        {
+            switch (destination)
+            {
+                case Destination.Repair: return VisualAssetLibrary.RepairIcon;
+                case Destination.Vault: return VisualAssetLibrary.VaultIcon;
+                default: return VisualAssetLibrary.StorageIcon;
             }
         }
 
@@ -1054,6 +1118,11 @@ namespace CurioClerk.Presentation
                 return;
             }
 
+            ResetCurioFarewell();
+            if (!IsTutorialActive && refreshDecisionMessage && _ruleListText != null)
+            {
+                _ruleListText.text = RulesText();
+            }
             var content = _artifactById[_session.CurrentArtifact.Id];
             var artwork = VisualAssetLibrary.Artifact(content.Id);
             _artifactIllustration.sprite = artwork;
@@ -1130,6 +1199,21 @@ namespace CurioClerk.Presentation
             }
 
             _feedbackAnimator?.SetIdleEnabled(true);
+        }
+
+        private void ResetCurioFarewell()
+        {
+            if (_artifactCardSurface != null)
+            {
+                _artifactCardSurface.color = Paper;
+            }
+
+            _currentDescription?.gameObject.SetActive(true);
+            _curioResolution?.gameObject.SetActive(false);
+            if (_curioFarewellSeal != null)
+            {
+                _curioFarewellSeal.gameObject.SetActive(false);
+            }
         }
 
         private void ShowResults()

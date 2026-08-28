@@ -19,7 +19,9 @@ namespace CurioClerk.Presentation
         private Color[] _completionRestColors;
         private Vector3[] _completionRestScales;
         private Coroutine _completionRoutine;
+        private Action _completionCallback;
         private bool _hasCompletionRestState;
+        private bool _resumeCompletionOnEnable;
 
         private const float CompletionDuration = 0.70f;
 
@@ -112,10 +114,11 @@ namespace CurioClerk.Presentation
             }
 
             _hasCompletionRestState = true;
-            _completionRoutine = StartCoroutine(AnimateComplete(completed));
+            _completionCallback = completed;
+            _completionRoutine = StartCoroutine(AnimateComplete());
         }
 
-        private IEnumerator AnimateComplete(Action completed)
+        private IEnumerator AnimateComplete()
         {
             var elapsed = 0f;
             while (elapsed < CompletionDuration)
@@ -139,14 +142,39 @@ namespace CurioClerk.Presentation
             RestoreCompletionState();
             _hasCompletionRestState = false;
             _completionRoutine = null;
-            completed?.Invoke();
+            var completion = _completionCallback;
+            _completionCallback = null;
+            completion?.Invoke();
         }
 
         private void OnDisable()
         {
-            StopCompletion();
+            _resumeCompletionOnEnable = _completionRoutine != null && _completionCallback != null;
+            if (_completionRoutine != null)
+            {
+                StopCoroutine(_completionRoutine);
+                _completionRoutine = null;
+            }
+
+            if (!_resumeCompletionOnEnable)
+            {
+                _completionCallback = null;
+            }
             RestoreCompletionState();
             _hasCompletionRestState = false;
+        }
+
+        private void OnEnable()
+        {
+            if (!_resumeCompletionOnEnable)
+            {
+                return;
+            }
+
+            _resumeCompletionOnEnable = false;
+            var completion = _completionCallback;
+            _completionCallback = null;
+            completion?.Invoke();
         }
 
         private void StopCompletion()
@@ -158,6 +186,7 @@ namespace CurioClerk.Presentation
 
             StopCoroutine(_completionRoutine);
             _completionRoutine = null;
+            _completionCallback = null;
         }
 
         private void RestoreCompletionState()

@@ -327,6 +327,134 @@ MonoBehaviour:
     m_Key: cosmetic_equipped_feedback
     m_Metadata:
       m_Items: []
+  - m_Id: 2509030039728128
+    m_Key: daily_available
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059776
+    m_Key: daily_completed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059777
+    m_Key: daily_badge
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059778
+    m_Key: daily_result_best
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059779
+    m_Key: tutorial_step_first_vault
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059780
+    m_Key: tutorial_step_first_repair
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059781
+    m_Key: tutorial_step_first_storage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059782
+    m_Key: tutorial_step_second_storage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059783
+    m_Key: tutorial_step_second_repair
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059784
+    m_Key: tutorial_step_final_vault
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059785
+    m_Key: tutorial_blocked
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059786
+    m_Key: shift_hud
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059787
+    m_Key: docket
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059788
+    m_Key: blocked
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059789
+    m_Key: docket_pristine
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059790
+    m_Key: docket_inked
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059791
+    m_Key: rule_reason
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059792
+    m_Key: rule_priority_reason
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059793
+    m_Key: fallback_reason
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059794
+    m_Key: result_dockets
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059795
+    m_Key: result_waiting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2509030090059796
+    m_Key: resolution_label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2830772230664192
+    m_Key: tutorial_goal
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2830772272607232
+    m_Key: tutorial_first_docket_complete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2830772272607233
+    m_Key: tutorial_finish
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2830772272607234
+    m_Key: hold_for_next
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2830772272607235
+    m_Key: decision_prompt
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2830772272607236
+    m_Key: hold_required
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2830772272607237
+    m_Key: docket_empty
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2830772272607238
+    m_Key: docket_complete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2869194060181504
+    m_Key: docket_complete_feedback
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2869194118901760
+    m_Key: docket_pristine_feedback
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

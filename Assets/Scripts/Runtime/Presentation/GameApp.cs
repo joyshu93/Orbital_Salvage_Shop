@@ -108,6 +108,8 @@ namespace CurioClerk.Presentation
         private TMP_Text _statusText;
         private TMP_Text _hudText;
         private DocketProgressView _docketProgress;
+        private Image _docketSigilCrack;
+        private Image _incidentWarmthOverlay;
         private ShiftFeedbackAnimator _feedbackAnimator;
         private IncidentReactionView _incidentReactionView;
         private ArtifactDragHandler _artifactDragHandler;
@@ -126,6 +128,10 @@ namespace CurioClerk.Presentation
         private bool _inputLocked;
         private bool _isIncidentShift;
         private int _incidentConsecutiveCorrect;
+        private bool _docketPresentationDamaged;
+        private Action _pendingTransition;
+        private int _pendingTransitionVersion;
+        private bool _flushingTransitions;
 
         public AppScreen ActiveScreen { get; private set; }
 
@@ -158,12 +164,19 @@ namespace CurioClerk.Presentation
         {
             if (paused)
             {
+                FlushPendingTransitions();
                 Save();
             }
         }
 
+        private void OnDisable()
+        {
+            FlushPendingTransitions();
+        }
+
         private void OnDestroy()
         {
+            FlushPendingTransitions();
             Save();
             _feedbackService?.Dispose();
         }
@@ -333,6 +346,7 @@ namespace CurioClerk.Presentation
             _lastCorrectArtifactId = null;
             _rewardFeedbackKey = null;
             _incidentConsecutiveCorrect = 0;
+            _docketPresentationDamaged = false;
             BuildShiftScreen();
         }
 
@@ -418,6 +432,7 @@ namespace CurioClerk.Presentation
             _lastCorrectArtifactId = null;
             _rewardFeedbackKey = null;
             _incidentConsecutiveCorrect = 0;
+            _docketPresentationDamaged = false;
             BuildShiftScreen();
         }
 
@@ -455,19 +470,20 @@ namespace CurioClerk.Presentation
 
             if (outcome.Disposition == SortDisposition.Wrong)
             {
+                MarkDocketMistakePresentation();
                 if (_session.State == ShiftState.Failed)
                 {
                     ShowSortFeedback(artifact, content, outcome, true, false);
                     RefreshShiftView(false, false);
                     SetShiftInputLocked(true);
                     _feedbackAnimator?.SetIdleEnabled(false);
-                    if (_feedbackAnimator == null)
+                    if (_feedbackAnimator == null || !_feedbackAnimator.isActiveAndEnabled)
                     {
                         CompleteTerminalWrongTransition();
                     }
                     else
                     {
-                        _feedbackAnimator.PlayWrong(CompleteTerminalWrongTransition);
+                        _feedbackAnimator.PlayWrong(OwnTransition(CompleteTerminalWrongTransition));
                     }
 
                     return;
@@ -478,18 +494,36 @@ namespace CurioClerk.Presentation
                 return;
             }
 
+            CloseDocketMistakePresentation();
             var terminalCorrectSort = outcome.DidCompleteShift;
             PrepareCurioFarewell(content, outcome.SelectedDestination);
             ShowSortFeedback(artifact, content, outcome, false);
-            if (!terminalCorrectSort)
+            SetShiftInputLocked(true);
+            _feedbackAnimator?.SetIdleEnabled(false);
+            var isKeyReaction = IsIncidentKeyArtifact(artifactId) && _incidentReactionView != null;
+            Action beginFiling = () => BeginCorrectFiling(outcome, !isKeyReaction && !terminalCorrectSort);
+            if (isKeyReaction)
+            {
+                _incidentReactionView.PlayKeyReaction(
+                    IncidentKeyReactionText(),
+                    IncidentKeyReactionCue(),
+                    OwnTransition(beginFiling));
+                return;
+            }
+
+            beginFiling();
+        }
+
+        private void BeginCorrectFiling(SortOutcome outcome, bool playCorrectCue)
+        {
+            if (playCorrectCue)
             {
                 _feedbackService.Play(PlayerFeedbackCue.Correct);
             }
 
             RefreshDocketDuringTransition(outcome);
-            SetShiftInputLocked(true);
             _feedbackAnimator?.SetIdleEnabled(false);
-            if (_feedbackAnimator == null)
+            if (_feedbackAnimator == null || !_feedbackAnimator.isActiveAndEnabled)
             {
                 CompleteCorrectTransition(outcome);
             }
@@ -497,7 +531,7 @@ namespace CurioClerk.Presentation
             {
                 _feedbackAnimator.PlayCorrect(
                     _destinationButtons[(int)outcome.SelectedDestination].GetComponent<RectTransform>(),
-                    () => CompleteCorrectTransition(outcome));
+                    OwnTransition(() => CompleteCorrectTransition(outcome)));
             }
         }
 
@@ -684,16 +718,16 @@ namespace CurioClerk.Presentation
             ActiveScreen = AppScreen.Shift;
             var page = CreatePage("ShiftScreen");
             _incidentReactionView = null;
-            Image incidentWarmthOverlay = null;
+            _incidentWarmthOverlay = null;
             if (_isIncidentShift)
             {
-                incidentWarmthOverlay = CreateArtworkImage(
+                _incidentWarmthOverlay = CreateArtworkImage(
                     page,
                     "IncidentWarmthOverlay",
                     Vector2.zero,
                     Vector2.one);
-                incidentWarmthOverlay.color = Color.clear;
-                incidentWarmthOverlay.enabled = false;
+                _incidentWarmthOverlay.color = Color.clear;
+                _incidentWarmthOverlay.enabled = false;
             }
 
             var equipped = ContentCatalog.CreateCosmetics().FirstOrDefault(item => item.Id == _save.equippedCosmeticId);
@@ -791,7 +825,7 @@ namespace CurioClerk.Presentation
                     card.GetComponent<RectTransform>(),
                     reactionText,
                     frostOverlay,
-                    incidentWarmthOverlay,
+                    _incidentWarmthOverlay,
                     _feedbackService);
             }
 
@@ -987,7 +1021,14 @@ namespace CurioClerk.Presentation
             if (outcome.DidCompleteDocket && _docketProgress != null)
             {
                 ShowDocketCompleteFeedback(outcome);
-                _docketProgress.PlayComplete(() => FinishCorrectTransition(outcome));
+                ShowDocketWarmth();
+                if (!_docketProgress.isActiveAndEnabled)
+                {
+                    FinishCorrectTransition(outcome);
+                    return;
+                }
+
+                _docketProgress.PlayComplete(OwnTransition(() => FinishCorrectTransition(outcome)));
                 return;
             }
 
@@ -996,6 +1037,12 @@ namespace CurioClerk.Presentation
 
         private void FinishCorrectTransition(SortOutcome outcome)
         {
+            if (outcome.DidCompleteDocket)
+            {
+                ResetDocketMistakePresentation();
+                HideDocketWarmth();
+            }
+
             if (outcome.DidCompleteShift)
             {
                 _inputLocked = false;
@@ -1240,11 +1287,24 @@ namespace CurioClerk.Presentation
             var reason = RuleReason(artifact, outcome);
             _sortFeedbackPanel.color = wasCorrect
                 ? DestinationColor(outcome.SelectedDestination)
-                : DustyRose;
-            _statusText.text = wasCorrect
-                ? _localizer.Get("feedback_correct_label") + " · " + reason + "\n" + Resolution(content)
-                : _localizer.Get("feedback_wrong_label") + " · " +
-                  _localizer.Get("wrong", DestinationName(outcome.ExpectedDestination)) + "\n" + reason;
+                : _isIncidentShift ? Wine : DustyRose;
+            if (wasCorrect)
+            {
+                _statusText.text = _localizer.Get("feedback_correct_label") + " · " + reason + "\n" +
+                                   Resolution(content);
+            }
+            else if (_isIncidentShift)
+            {
+                _statusText.text = reason + "\n" +
+                                   _localizer.Get("wrong", DestinationName(outcome.ExpectedDestination));
+            }
+            else
+            {
+                _statusText.text = _localizer.Get("feedback_wrong_label") + " · " +
+                                   _localizer.Get("wrong", DestinationName(outcome.ExpectedDestination)) + "\n" +
+                                   reason;
+            }
+
             if (_isIncidentShift && wasCorrect && _incidentConsecutiveCorrect == 3)
             {
                 _statusText.text += "\n" + _localizer.Get("calm_streak");
@@ -1255,7 +1315,11 @@ namespace CurioClerk.Presentation
             {
                 _feedbackService.Play(wasCorrect ? PlayerFeedbackCue.Correct : PlayerFeedbackCue.Wrong);
             }
-            if (!wasCorrect && playAnimation)
+            if (!wasCorrect && _isIncidentShift)
+            {
+                _incidentReactionView?.PlayMistake(reason);
+            }
+            else if (!wasCorrect && playAnimation)
             {
                 _feedbackAnimator?.PlayWrong();
             }
@@ -1289,6 +1353,154 @@ namespace CurioClerk.Presentation
             {
                 _incidentConsecutiveCorrect = 0;
             }
+        }
+
+        private bool IsIncidentKeyArtifact(string artifactId)
+            => _isIncidentShift &&
+               _incidentStage != null &&
+               artifactId == _incidentStage.LeadArtifactId;
+
+        private string IncidentKeyReactionText()
+        {
+            var quality = _session.Mistakes > 0
+                ? IncidentQuality.Stable
+                : _incidentStageRun?.ResonanceConditionMet == true
+                    ? IncidentQuality.Resonant
+                    : IncidentQuality.Precise;
+            return _incidentStage.Reactions.ForQuality(quality).ForLocale(_localizer.Locale);
+        }
+
+        private IncidentVisualCue IncidentKeyReactionCue()
+            => _incidentStage?.OutroBeats.Count > 0
+                ? _incidentStage.OutroBeats[0].VisualCue
+                : IncidentVisualCue.None;
+
+        private void MarkDocketMistakePresentation()
+        {
+            if (!_isIncidentShift || _docketSigilCrack == null)
+            {
+                return;
+            }
+
+            _docketPresentationDamaged = true;
+            _docketSigilCrack.enabled = true;
+            _docketSigilCrack.color = DustyRose;
+            _docketSigilCrack.rectTransform.localScale = Vector3.one;
+        }
+
+        private void CloseDocketMistakePresentation()
+        {
+            if (!_isIncidentShift || !_docketPresentationDamaged || _docketSigilCrack == null)
+            {
+                return;
+            }
+
+            _docketSigilCrack.enabled = true;
+            _docketSigilCrack.color = Sage;
+            _docketSigilCrack.rectTransform.localScale = new Vector3(0.02f, 1f, 1f);
+        }
+
+        private void ResetDocketMistakePresentation()
+        {
+            _docketPresentationDamaged = false;
+            if (_docketSigilCrack == null)
+            {
+                return;
+            }
+
+            _docketSigilCrack.enabled = false;
+            _docketSigilCrack.color = DustyRose;
+            _docketSigilCrack.rectTransform.localScale = Vector3.one;
+        }
+
+        private void ShowDocketWarmth()
+        {
+            if (!_isIncidentShift || _incidentWarmthOverlay == null)
+            {
+                return;
+            }
+
+            _incidentWarmthOverlay.enabled = true;
+            _incidentWarmthOverlay.color = new Color(0.98f, 0.68f, 0.27f, 0.12f);
+        }
+
+        private void HideDocketWarmth()
+        {
+            if (_incidentWarmthOverlay == null)
+            {
+                return;
+            }
+
+            _incidentWarmthOverlay.color = Color.clear;
+            _incidentWarmthOverlay.enabled = false;
+        }
+
+        private Action OwnTransition(Action continuation)
+        {
+            if (continuation == null)
+            {
+                return null;
+            }
+
+            if (_pendingTransition != null)
+            {
+                throw new InvalidOperationException("A presentation transition is already pending.");
+            }
+
+            var version = ++_pendingTransitionVersion;
+            _pendingTransition = continuation;
+            return () => CompleteOwnedTransition(version);
+        }
+
+        private void CompleteOwnedTransition(int version)
+        {
+            if (_pendingTransition == null || version != _pendingTransitionVersion)
+            {
+                return;
+            }
+
+            var continuation = _pendingTransition;
+            _pendingTransition = null;
+            continuation();
+        }
+
+        private void FlushPendingTransitions()
+        {
+            if (_flushingTransitions)
+            {
+                return;
+            }
+
+            _flushingTransitions = true;
+            try
+            {
+                while (_pendingTransition != null)
+                {
+                    var version = _pendingTransitionVersion;
+                    FlushPresentationView(_incidentReactionView);
+                    FlushPresentationView(_feedbackAnimator);
+                    FlushPresentationView(_docketProgress);
+                    if (_pendingTransition != null && version == _pendingTransitionVersion)
+                    {
+                        CompleteOwnedTransition(version);
+                    }
+                }
+            }
+            finally
+            {
+                _flushingTransitions = false;
+            }
+        }
+
+        private static void FlushPresentationView(Behaviour view)
+        {
+            if (view == null || !view.isActiveAndEnabled)
+            {
+                return;
+            }
+
+            view.enabled = false;
+            view.enabled = true;
         }
 
         private string RuleReason(Artifact artifact, SortOutcome outcome)
@@ -1523,9 +1735,9 @@ namespace CurioClerk.Presentation
                 _hudText.text = $"♥ {_session.Hearts}     {_localizer.Get("coins")} {_session.Coins}";
             }
 
-            if (animateArtifact)
+            if (animateArtifact && _feedbackAnimator != null && _feedbackAnimator.isActiveAndEnabled)
             {
-                _feedbackAnimator?.PlayArtifactEntrance();
+                _feedbackAnimator.PlayArtifactEntrance();
             }
 
             _feedbackAnimator?.SetIdleEnabled(true);
@@ -1578,7 +1790,10 @@ namespace CurioClerk.Presentation
 
             var ledgerAnimator = page.gameObject.AddComponent<ResultLedgerAnimator>();
             ledgerAnimator.Configure(resultRows);
-            ledgerAnimator.Play();
+            if (ledgerAnimator.isActiveAndEnabled)
+            {
+                ledgerAnimator.Play();
+            }
 
             var resultResolution = _lastCorrectArtifactId != null && _artifactById.TryGetValue(_lastCorrectArtifactId, out var finalContent)
                 ? Resolution(finalContent)
@@ -1601,7 +1816,10 @@ namespace CurioClerk.Presentation
             }
             var resultAnimator = page.gameObject.AddComponent<ShiftFeedbackAnimator>();
             resultAnimator.Configure(resultTitle.rectTransform, resultScore.rectTransform);
-            resultAnimator.PlayArtifactEntrance();
+            if (resultAnimator.isActiveAndEnabled)
+            {
+                resultAnimator.PlayArtifactEntrance();
+            }
             CreateText(page, "RewardedAdFeedback", string.IsNullOrEmpty(_rewardFeedbackKey) ? string.Empty : _localizer.Get(_rewardFeedbackKey), 20, DustyRose, TextAlignmentOptions.Center, new Vector2(0.12f, 0.20f), new Vector2(0.88f, 0.25f), true);
             CreateButton(page, "ResultsContinueButton", _localizer.Get("continue"), new Vector2(0.20f, 0.09f), new Vector2(0.80f, 0.17f), Amber, Ink, ReturnFromResults);
         }
@@ -1877,6 +2095,9 @@ namespace CurioClerk.Presentation
 
         private RectTransform CreatePage(string name)
         {
+            var requestedScreen = ActiveScreen;
+            FlushPendingTransitions();
+            ActiveScreen = requestedScreen;
             ClearScreen();
             return CreatePanel(_screenRoot, name, Color.clear, Vector2.zero, Vector2.one);
         }
@@ -1984,6 +2205,7 @@ namespace CurioClerk.Presentation
 
         private void BuildDocketProgress(Transform parent)
         {
+            _docketSigilCrack = null;
             var panel = CreatePanel(
                 parent,
                 "DocketProgress",
@@ -2025,6 +2247,31 @@ namespace CurioClerk.Presentation
                     out stampLabels[2])
             };
 
+            Image completionSigil = null;
+            if (_isIncidentShift)
+            {
+                completionSigil = CreateArtworkImage(
+                    panel,
+                    "DocketCompletionSigil",
+                    new Vector2(0.35f, 0.04f),
+                    new Vector2(0.95f, 0.96f));
+                completionSigil.sprite = VisualAssetLibrary.VaultIcon;
+                completionSigil.color = new Color(Amber.r, Amber.g, Amber.b, 0f);
+                completionSigil.enabled = false;
+                completionSigil.transform.SetAsFirstSibling();
+
+                var crack = CreatePanel(
+                    panel,
+                    "DocketSigilCrack",
+                    DustyRose,
+                    new Vector2(0.635f, 0.16f),
+                    new Vector2(0.650f, 0.84f));
+                crack.localRotation = Quaternion.Euler(0f, 0f, -18f);
+                _docketSigilCrack = crack.GetComponent<Image>();
+                _docketSigilCrack.raycastTarget = false;
+                _docketSigilCrack.enabled = false;
+            }
+
             _docketProgress = panel.gameObject.AddComponent<DocketProgressView>();
             _docketProgress.Configure(
                 counter,
@@ -2037,6 +2284,10 @@ namespace CurioClerk.Presentation
                     new Color(Sage.r, Sage.g, Sage.b, 0.72f),
                     new Color(Amber.r, Amber.g, Amber.b, 0.72f)
                 });
+            if (completionSigil != null)
+            {
+                _docketProgress.ConfigureCompletionSigil(completionSigil);
+            }
         }
 
         private static Image CreateDocketStamp(

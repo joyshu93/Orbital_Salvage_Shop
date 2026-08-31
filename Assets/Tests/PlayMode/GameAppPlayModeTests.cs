@@ -435,6 +435,241 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator IncidentWrongSort_LeadsWithTheRuleAndNextCorrectClosesTheDocketCrack()
+        {
+            var feedback = new RecordingPlayerFeedbackService();
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService(), feedback);
+            yield return null;
+            yield return BeginIncidentShift(app, 3, "ko");
+            var heartsBefore = SessionHearts(app);
+            feedback.Cues.Clear();
+
+            ChooseDestination(app, (int)Destination.Repair);
+
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("unmelting-ice"),
+                "An incident mistake must keep the curio available for correction.");
+            Assert.That(SessionHearts(app), Is.EqualTo(heartsBefore - 1));
+            Assert.That(SessionInt(app, "Mistakes"), Is.EqualTo(1));
+            Assert.That(ObjectText("SortFeedback"),
+                Does.StartWith("시간성 우선 -> 봉인고").And.Contain("잘못 분류했습니다"));
+            Assert.That(ObjectText("SortFeedback"), Does.Not.StartWith("오답"));
+            Assert.That(GameObject.Find("SortFeedbackPanel").GetComponent<UnityEngine.UI.Image>().color,
+                Is.EqualTo(GameObject.Find("HoldButton").GetComponent<UnityEngine.UI.Image>().color),
+                "Incident correction must use the calm wine surface instead of a dominant pink WRONG banner.");
+            var reaction = FindText("IncidentReactionText");
+            Assert.That(reaction.enabled, Is.True);
+            Assert.That(reaction.text, Is.EqualTo("시간성 우선 -> 봉인고"));
+            var crack = GameObject.Find("DocketSigilCrack").GetComponent<UnityEngine.UI.Image>();
+            Assert.That(crack.enabled, Is.True);
+            Assert.That(crack.rectTransform.localScale.x, Is.GreaterThan(0.9f));
+            Assert.That(feedback.Cues, Does.Contain(PlayerFeedbackCue.Wrong));
+
+            yield return new WaitForSecondsRealtime(0.62f);
+            Assert.That(reaction.enabled, Is.False);
+            feedback.Cues.Clear();
+            ChooseDestination(app, (int)Destination.Vault);
+
+            Assert.That(crack.enabled, Is.True);
+            Assert.That(crack.rectTransform.localScale.x, Is.LessThan(0.05f),
+                "The first correction after a mistake must visibly close the docket crack.");
+            Assert.That(crack.color,
+                Is.EqualTo(GameObject.Find("StorageButton").GetComponent<UnityEngine.UI.Image>().color));
+            Assert.That(feedback.Cues, Does.Contain(PlayerFeedbackCue.Correct));
+            Assert.That(feedback.Cues.Contains(PlayerFeedbackCue.KeyReaction), Is.False);
+            yield return WaitForFilingTransition(app);
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentOrdinaryCorrect_UsesTheProceduralCueWithoutAKeyReaction()
+        {
+            var feedback = new RecordingPlayerFeedbackService();
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService(), feedback);
+            yield return null;
+            yield return BeginIncidentShift(app, 3, "en");
+            feedback.Cues.Clear();
+
+            ChooseDestination(app, (int)Destination.Vault);
+
+            Assert.That(feedback.Cues, Is.EqualTo(new[] { PlayerFeedbackCue.Correct }));
+            Assert.That(FindText("IncidentReactionText").enabled, Is.False);
+            yield return WaitForFilingTransition(app);
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentLeadIce_OwnsTheCardWithAuthoredReactionThenFilesWithoutAnotherTap()
+        {
+            var feedback = new RecordingPlayerFeedbackService();
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService(), feedback);
+            yield return null;
+            yield return BeginIncidentShift(app, 0, "ko");
+            feedback.Cues.Clear();
+
+            ChooseDestination(app, (int)Destination.Repair);
+
+            Assert.That(feedback.Cues, Is.EqualTo(new[] { PlayerFeedbackCue.KeyReaction }));
+            Assert.That(FindText("IncidentReactionText").enabled, Is.True);
+            Assert.That(ObjectText("IncidentReactionText"),
+                Is.EqualTo("침착한 손길 아래 봉합된 금이 더 번지지 않습니다."));
+            Assert.That(GameObject.Find("ArtifactIllustration").GetComponent<UnityEngine.UI.Image>().sprite.name,
+                Is.EqualTo("unmelting-ice"));
+            Assert.That(typeof(GameApp).GetField("_inputLocked", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app), Is.True);
+
+            yield return new WaitForSecondsRealtime(0.90f);
+            Assert.That(GameObject.Find("ArtifactIllustration").GetComponent<UnityEngine.UI.Image>().sprite.name,
+                Is.EqualTo("unmelting-ice"),
+                "The authored key reaction must still own the outgoing card near the one-second mark.");
+
+            yield return WaitForFilingTransition(app);
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("moon-umbrella"));
+            Assert.That(GameObject.Find("ArtifactIllustration").GetComponent<UnityEngine.UI.Image>().sprite.name,
+                Is.EqualTo("moon-umbrella"),
+                "The existing filing transition must continue automatically after the key reaction.");
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentLeadUmbrella_UsesItsAuthoredStageReaction()
+        {
+            var feedback = new RecordingPlayerFeedbackService();
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService(), feedback);
+            yield return null;
+            yield return BeginIncidentShift(app, 4, "ko");
+
+            app.HoldCurrent();
+            yield return WaitForFilingTransition(app);
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("moon-umbrella"));
+            feedback.Cues.Clear();
+            ChooseDestination(app, (int)Destination.Repair);
+
+            Assert.That(feedback.Cues, Is.EqualTo(new[] { PlayerFeedbackCue.KeyReaction }));
+            Assert.That(ObjectText("IncidentReactionText"),
+                Is.EqualTo("침착한 손길 뒤 책상에는 물도, 인장의 긴장도 남지 않습니다."));
+            yield return WaitForFilingTransition(app);
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentLeadReaction_DisableThenEnableContinuesFilingExactlyOnce()
+        {
+            var feedback = new RecordingPlayerFeedbackService();
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService(), feedback);
+            yield return null;
+            yield return BeginIncidentShift(app, 0, "en");
+            feedback.Cues.Clear();
+
+            ChooseDestination(app, (int)Destination.Repair);
+            Assert.That(SessionCorrectSorts(app), Is.EqualTo(1));
+            app.gameObject.SetActive(false);
+            yield return null;
+            Assert.That(PendingTransition(app), Is.Null,
+                "Disabling the screen owner must flush the gameplay continuation without waiting for a visual.");
+            app.gameObject.SetActive(true);
+            yield return null;
+            yield return WaitForFilingTransition(app);
+
+            Assert.That(SessionCorrectSorts(app), Is.EqualTo(1));
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("moon-umbrella"));
+            Assert.That(GameObject.Find("ArtifactIllustration").GetComponent<UnityEngine.UI.Image>().sprite.name,
+                Is.EqualTo("moon-umbrella"));
+            Assert.That(feedback.Cues, Is.EqualTo(new[] { PlayerFeedbackCue.KeyReaction }));
+
+            app.gameObject.SetActive(false);
+            app.gameObject.SetActive(true);
+            yield return null;
+            Assert.That(SessionCorrectSorts(app), Is.EqualTo(1),
+                "Repeated enable cycles must not replay the pending filing callback.");
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentLeadReaction_RebuildingTheScreenFlushesTheFilingContinuationExactlyOnce()
+        {
+            var feedback = new RecordingPlayerFeedbackService();
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService(), feedback);
+            yield return null;
+            yield return BeginIncidentShift(app, 0, "en");
+
+            ChooseDestination(app, (int)Destination.Repair);
+            Assert.That(PendingTransition(app), Is.Not.Null);
+            app.ShowMenu();
+            yield return null;
+
+            Assert.That(PendingTransition(app), Is.Null);
+            Assert.That(SessionCorrectSorts(app), Is.EqualTo(1));
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("moon-umbrella"));
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Menu));
+
+            yield return new WaitForSecondsRealtime(1.4f);
+            Assert.That(SessionCorrectSorts(app), Is.EqualTo(1),
+                "A stale visual callback must not replay a flushed filing continuation.");
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Menu));
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentPendingTransition_PauseAndDestroyEachFlushExactlyOnce()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            yield return BeginIncidentShift(app, 0, "en");
+
+            ChooseDestination(app, (int)Destination.Repair);
+            typeof(GameApp)
+                .GetMethod("OnApplicationPause", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(app, new object[] { true });
+
+            Assert.That(PendingTransition(app), Is.Null);
+            Assert.That(SessionCorrectSorts(app), Is.EqualTo(1));
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("moon-umbrella"));
+
+            var destroyCompletions = 0;
+            typeof(GameApp)
+                .GetMethod("OwnTransition", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(app, new object[] { (Action)(() => destroyCompletions++) });
+            UnityEngine.Object.DestroyImmediate(app.gameObject);
+
+            Assert.That(destroyCompletions, Is.EqualTo(1),
+                "Destroy must flush a pending continuation once, and OnDisable plus OnDestroy must not duplicate it.");
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentDocketComplete_RevealsConnectedSigilAndWarmsDeskBeforeAdvancing()
+        {
+            var feedback = new RecordingPlayerFeedbackService();
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService(), feedback);
+            yield return null;
+            yield return BeginIncidentShift(app, 3, "ko");
+
+            ChooseDestination(app, (int)Destination.Vault);
+            yield return WaitForFilingTransition(app);
+            app.HoldCurrent();
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, (int)Destination.Repair);
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, (int)Destination.Storage);
+            yield return new WaitForSecondsRealtime(0.78f);
+
+            var sigil = GameObject.Find("DocketCompletionSigil").GetComponent<UnityEngine.UI.Image>();
+            var warmth = GameObject.Find("IncidentWarmthOverlay").GetComponent<UnityEngine.UI.Image>();
+            Assert.That(sigil.enabled, Is.True);
+            Assert.That(sigil.color.a, Is.GreaterThan(0.2f));
+            Assert.That(warmth.enabled, Is.True);
+            Assert.That(warmth.color.a, Is.GreaterThan(0.02f));
+            Assert.That(GameObject.Find("ArtifactIllustration").GetComponent<UnityEngine.UI.Image>().sprite.name,
+                Is.EqualTo("clockwork-moth"),
+                "The connected seal tier must be visible before the next curio replaces the completed docket.");
+            Assert.That(typeof(GameApp).GetField("_inputLocked", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app), Is.True);
+            Assert.That(feedback.Cues.Contains(PlayerFeedbackCue.IncidentComplete), Is.False,
+                "A completed docket must not spend the full incident-complete feedback tier.");
+
+            yield return WaitForFilingTransition(app);
+            Assert.That(GameObject.Find("ArtifactIllustration").GetComponent<UnityEngine.UI.Image>().sprite.name,
+                Is.EqualTo("sleeping-teacup"));
+            Assert.That(GameObject.Find("DocketSigilCrack").GetComponent<UnityEngine.UI.Image>().enabled,
+                Is.False, "Docket presentation damage must reset when the next docket opens.");
+            Assert.That(GameObject.Find("IncidentWarmthOverlay").GetComponent<UnityEngine.UI.Image>().enabled,
+                Is.False, "The weaker docket warmth must clear when the next docket opens.");
+        }
+
+        [UnityTest]
         public IEnumerator DocketStampLabels_AreLocalizedInEnglishAndKorean()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
@@ -1604,6 +1839,28 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator TerminalCorrectSort_DisableFlushesToAReadableInactiveResultScreen()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            app.StartNewShift(4242);
+            yield return CompleteUntilCorrectSorts(app, 11);
+
+            var finalDestination = ExpectedDestination(app);
+            typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { finalDestination });
+            app.gameObject.SetActive(false);
+            yield return null;
+
+            Assert.That(PendingTransition(app), Is.Null);
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Results));
+            app.gameObject.SetActive(true);
+            yield return null;
+
+            Assert.That(GameObject.Find("ResultDocket0").GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f));
+            Assert.That(GameObject.Find("ResultTitle").transform.localScale, Is.EqualTo(Vector3.one));
+        }
+
+        [UnityTest]
         public IEnumerator TerminalWrongSort_PrioritizesWrongCueAndHapticOverCompletionTone()
         {
             var feedback = new RecordingPlayerFeedbackService();
@@ -1653,6 +1910,32 @@ namespace CurioClerk.Tests.PlayMode
 
             Assert.That(GameObject.Find("RewardedAdButton"), Is.Null,
                 "A failed core-fun test run must not surface a rewarded offer.");
+        }
+
+        [UnityTest]
+        public IEnumerator TerminalWrongSort_DisableFlushesItsOwnedResultContinuationOnce()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            app.StartNewShift(4242);
+            SortCurrentIncorrectly(app);
+            SortCurrentIncorrectly(app);
+            SortCurrentIncorrectly(app);
+
+            Assert.That(PendingTransition(app), Is.Not.Null);
+            app.gameObject.SetActive(false);
+            yield return null;
+
+            Assert.That(PendingTransition(app), Is.Null);
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Results));
+            app.gameObject.SetActive(true);
+            yield return null;
+            Assert.That(GameObject.Find("ResultDocket0").GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f));
+
+            app.gameObject.SetActive(false);
+            app.gameObject.SetActive(true);
+            yield return null;
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Results));
         }
 
         [UnityTest]
@@ -1775,6 +2058,17 @@ namespace CurioClerk.Tests.PlayMode
             {
                 completedIds.Add("unmelting-ice");
             }
+        }
+
+        private static IEnumerator BeginIncidentShift(GameApp app, int stageIndex, string locale)
+        {
+            SetIncidentProgress(app, stageIndex, false);
+            SetLocale(app, locale);
+            app.ShowMenu();
+            ClickButton("IncidentButton");
+            yield return null;
+            ClickButton("NarrativeContinueButton");
+            yield return null;
         }
 
         private static void BeginTutorial(GameApp app)
@@ -1907,15 +2201,22 @@ namespace CurioClerk.Tests.PlayMode
             var inputLocked = typeof(GameApp)
                 .GetField("_inputLocked", BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(inputLocked, Is.Not.Null);
-            var deadline = Time.realtimeSinceStartup + 1.5f;
+            var reaction = GameObject.Find("IncidentReactionText")?.GetComponent<TMP_Text>();
+            var timeoutSeconds = reaction != null && reaction.enabled ? 3f : 1.5f;
+            var deadline = Time.realtimeSinceStartup + timeoutSeconds;
             while ((bool)inputLocked.GetValue(app) && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
 
             Assert.That((bool)inputLocked.GetValue(app), Is.False,
-                "The filing transition must release input within 1.5 seconds.");
+                $"The filing transition must release input within {timeoutSeconds:0.0} seconds.");
         }
+
+        private static object PendingTransition(GameApp app)
+            => typeof(GameApp)
+                .GetField("_pendingTransition", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app);
 
         private static void StartDailyShift(GameApp app)
         {

@@ -184,6 +184,257 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator IncidentShift_UsesAuthoredJudgmentLayoutAndLocalizedFrost()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetIncidentProgress(app, 3, false);
+            SetLocale(app, "ko");
+            app.ShowMenu();
+            ClickButton("IncidentButton");
+            yield return null;
+            ClickButton("NarrativeContinueButton");
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+
+            var queue = PlannedQueue(app);
+            Assert.That(queue.Count, Is.EqualTo(12));
+            var authoredStage = ContentCatalog.CreateIncidents()[0].Stages[3];
+            for (var index = 0; index < queue.Count; index++)
+            {
+                Assert.That(ArtifactId(queue[index]), Is.EqualTo(authoredStage.Queue[index].ArtifactId),
+                    $"Incident queue item {index + 1} must preserve the authored order.");
+            }
+
+            var activeRules = (IReadOnlyList<SortingRule>)typeof(GameApp)
+                .GetField("_activeRules", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app);
+            Assert.That(activeRules.Count, Is.EqualTo(authoredStage.Rules.Count));
+            for (var index = 0; index < activeRules.Count; index++)
+            {
+                Assert.That(activeRules[index].Id, Is.EqualTo(authoredStage.Rules[index].Id),
+                    $"Incident rule {index + 1} must preserve authored priority.");
+            }
+
+            var destinations = new HashSet<Destination>();
+            var engine = new RuleEngine();
+            foreach (Artifact artifact in queue)
+            {
+                destinations.Add(engine.Resolve(artifact, activeRules));
+            }
+
+            Assert.That(destinations, Is.EquivalentTo(new[]
+            {
+                Destination.Repair,
+                Destination.Storage,
+                Destination.Vault
+            }));
+
+            var current = (Artifact)Session(app).GetType()
+                .GetProperty("CurrentArtifact")
+                .GetValue(Session(app));
+            Assert.That(current.Traits & ArtifactTraits.Frosted, Is.EqualTo(ArtifactTraits.Frosted));
+            ArtifactContent baseIce = null;
+            foreach (var artifact in ContentCatalog.CreateArtifacts())
+            {
+                if (artifact.Id == "unmelting-ice")
+                {
+                    baseIce = artifact;
+                    break;
+                }
+            }
+
+            Assert.That(baseIce, Is.Not.Null);
+            Assert.That(baseIce.Traits & ArtifactTraits.Frosted, Is.EqualTo(ArtifactTraits.None),
+                "Incident frost must not leak back into the base artifact catalog.");
+            Assert.That(ObjectText("ArtifactTraits"), Does.Contain("서리 묻음"));
+            var highlightedRules = ObjectText("RuleList");
+            Assert.That(highlightedRules, Does.Contain("<color=#E0A24B><b>1."),
+                "Temporal is the first matching rule and must be highlighted before input.");
+            Assert.That(highlightedRules.Split(
+                    new[] { "<color=#E0A24B><b>" },
+                    StringSplitOptions.None).Length - 1,
+                Is.EqualTo(1), "Only the deciding rule may be highlighted.");
+            Assert.That(HasEnabledOutline("RepairButton"), Is.False);
+            Assert.That(HasEnabledOutline("StorageButton"), Is.False);
+            Assert.That(HasEnabledOutline("VaultButton"), Is.False,
+                "An incident may emphasize the deciding rule, but must not reveal the destination.");
+            Assert.That(ObjectText("HoldButton"), Is.EqualTo("보호 보류"));
+            Assert.That(GameObject.Find("IncidentFrostOverlay"), Is.Not.Null);
+            Assert.That(GameObject.Find("IncidentFrostOverlay").GetComponent<UnityEngine.UI.Image>().enabled,
+                Is.True);
+
+            var card = FindRect("CurrentArtifactCard");
+            var artwork = FindRect("ArtifactIllustration");
+            var rules = FindRect("RulesPanel");
+            var destination = FindRect("RepairButton");
+            var hold = FindRect("HoldButton");
+            Assert.That(card.anchorMax.y - card.anchorMin.y, Is.GreaterThanOrEqualTo(0.38f));
+            Assert.That(artwork.anchorMax.x - artwork.anchorMin.x, Is.GreaterThanOrEqualTo(0.45f));
+            Assert.That(rules.rect.height, Is.LessThan(card.rect.height));
+            Assert.That(destination.rect.height, Is.GreaterThanOrEqualTo(110f));
+            Assert.That(hold.anchorMin.y, Is.GreaterThanOrEqualTo(destination.anchorMax.y),
+                "Protective Hold must remain directly above the one-hand destination row.");
+        }
+
+        [UnityTest]
+        public IEnumerator FrozenSeal_RequiresHoldingTheWatchAfterTheIceUsesVault()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetIncidentProgress(app, 3, false);
+            SetLocale(app, "ko");
+            app.ShowMenu();
+            ClickButton("IncidentButton");
+            yield return null;
+            ClickButton("NarrativeContinueButton");
+            yield return null;
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("unmelting-ice"));
+
+            ChooseDestination(app, (int)Destination.Vault);
+            yield return WaitForFilingTransition(app);
+
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("mossy-watch"));
+            Assert.That(ObjectText("SortFeedback"), Is.EqualTo(
+                "봉인고 인장이 얼었습니다. 다음 봉인 물건은 보류에서 보호하고 수리실 순서를 먼저 여세요."));
+            Assert.That(GameObject.Find("VaultButton").GetComponent<UnityEngine.UI.Button>().interactable,
+                Is.False);
+            Assert.That(GameObject.Find("HoldButton").GetComponent<UnityEngine.UI.Button>().interactable,
+                Is.True);
+            Assert.That(ObjectText("ArtifactTraits"), Does.Not.Contain("서리 묻음"));
+            Assert.That(GameObject.Find("IncidentFrostOverlay").GetComponent<UnityEngine.UI.Image>().enabled,
+                Is.False, "Stage-only frost must clear when the next artifact is not Frosted.");
+
+            app.HoldCurrent();
+            var stageRun = (IncidentStageRun)typeof(GameApp)
+                .GetField("_incidentStageRun", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app);
+            Assert.That(stageRun.ResonanceConditionMet, Is.True,
+                "The successful Hold must record mossy-watch before the session advances.");
+            yield return WaitForFilingTransition(app);
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("moon-umbrella"));
+            var nextRuleText = ObjectText("RuleList");
+            Assert.That(nextRuleText, Does.Contain("<color=#E0A24B><b>3."));
+            Assert.That(nextRuleText, Does.Not.Contain("<color=#E0A24B><b>1."),
+                "The highlighted rule must follow the new artifact rather than remain stale.");
+        }
+
+        [UnityTest]
+        public IEnumerator FirstIncidentHoldPrompt_TeachesProtectionAndAnOpenDeskInBothLanguages()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetIncidentProgress(app, 0, false);
+            SetLocale(app, "ko");
+            app.ShowMenu();
+            ClickButton("IncidentButton");
+            yield return null;
+            ClickButton("NarrativeContinueButton");
+            yield return null;
+
+            ChooseDestination(app, (int)Destination.Repair);
+            yield return WaitForFilingTransition(app);
+
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("moon-umbrella"));
+            Assert.That(ObjectText("SortFeedback"),
+                Does.StartWith("보호 보류").And.Contain("비어 있는 목적지"));
+
+            SetLocale(app, "en");
+            InvokePrivate(app, "RefreshDecisionMessage");
+            Assert.That(ObjectText("SortFeedback"),
+                Does.StartWith("PROTECT IN HOLD").And.Contain("missing desk"));
+        }
+
+        [UnityTest]
+        public IEnumerator FailedSecondHold_DoesNotRecordTheNewCurrentArtifact()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetIncidentProgress(app, 3, false);
+            SetLocale(app, "ko");
+            app.ShowMenu();
+            ClickButton("IncidentButton");
+            yield return null;
+            ClickButton("NarrativeContinueButton");
+            yield return null;
+            var stageRun = (IncidentStageRun)typeof(GameApp)
+                .GetField("_incidentStageRun", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app);
+
+            app.HoldCurrent();
+            yield return WaitForFilingTransition(app);
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("mossy-watch"));
+            Assert.That(stageRun.ResonanceConditionMet, Is.False,
+                "Holding the non-resonant ice first must not satisfy the stage condition.");
+
+            app.HoldCurrent();
+
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("mossy-watch"));
+            Assert.That(stageRun.ResonanceConditionMet, Is.False,
+                "A rejected second Hold must not record the current mossy-watch.");
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentShift_ShowsCalmFeedbackAfterThreeConsecutiveCorrectSorts()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetIncidentProgress(app, 3, false);
+            SetLocale(app, "ko");
+            app.ShowMenu();
+            ClickButton("IncidentButton");
+            yield return null;
+            ClickButton("NarrativeContinueButton");
+            yield return null;
+
+            ChooseDestination(app, (int)Destination.Vault);
+            yield return WaitForFilingTransition(app);
+            app.HoldCurrent();
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, (int)Destination.Repair);
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, (int)Destination.Storage);
+
+            Assert.That(ObjectText("SortFeedback"), Does.Contain("손길이 안정되었습니다"));
+            Assert.That(SessionScore(app), Is.EqualTo(700),
+                "The calm streak is presentation feedback, not a score multiplier.");
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentWrongSort_ResetsThePresentationOnlyCalmCounter()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetIncidentProgress(app, 3, false);
+            SetLocale(app, "ko");
+            app.ShowMenu();
+            ClickButton("IncidentButton");
+            yield return null;
+            ClickButton("NarrativeContinueButton");
+            yield return null;
+            ChooseDestination(app, (int)Destination.Vault);
+            yield return WaitForFilingTransition(app);
+            app.HoldCurrent();
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, (int)Destination.Repair);
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, (int)Destination.Storage);
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, (int)Destination.Repair);
+            yield return WaitForFilingTransition(app);
+
+            var counter = typeof(GameApp)
+                .GetField("_incidentConsecutiveCorrect", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(counter, Is.Not.Null);
+            Assert.That(counter.GetValue(app), Is.EqualTo(4));
+            ChooseDestination(app, (int)Destination.Vault);
+
+            Assert.That(counter.GetValue(app), Is.Zero,
+                "A real wrong filing must reset the accumulated incident calm streak.");
+            Assert.That(ObjectText("SortFeedback"), Does.Not.Contain("손길이 안정되었습니다"));
+        }
+
+        [UnityTest]
         public IEnumerator DocketStampLabels_AreLocalizedInEnglishAndKorean()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());

@@ -109,6 +109,7 @@ namespace CurioClerk.Presentation
         private TMP_Text _hudText;
         private DocketProgressView _docketProgress;
         private ShiftFeedbackAnimator _feedbackAnimator;
+        private IncidentReactionView _incidentReactionView;
         private ArtifactDragHandler _artifactDragHandler;
         private GameObject _tutorialDocketCompleteCard;
         private bool _resultApplied;
@@ -124,6 +125,7 @@ namespace CurioClerk.Presentation
         private string _dailyDateKey = string.Empty;
         private bool _inputLocked;
         private bool _isIncidentShift;
+        private int _incidentConsecutiveCorrect;
 
         public AppScreen ActiveScreen { get; private set; }
 
@@ -330,6 +332,7 @@ namespace CurioClerk.Presentation
             _appliedResultCoins = 0;
             _lastCorrectArtifactId = null;
             _rewardFeedbackKey = null;
+            _incidentConsecutiveCorrect = 0;
             BuildShiftScreen();
         }
 
@@ -414,6 +417,7 @@ namespace CurioClerk.Presentation
             _appliedResultCoins = 0;
             _lastCorrectArtifactId = null;
             _rewardFeedbackKey = null;
+            _incidentConsecutiveCorrect = 0;
             BuildShiftScreen();
         }
 
@@ -446,6 +450,8 @@ namespace CurioClerk.Presentation
                 RefreshShiftView(false, false);
                 return;
             }
+
+            UpdateIncidentCalm(outcome);
 
             if (outcome.Disposition == SortDisposition.Wrong)
             {
@@ -508,8 +514,14 @@ namespace CurioClerk.Presentation
                 return;
             }
 
+            var artifactId = _session?.CurrentArtifact?.Id;
             if (_session != null && _session.Hold())
             {
+                if (_isIncidentShift && _incidentStageRun != null && !string.IsNullOrWhiteSpace(artifactId))
+                {
+                    _incidentStageRun.RecordHold(artifactId);
+                }
+
                 _feedbackService.Play(PlayerFeedbackCue.Hold);
                 SetShiftInputLocked(true);
                 _feedbackAnimator?.SetIdleEnabled(false);
@@ -671,6 +683,19 @@ namespace CurioClerk.Presentation
             _inputLocked = false;
             ActiveScreen = AppScreen.Shift;
             var page = CreatePage("ShiftScreen");
+            _incidentReactionView = null;
+            Image incidentWarmthOverlay = null;
+            if (_isIncidentShift)
+            {
+                incidentWarmthOverlay = CreateArtworkImage(
+                    page,
+                    "IncidentWarmthOverlay",
+                    Vector2.zero,
+                    Vector2.one);
+                incidentWarmthOverlay.color = Color.clear;
+                incidentWarmthOverlay.enabled = false;
+            }
+
             var equipped = ContentCatalog.CreateCosmetics().FirstOrDefault(item => item.Id == _save.equippedCosmeticId);
             var hudMinimum = _isDailyShift ? new Vector2(0.32f, 0.945f) : new Vector2(0.06f, 0.945f);
             _hudText = CreateText(page, "ShiftHud", string.Empty, 28, Paper, TextAlignmentOptions.Center, hudMinimum, new Vector2(0.86f, 0.985f), true);
@@ -678,9 +703,12 @@ namespace CurioClerk.Presentation
             {
                 CreateText(page, "DailyChallengeBadge", _localizer.Get("daily_badge", _dailyDateKey), 18, Amber, TextAlignmentOptions.Left, new Vector2(0.03f, 0.945f), new Vector2(0.31f, 0.985f), true);
             }
-            var rulesPanel = CreatePanel(page, "RulesPanel", new Color(Wine.r, Wine.g, Wine.b, 0.82f), new Vector2(0.045f, 0.70f), new Vector2(0.955f, 0.84f));
+            var rulesPanelMinimum = _isIncidentShift
+                ? new Vector2(0.045f, 0.73f)
+                : new Vector2(0.045f, 0.70f);
+            var rulesPanel = CreatePanel(page, "RulesPanel", new Color(Wine.r, Wine.g, Wine.b, 0.82f), rulesPanelMinimum, new Vector2(0.955f, 0.84f));
             AddSurfaceChrome(rulesPanel, Amber, 2f, 0.28f);
-            CreateText(rulesPanel, "RulesHeader", _localizer.Get("rules"), 26, Amber, TextAlignmentOptions.Left, new Vector2(0.035f, 0.68f), new Vector2(0.965f, 0.94f), true);
+            CreateText(rulesPanel, "RulesHeader", _localizer.Get("rules"), _isIncidentShift ? 24 : 26, Amber, TextAlignmentOptions.Left, new Vector2(0.035f, 0.68f), new Vector2(0.965f, 0.94f), true);
             _ruleListText = CreateText(rulesPanel, "RuleList", RulesText(), 24, Paper, TextAlignmentOptions.TopLeft, new Vector2(0.035f, 0.05f), new Vector2(0.965f, 0.70f));
             if (equipped != null)
             {
@@ -688,8 +716,8 @@ namespace CurioClerk.Presentation
             }
 
             _docketProgress = null;
-            const float previewBottom = 0.625f;
-            const float previewTop = 0.69f;
+            var previewBottom = _isIncidentShift ? 0.66f : 0.625f;
+            var previewTop = _isIncidentShift ? 0.72f : 0.69f;
             BuildDocketProgress(page);
 
             _nextIllustrations[0] = CreateArtifactPreview(page, "NextPreviewCard0", "NextPreviewArtwork0", "NextPreview0", Paper, new Vector2(0.05f, previewBottom), new Vector2(0.34f, previewTop), out _nextTexts[0]);
@@ -704,10 +732,19 @@ namespace CurioClerk.Presentation
                 _tutorialCoach = CreateText(coachPanel, "TutorialCoach", string.Empty, 20, Paper, TextAlignmentOptions.Center, new Vector2(0.04f, 0.05f), new Vector2(0.96f, 0.95f), true);
             }
 
-            var card = CreatePanel(page, "CurrentArtifactCard", Paper, new Vector2(0.08f, 0.305f), new Vector2(0.92f, 0.615f));
+            var cardMinimum = _isIncidentShift
+                ? new Vector2(0.06f, 0.26f)
+                : new Vector2(0.08f, 0.305f);
+            var cardMaximum = _isIncidentShift
+                ? new Vector2(0.94f, 0.65f)
+                : new Vector2(0.92f, 0.615f);
+            var card = CreatePanel(page, "CurrentArtifactCard", Paper, cardMinimum, cardMaximum);
             _artifactCardSurface = card.GetComponent<Image>();
             AddSurfaceChrome(card, Amber, 3f, 0.34f);
-            _artifactIllustration = CreateArtworkImage(card, "ArtifactIllustration", new Vector2(0.035f, 0.16f), new Vector2(0.46f, 0.94f));
+            var artworkMaximum = _isIncidentShift
+                ? new Vector2(0.49f, 0.94f)
+                : new Vector2(0.46f, 0.94f);
+            _artifactIllustration = CreateArtworkImage(card, "ArtifactIllustration", new Vector2(0.035f, 0.16f), artworkMaximum);
             _artifactIllustration.gameObject.AddComponent<CanvasGroup>();
             _curioFarewellSeal = CreateArtworkImage(
                 _artifactIllustration.transform,
@@ -718,17 +755,63 @@ namespace CurioClerk.Presentation
             _curioFarewellSealGroup.alpha = 0f;
             _curioFarewellSeal.gameObject.SetActive(false);
             _currentSymbol = CreateText(card, "ArtifactSymbol", string.Empty, 92, Wine, TextAlignmentOptions.Center, new Vector2(0.05f, 0.30f), new Vector2(0.44f, 0.86f), true);
-            _currentName = CreateText(card, "ArtifactName", string.Empty, 42, Ink, TextAlignmentOptions.Left, new Vector2(0.47f, 0.72f), new Vector2(0.95f, 0.94f), true, TextRole.Display);
-            _currentDescription = CreateText(card, "ArtifactDescription", string.Empty, 25, Ink, TextAlignmentOptions.TopLeft, new Vector2(0.47f, 0.30f), new Vector2(0.94f, 0.71f));
-            _curioResolution = CreateText(card, "CurioResolution", string.Empty, 23, Ink, TextAlignmentOptions.TopLeft, new Vector2(0.47f, 0.30f), new Vector2(0.94f, 0.71f), false, TextRole.Display);
+            var copyMinimumX = _isIncidentShift ? 0.51f : 0.47f;
+            _currentName = CreateText(card, "ArtifactName", string.Empty, 42, Ink, TextAlignmentOptions.Left, new Vector2(copyMinimumX, 0.72f), new Vector2(0.95f, 0.94f), true, TextRole.Display);
+            _currentDescription = CreateText(card, "ArtifactDescription", string.Empty, 25, Ink, TextAlignmentOptions.TopLeft, new Vector2(copyMinimumX, 0.30f), new Vector2(0.94f, 0.71f));
+            _curioResolution = CreateText(card, "CurioResolution", string.Empty, 23, Ink, TextAlignmentOptions.TopLeft, new Vector2(copyMinimumX, 0.30f), new Vector2(0.94f, 0.71f), false, TextRole.Display);
             _curioResolution.gameObject.SetActive(false);
             _currentTraits = CreateText(card, "ArtifactTraits", string.Empty, 24, Wine, TextAlignmentOptions.Center, new Vector2(0.08f, 0.06f), new Vector2(0.92f, 0.20f), true);
 
-            _holdButton = CreateButton(page, "HoldButton", _localizer.Get("hold"), new Vector2(0.34f, 0.175f), new Vector2(0.66f, 0.225f), Wine, Paper, HoldCurrent, 28);
+            if (_isIncidentShift)
+            {
+                var frostOverlay = CreateArtworkImage(
+                    card,
+                    "IncidentFrostOverlay",
+                    Vector2.zero,
+                    Vector2.one);
+                frostOverlay.sprite = VisualAssetLibrary.FrostOverlay;
+                frostOverlay.preserveAspect = false;
+                frostOverlay.color = new Color(1f, 1f, 1f, 0.28f);
+                frostOverlay.enabled = false;
+                frostOverlay.transform.SetSiblingIndex(1);
+                var reactionText = CreateText(
+                    card,
+                    "IncidentReactionText",
+                    string.Empty,
+                    34,
+                    Wine,
+                    TextAlignmentOptions.Center,
+                    new Vector2(0.08f, 0.22f),
+                    new Vector2(0.92f, 0.78f),
+                    true,
+                    TextRole.Display);
+                reactionText.enabled = false;
+                _incidentReactionView = page.gameObject.AddComponent<IncidentReactionView>();
+                _incidentReactionView.Configure(
+                    card.GetComponent<RectTransform>(),
+                    reactionText,
+                    frostOverlay,
+                    incidentWarmthOverlay,
+                    _feedbackService);
+            }
+
+            var holdMinimum = _isIncidentShift
+                ? new Vector2(0.34f, 0.14f)
+                : new Vector2(0.34f, 0.175f);
+            var holdMaximum = _isIncidentShift
+                ? new Vector2(0.66f, 0.19f)
+                : new Vector2(0.66f, 0.225f);
+            _holdButton = CreateButton(page, "HoldButton", _localizer.Get(_isIncidentShift ? "incident_hold_protect" : "hold"), holdMinimum, holdMaximum, Wine, Paper, HoldCurrent, 28);
             _holdButtonLabel = _holdButton.transform.Find("Label").GetComponent<TMP_Text>();
             AddButtonIcon(_holdButton, "HoldButtonIcon", VisualAssetLibrary.HoldIcon, Paper);
             _holdHighlight = CreateButtonHighlight(_holdButton);
-            var feedbackPanel = CreatePanel(page, "SortFeedbackPanel", Color.clear, new Vector2(0.05f, 0.235f), new Vector2(0.95f, 0.295f));
+            var feedbackMinimum = _isIncidentShift
+                ? new Vector2(0.05f, 0.20f)
+                : new Vector2(0.05f, 0.235f);
+            var feedbackMaximum = _isIncidentShift
+                ? new Vector2(0.95f, 0.25f)
+                : new Vector2(0.95f, 0.295f);
+            var feedbackPanel = CreatePanel(page, "SortFeedbackPanel", Color.clear, feedbackMinimum, feedbackMaximum);
             _sortFeedbackPanel = feedbackPanel.GetComponent<Image>();
             _statusText = CreateText(feedbackPanel, "SortFeedback", string.Empty, 24, Paper, TextAlignmentOptions.Center, Vector2.zero, Vector2.one, true);
             _feedbackAnimator = page.gameObject.AddComponent<ShiftFeedbackAnimator>();
@@ -741,9 +824,11 @@ namespace CurioClerk.Presentation
                 _curioFarewellSeal.rectTransform,
                 _curioFarewellSealGroup);
 
-            var repair = CreateButton(page, "RepairButton", _localizer.Get("repair"), new Vector2(0.05f, 0.035f), new Vector2(0.32f, 0.145f), DustyRose, Paper, () => ChooseDestination(Destination.Repair), 30);
-            var storage = CreateButton(page, "StorageButton", _localizer.Get("storage"), new Vector2(0.365f, 0.035f), new Vector2(0.635f, 0.145f), Sage, Paper, () => ChooseDestination(Destination.Storage), 30);
-            var vault = CreateButton(page, "VaultButton", _localizer.Get("vault"), new Vector2(0.68f, 0.035f), new Vector2(0.95f, 0.145f), Amber, Ink, () => ChooseDestination(Destination.Vault), 30);
+            var destinationBottom = _isIncidentShift ? 0.015f : 0.035f;
+            var destinationTop = _isIncidentShift ? 0.125f : 0.145f;
+            var repair = CreateButton(page, "RepairButton", _localizer.Get("repair"), new Vector2(0.05f, destinationBottom), new Vector2(0.32f, destinationTop), DustyRose, Paper, () => ChooseDestination(Destination.Repair), 30);
+            var storage = CreateButton(page, "StorageButton", _localizer.Get("storage"), new Vector2(0.365f, destinationBottom), new Vector2(0.635f, destinationTop), Sage, Paper, () => ChooseDestination(Destination.Storage), 30);
+            var vault = CreateButton(page, "VaultButton", _localizer.Get("vault"), new Vector2(0.68f, destinationBottom), new Vector2(0.95f, destinationTop), Amber, Ink, () => ChooseDestination(Destination.Vault), 30);
             AddButtonIcon(repair, "RepairButtonIcon", VisualAssetLibrary.RepairIcon, Paper);
             AddButtonIcon(storage, "StorageButtonIcon", VisualAssetLibrary.StorageIcon, Paper);
             AddButtonIcon(vault, "VaultButtonIcon", VisualAssetLibrary.VaultIcon, Ink);
@@ -1160,6 +1245,11 @@ namespace CurioClerk.Presentation
                 ? _localizer.Get("feedback_correct_label") + " · " + reason + "\n" + Resolution(content)
                 : _localizer.Get("feedback_wrong_label") + " · " +
                   _localizer.Get("wrong", DestinationName(outcome.ExpectedDestination)) + "\n" + reason;
+            if (_isIncidentShift && wasCorrect && _incidentConsecutiveCorrect == 3)
+            {
+                _statusText.text += "\n" + _localizer.Get("calm_streak");
+            }
+
             _statusText.color = wasCorrect && outcome.SelectedDestination == Destination.Vault ? Ink : Paper;
             if (playCue)
             {
@@ -1178,7 +1268,26 @@ namespace CurioClerk.Presentation
             for (var index = 0; index < _destinationHighlights.Length; index++)
             {
                 var outline = _destinationHighlights[index];
-                outline.enabled = index == (int)highlighted;
+                outline.enabled = !_isIncidentShift && index == (int)highlighted;
+            }
+        }
+
+        private void UpdateIncidentCalm(SortOutcome outcome)
+        {
+            if (!_isIncidentShift)
+            {
+                return;
+            }
+
+            if (outcome.Disposition == SortDisposition.Correct)
+            {
+                _incidentConsecutiveCorrect++;
+                return;
+            }
+
+            if (outcome.Disposition == SortDisposition.Wrong)
+            {
+                _incidentConsecutiveCorrect = 0;
             }
         }
 
@@ -1212,10 +1321,19 @@ namespace CurioClerk.Presentation
         }
 
         private int MatchedRuleIndex(SortOutcome outcome)
+            => MatchedRuleIndex(outcome.MatchedRuleId);
+
+        private int CurrentMatchedRuleIndex()
+        {
+            var resolution = _ruleEngine.ResolveDetailed(_session.CurrentArtifact, _activeRules);
+            return MatchedRuleIndex(resolution.RuleId);
+        }
+
+        private int MatchedRuleIndex(string ruleId)
         {
             for (var index = 0; index < _activeRules.Count; index++)
             {
-                if (_activeRules[index].Id == outcome.MatchedRuleId)
+                if (_activeRules[index].Id == ruleId)
                 {
                     return index;
                 }
@@ -1278,9 +1396,7 @@ namespace CurioClerk.Presentation
             var holdRequired = _session?.ShouldSuggestHold == true;
             _sortFeedbackPanel.color = holdRequired ? Wine : Color.clear;
             _statusText.text = holdRequired
-                ? _localizer.Get(
-                    "hold_required",
-                    DestinationName(_session.CurrentResolution.Destination))
+                ? IncidentHoldExplanation()
                 : _localizer.Get("decision_prompt");
             _statusText.color = Paper;
             SetHoldPresentation(holdRequired);
@@ -1292,8 +1408,31 @@ namespace CurioClerk.Presentation
 
         private void SetHoldPresentation(bool required)
         {
-            _holdButtonLabel.text = _localizer.Get(required ? "hold_for_next" : "hold");
+            _holdButtonLabel.text = _localizer.Get(
+                _isIncidentShift
+                    ? "incident_hold_protect"
+                    : required ? "hold_for_next" : "hold");
             _holdHighlight.enabled = required;
+        }
+
+        private string IncidentHoldExplanation()
+        {
+            if (_isIncidentShift &&
+                _incidentStage?.Id == "ice-04-frozen-seal" &&
+                _incidentStage.IntroBeats.Count > 0)
+            {
+                return _incidentStage.IntroBeats[0].Copy.ForLocale(_localizer.Locale);
+            }
+
+            if (_isIncidentShift)
+            {
+                return _localizer.Get("incident_hold_protect") + " · " +
+                       _localizer.Get("tutorial_blocked");
+            }
+
+            return _localizer.Get(
+                "hold_required",
+                DestinationName(_session.CurrentResolution.Destination));
         }
 
         private void RefreshShiftView(
@@ -1308,9 +1447,11 @@ namespace CurioClerk.Presentation
             ResetCurioFarewell();
             if (!IsTutorialActive && refreshDecisionMessage && _ruleListText != null)
             {
-                _ruleListText.text = RulesText();
+                _ruleListText.text = RulesText(
+                    _isIncidentShift ? CurrentMatchedRuleIndex() : -1);
             }
             var content = _artifactById[_session.CurrentArtifact.Id];
+            var currentTraits = _session.CurrentArtifact.Traits;
             var artwork = VisualAssetLibrary.Artifact(content.Id);
             _artifactIllustration.sprite = artwork;
             _artifactIllustration.enabled = artwork != null;
@@ -1319,8 +1460,10 @@ namespace CurioClerk.Presentation
             _currentName.text = Name(content);
             _currentDescription.text = Description(content);
             _currentTraits.text = TraitsText(
-                content.Traits,
+                currentTraits,
                 IsTutorialActive ? TutorialEmphasizedTraits() : ArtifactTraits.None);
+            _incidentReactionView?.SetFrosted(
+                _isIncidentShift && (currentTraits & ArtifactTraits.Frosted) != 0);
             if (_session.HeldArtifact == null)
             {
                 _heldText.text = _localizer.Get("hold") + "\n—";
@@ -2071,13 +2214,14 @@ namespace CurioClerk.Presentation
             ArtifactTraits traits,
             ArtifactTraits emphasized = ArtifactTraits.None)
         {
-            var labels = new List<string>(3);
+            var labels = new List<string>(7);
             AddTrait(labels, traits, ArtifactTraits.Cursed, "trait_cursed", emphasized);
             AddTrait(labels, traits, ArtifactTraits.Fragile, "trait_fragile", emphasized);
             AddTrait(labels, traits, ArtifactTraits.Alive, "trait_alive", emphasized);
             AddTrait(labels, traits, ArtifactTraits.Temporal, "trait_temporal", emphasized);
             AddTrait(labels, traits, ArtifactTraits.Wet, "trait_wet", emphasized);
             AddTrait(labels, traits, ArtifactTraits.Metallic, "trait_metallic", emphasized);
+            AddTrait(labels, traits, ArtifactTraits.Frosted, "trait_frosted", emphasized);
             return string.Join(" · ", labels);
         }
 

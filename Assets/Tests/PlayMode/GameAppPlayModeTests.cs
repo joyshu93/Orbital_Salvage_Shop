@@ -6,12 +6,14 @@ using CurioClerk.Content;
 using CurioClerk.Content.Incidents;
 using CurioClerk.Core.Artifacts;
 using CurioClerk.Core.Incidents;
+using CurioClerk.Core.Progression;
 using CurioClerk.Core.Rules;
 using CurioClerk.Core.Shifts;
 using CurioClerk.Infrastructure;
 using CurioClerk.Infrastructure.Ads;
 using CurioClerk.Infrastructure.Feedback;
 using CurioClerk.Infrastructure.Privacy;
+using CurioClerk.Infrastructure.Save;
 using CurioClerk.Infrastructure.Time;
 using CurioClerk.Localization;
 using CurioClerk.Presentation;
@@ -667,6 +669,203 @@ namespace CurioClerk.Tests.PlayMode
                 Is.False, "Docket presentation damage must reset when the next docket opens.");
             Assert.That(GameObject.Find("IncidentWarmthOverlay").GetComponent<UnityEngine.UI.Image>().enabled,
                 Is.False, "The weaker docket warmth must clear when the next docket opens.");
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentSuccess_PersistsQualityOncePlaysOutroAndStartsTheNextAuthoredStage()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            yield return BeginIncidentShift(app, 0, "ko");
+            var saveStore = new RecordingSaveStore();
+            typeof(GameApp)
+                .GetField("_saveStore", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(app, saveStore);
+            yield return CompleteActiveShift(app);
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.IncidentResults));
+            Assert.That(saveStore.SaveCalls, Is.EqualTo(1));
+            Assert.That(saveStore.PersistedIncidentStage, Is.EqualTo(1));
+            Assert.That(saveStore.PersistedRecordCount, Is.EqualTo(1));
+            Assert.That(saveStore.PersistedBestQuality, Is.EqualTo((int)IncidentQuality.Precise));
+            Assert.That(app.SaveData.activeIncidentStage, Is.EqualTo(1),
+                "The next stage must be persisted before the result screen can be left.");
+            Assert.That(app.SaveData.incidentStageRecords.Count, Is.EqualTo(1));
+            Assert.That(app.SaveData.incidentStageRecords[0].stageId, Is.EqualTo("ice-01-crack"));
+            Assert.That(app.SaveData.incidentStageRecords[0].bestQuality,
+                Is.EqualTo((int)IncidentQuality.Precise));
+            Assert.That(ObjectText("IncidentQualityLabel"), Is.EqualTo("정교"));
+            Assert.That(ObjectText("IncidentOutroBody"),
+                Is.EqualTo("금은 봉합됐어요. 그런데 안쪽의 낙엽은 움직였습니다."));
+            Assert.That(GameObject.Find("NextStageButton"), Is.Null,
+                "The authored outro must be acknowledged before the next shift is offered.");
+
+            InvokePrivate(app, "ShowIncidentResults");
+            Assert.That(saveStore.SaveCalls, Is.EqualTo(1),
+                "Rebuilding the result view must not repeat the persistence boundary.");
+            Assert.That(app.SaveData.activeIncidentStage, Is.EqualTo(1));
+            Assert.That(app.SaveData.incidentStageRecords.Count, Is.EqualTo(1),
+                "Rebuilding results must not evaluate or advance the incident twice.");
+
+            ClickButton("IncidentOutroContinueButton");
+            Assert.That(saveStore.SaveCalls, Is.EqualTo(1));
+            Assert.That(GameObject.Find("NextStageButton"), Is.Not.Null);
+            ClickButton("NextStageButton");
+            yield return null;
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Narrative));
+            Assert.That(ObjectText("NarrativeBody"),
+                Is.EqualTo("서리가 동료를 골랐군요. 흰 테가 생긴 물건은 모두 같은 상태로 보세요."));
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentResults_AllQualitiesShowBilingualBodiesAndAllowTheNextShift()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            yield return BeginIncidentShift(app, 0, "en");
+            yield return CompleteActiveShift(app);
+
+            var cases = new[]
+            {
+                new IncidentResultCopyCase(
+                    IncidentQuality.Stable,
+                    "en",
+                    "Stable",
+                    "The shift recovered. The incident remains safely contained.",
+                    "The corrected route steadies the crack. The ice remains safely whole."),
+                new IncidentResultCopyCase(
+                    IncidentQuality.Precise,
+                    "en",
+                    "Precise",
+                    "Calm care kept every seal intact.",
+                    "Under your calm hands, the sealed crack does not spread."),
+                new IncidentResultCopyCase(
+                    IncidentQuality.Resonant,
+                    "en",
+                    "Resonant",
+                    "Your care made the curio answer.",
+                    "A leaf turns once inside the ice, answering your careful touch."),
+                new IncidentResultCopyCase(
+                    IncidentQuality.Stable,
+                    "ko",
+                    "안정",
+                    "실수를 바로잡았습니다. 사건은 안전하게 진정되었습니다.",
+                    "바로잡은 뒤 금이 잦아듭니다. 얼음은 무사히 형태를 지킵니다."),
+                new IncidentResultCopyCase(
+                    IncidentQuality.Precise,
+                    "ko",
+                    "정교",
+                    "침착한 손길로 모든 인장을 지켰습니다.",
+                    "침착한 손길 아래 봉합된 금이 더 번지지 않습니다."),
+                new IncidentResultCopyCase(
+                    IncidentQuality.Resonant,
+                    "ko",
+                    "공명",
+                    "당신의 손길에 물건이 답했습니다.",
+                    "얼음 속 낙엽이 한 번 돌아, 조심스러운 손길에 답합니다.")
+            };
+
+            foreach (var resultCase in cases)
+            {
+                SetLocale(app, resultCase.Locale);
+                typeof(GameApp)
+                    .GetField("_incidentResultQuality", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .SetValue(app, resultCase.Quality);
+                InvokePrivate(app, "ShowIncidentResults");
+
+                Assert.That(ObjectText("IncidentQualityLabel"), Is.EqualTo(resultCase.Label));
+                Assert.That(ObjectText("IncidentQualityBody"), Is.EqualTo(resultCase.QualityBody));
+                Assert.That(ObjectText("IncidentReactionBody"), Is.EqualTo(resultCase.ReactionBody));
+                ClickButton("IncidentOutroContinueButton");
+                Assert.That(GameObject.Find("NextStageButton"), Is.Not.Null,
+                    resultCase.Quality + " must never block story progression in " + resultCase.Locale + ".");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentFailure_DoesNotAdvanceOrOfferAnAdAndRetriesTheSameStageImmediately()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            yield return BeginIncidentShift(app, 2, "ko");
+            var coinsBefore = app.SaveData.coins;
+            app.SaveData.incidentStageRecords.Add(new IncidentStageRecord
+            {
+                stageId = "ice-01-crack",
+                bestQuality = (int)IncidentQuality.Resonant
+            });
+
+            SortCurrentIncorrectly(app);
+            SortCurrentIncorrectly(app);
+            SortCurrentIncorrectly(app);
+            yield return WaitForFilingTransition(app);
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.IncidentResults));
+            Assert.That(app.SaveData.activeIncidentStage, Is.EqualTo(2));
+            Assert.That(app.SaveData.incidentStageRecords.Count, Is.EqualTo(1));
+            Assert.That(app.SaveData.incidentStageRecords[0].stageId, Is.EqualTo("ice-01-crack"));
+            Assert.That(app.SaveData.incidentStageRecords[0].bestQuality,
+                Is.EqualTo((int)IncidentQuality.Resonant));
+            Assert.That(app.SaveData.completedIncidentIds, Is.Empty);
+            Assert.That(app.SaveData.coins, Is.EqualTo(coinsBefore));
+            Assert.That(ObjectText("IncidentFailureBody"),
+                Is.EqualTo("보관소는 그대로입니다. 준비되면 같은 교대를 다시 시작하세요."));
+            Assert.That(GameObject.Find("RetryStageButton"), Is.Not.Null);
+            Assert.That(GameObject.Find("NextStageButton"), Is.Null);
+            Assert.That(GameObject.Find("RewardedAdButton"), Is.Null);
+
+            ClickButton("RetryStageButton");
+            yield return null;
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Narrative));
+            Assert.That(ObjectText("NarrativeBody"),
+                Is.EqualTo("이 시계에도 같은 낙엽이 있어요. 날짜는 내일이고요. 시간 이상이 서리보다 우선입니다."));
+        }
+
+        [UnityTest]
+        public IEnumerator FinalIncidentStage_RecedesFrostWarmsTheOfficeAndLeavesTheUmbrellaHook()
+        {
+            var feedback = new RecordingPlayerFeedbackService();
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService(), feedback);
+            yield return null;
+            yield return BeginIncidentShift(app, 4, "ko");
+            feedback.Cues.Clear();
+            yield return CompleteActiveShift(app);
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.IncidentResults));
+            Assert.That(app.SaveData.activeIncidentStage, Is.EqualTo(5));
+            Assert.That(app.SaveData.completedIncidentIds, Does.Contain("unmelting-ice"));
+            Assert.That(app.SaveData.incidentStageRecords[0].bestQuality,
+                Is.EqualTo((int)IncidentQuality.Resonant));
+            Assert.That(feedback.Cues.FindAll(cue => cue == PlayerFeedbackCue.IncidentComplete).Count,
+                Is.EqualTo(1));
+            Assert.That(ObjectText("IncidentQualityLabel"), Is.EqualTo("공명"));
+            Assert.That(ObjectText("IncidentEndingTitle"), Is.EqualTo("첫 사건 해결"));
+            Assert.That(ObjectText("IncidentEndingHook"),
+                Is.EqualTo("다음 사건 · 실내에서 비를 맞은 우산"));
+            Assert.That(ObjectText("IncidentReactionBody"),
+                Is.EqualTo("봉인된 우산 안에서 비가 답하고 보관소가 따뜻해집니다."));
+            Assert.That(ObjectText("IncidentOutroBody"),
+                Is.EqualTo("얼음은 물 없이 녹았습니다. 봉인된 우산 소포 안에서 빗소리가 납니다."));
+            Assert.That(GameObject.Find("IncidentEndingIce"), Is.Not.Null);
+            Assert.That(GameObject.Find("IncidentEndingUmbrella"), Is.Not.Null);
+            Assert.That(GameObject.Find("IncidentEndingUmbrellaSeal"), Is.Not.Null);
+            var frost = GameObject.Find("IncidentEndingFrost").GetComponent<UnityEngine.UI.Image>();
+            var warmth = GameObject.Find("IncidentEndingWarmth").GetComponent<UnityEngine.UI.Image>();
+            var startingFrost = frost.color.a;
+            var startingWarmth = warmth.color.a;
+
+            yield return new WaitForSecondsRealtime(0.70f);
+            Assert.That(frost.color.a, Is.LessThan(startingFrost));
+            Assert.That(warmth.color.a, Is.GreaterThan(startingWarmth));
+
+            ClickButton("IncidentOutroContinueButton");
+            Assert.That(ObjectText("NextStageButton"),
+                Is.EqualTo("다음 사건 · 실내에서 비를 맞은 우산"));
+            ClickButton("NextStageButton");
+            yield return null;
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Menu));
+            Assert.That(ObjectText("IncidentState"), Is.EqualTo("첫 사건 해결"));
         }
 
         [UnityTest]
@@ -2052,6 +2251,7 @@ namespace CurioClerk.Tests.PlayMode
         {
             SetSaveString(app, "activeIncidentId", "unmelting-ice");
             SetSaveInt(app, "activeIncidentStage", stageIndex);
+            app.SaveData.incidentStageRecords.Clear();
             var completedIds = SaveStringList(app, "completedIncidentIds");
             completedIds.Clear();
             if (completed)
@@ -2515,6 +2715,29 @@ namespace CurioClerk.Tests.PlayMode
             return text;
         }
 
+        private readonly struct IncidentResultCopyCase
+        {
+            public IncidentResultCopyCase(
+                IncidentQuality quality,
+                string locale,
+                string label,
+                string qualityBody,
+                string reactionBody)
+            {
+                Quality = quality;
+                Locale = locale;
+                Label = label;
+                QualityBody = qualityBody;
+                ReactionBody = reactionBody;
+            }
+
+            public IncidentQuality Quality { get; }
+            public string Locale { get; }
+            public string Label { get; }
+            public string QualityBody { get; }
+            public string ReactionBody { get; }
+        }
+
         private readonly struct RewardFeedbackCase
         {
             public RewardFeedbackCase(RewardedAdResult result, string expectedFeedback)
@@ -2587,6 +2810,26 @@ namespace CurioClerk.Tests.PlayMode
 
             public void Dispose()
             {
+            }
+        }
+
+        private sealed class RecordingSaveStore : ISaveStore
+        {
+            public int SaveCalls { get; private set; }
+            public int PersistedIncidentStage { get; private set; }
+            public int PersistedRecordCount { get; private set; }
+            public int PersistedBestQuality { get; private set; } = -1;
+
+            public PlayerSaveData LoadOrDefault() => new PlayerSaveData();
+
+            public void Save(PlayerSaveData data)
+            {
+                SaveCalls++;
+                PersistedIncidentStage = data.activeIncidentStage;
+                PersistedRecordCount = data.incidentStageRecords.Count;
+                PersistedBestQuality = data.incidentStageRecords.Count > 0
+                    ? data.incidentStageRecords[0].bestQuality
+                    : -1;
             }
         }
 

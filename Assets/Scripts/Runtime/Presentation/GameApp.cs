@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -132,6 +133,14 @@ namespace CurioClerk.Presentation
         private Action _pendingTransition;
         private int _pendingTransitionVersion;
         private bool _flushingTransitions;
+        private bool _incidentResultApplied;
+        private IncidentQuality _incidentResultQuality;
+        private bool _incidentCompletionWasFinal;
+        private Coroutine _incidentEndingRoutine;
+        private Image _incidentEndingFrost;
+        private Image _incidentEndingWarmth;
+        private RectTransform _incidentEndingIce;
+        private RectTransform _incidentEndingUmbrella;
 
         public AppScreen ActiveScreen { get; private set; }
 
@@ -172,11 +181,13 @@ namespace CurioClerk.Presentation
         private void OnDisable()
         {
             FlushPendingTransitions();
+            StopIncidentEndingAnimation();
         }
 
         private void OnDestroy()
         {
             FlushPendingTransitions();
+            StopIncidentEndingAnimation();
             Save();
             _feedbackService?.Dispose();
         }
@@ -347,6 +358,8 @@ namespace CurioClerk.Presentation
             _rewardFeedbackKey = null;
             _incidentConsecutiveCorrect = 0;
             _docketPresentationDamaged = false;
+            _incidentResultApplied = false;
+            _incidentCompletionWasFinal = false;
             BuildShiftScreen();
         }
 
@@ -433,6 +446,8 @@ namespace CurioClerk.Presentation
             _rewardFeedbackKey = null;
             _incidentConsecutiveCorrect = 0;
             _docketPresentationDamaged = false;
+            _incidentResultApplied = false;
+            _incidentCompletionWasFinal = false;
             BuildShiftScreen();
         }
 
@@ -1046,8 +1061,18 @@ namespace CurioClerk.Presentation
             if (outcome.DidCompleteShift)
             {
                 _inputLocked = false;
-                _feedbackService.Play(PlayerFeedbackCue.ShiftComplete);
-                ShowResults();
+                var completedIncident = _isIncidentShift &&
+                                        _incidentRunner.CurrentStageIndex + 1 >= _activeIncident.Stages.Count;
+                _feedbackService.Play(
+                    completedIncident ? PlayerFeedbackCue.IncidentComplete : PlayerFeedbackCue.ShiftComplete);
+                if (_isIncidentShift)
+                {
+                    ShowIncidentResults();
+                }
+                else
+                {
+                    ShowResults();
+                }
                 return;
             }
 
@@ -1064,7 +1089,14 @@ namespace CurioClerk.Presentation
         private void CompleteTerminalWrongTransition()
         {
             _inputLocked = false;
-            ShowResults();
+            if (_isIncidentShift)
+            {
+                ShowIncidentResults();
+            }
+            else
+            {
+                ShowResults();
+            }
         }
 
         private void CompleteTutorialSortTransition(
@@ -1758,6 +1790,405 @@ namespace CurioClerk.Presentation
             }
         }
 
+        private void ShowIncidentResults()
+        {
+            if (!_isIncidentShift || _incidentStage == null || _session == null)
+            {
+                ShowResults();
+                return;
+            }
+
+            var completed = _session.State == ShiftState.Completed;
+            if (completed)
+            {
+                ApplyIncidentResultOnce();
+            }
+
+            ActiveScreen = AppScreen.IncidentResults;
+            var page = CreatePage("IncidentResultsScreen");
+            if (!completed)
+            {
+                BuildIncidentFailureResults(page);
+                return;
+            }
+
+            BuildIncidentSuccessResults(page);
+        }
+
+        private void ApplyIncidentResultOnce()
+        {
+            if (_incidentResultApplied)
+            {
+                return;
+            }
+
+            var quality = _incidentStageRun.Evaluate(_session.CreateResult());
+            var completion = _incidentRunner.CompleteCurrentStage(quality);
+            _progression.ApplyIncidentStage(_save, completion);
+            _incidentResultQuality = quality;
+            _incidentCompletionWasFinal = completion.IncidentCompleted;
+            _incidentResultApplied = true;
+            Save();
+        }
+
+        private void BuildIncidentFailureResults(RectTransform page)
+        {
+            CreateText(
+                page,
+                "IncidentFailureTitle",
+                _localizer.Get("failed"),
+                54,
+                DustyRose,
+                TextAlignmentOptions.Center,
+                new Vector2(0.08f, 0.84f),
+                new Vector2(0.92f, 0.94f),
+                true,
+                TextRole.Display);
+            var artwork = CreateArtworkImage(
+                page,
+                "IncidentFailureArtifact",
+                new Vector2(0.20f, 0.45f),
+                new Vector2(0.80f, 0.78f));
+            artwork.sprite = VisualAssetLibrary.Artifact(_incidentStage.LeadArtifactId);
+            artwork.color = new Color(1f, 1f, 1f, 0.74f);
+            CreateText(
+                page,
+                "IncidentFailureBody",
+                _localizer.Get("incident_failed_body"),
+                34,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.10f, 0.27f),
+                new Vector2(0.90f, 0.43f),
+                true,
+                TextRole.Display);
+            CreateButton(
+                page,
+                "RetryStageButton",
+                _localizer.Get("retry_stage"),
+                new Vector2(0.12f, 0.13f),
+                new Vector2(0.88f, 0.23f),
+                Amber,
+                Ink,
+                RetryIncidentStage,
+                30);
+            CreateButton(
+                page,
+                "IncidentResultsMenuButton",
+                _localizer.Get("back"),
+                new Vector2(0.28f, 0.035f),
+                new Vector2(0.72f, 0.10f),
+                Wine,
+                Paper,
+                ShowMenu,
+                24);
+        }
+
+        private void BuildIncidentSuccessResults(RectTransform page)
+        {
+            var cueSurface = CreateArtworkImage(page, "IncidentOutroCueSurface", Vector2.zero, Vector2.one);
+            cueSurface.raycastTarget = false;
+            cueSurface.color = Color.white;
+
+            if (_incidentCompletionWasFinal)
+            {
+                BuildIncidentEndingPresentation(page);
+            }
+            else
+            {
+                var leadArtwork = CreateArtworkImage(
+                    page,
+                    "IncidentResultArtifact",
+                    new Vector2(0.27f, 0.49f),
+                    new Vector2(0.73f, 0.74f));
+                leadArtwork.sprite = VisualAssetLibrary.Artifact(_incidentStage.LeadArtifactId);
+            }
+
+            CreateText(
+                page,
+                "IncidentQualityLabel",
+                IncidentQualityLabel(_incidentResultQuality),
+                58,
+                _incidentResultQuality == IncidentQuality.Resonant ? Amber : Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.08f, 0.88f),
+                new Vector2(0.92f, 0.96f),
+                true,
+                TextRole.Display);
+            CreateText(
+                page,
+                "IncidentQualityBody",
+                IncidentQualityBody(_incidentResultQuality),
+                26,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.10f, 0.78f),
+                new Vector2(0.90f, 0.87f),
+                true);
+            CreateText(
+                page,
+                "IncidentReactionBody",
+                _incidentStage.Reactions.ForQuality(_incidentResultQuality).ForLocale(_localizer.Locale),
+                31,
+                Amber,
+                TextAlignmentOptions.Center,
+                new Vector2(0.09f, 0.39f),
+                new Vector2(0.91f, 0.49f),
+                true,
+                TextRole.Display);
+
+            var dialoguePanel = CreatePanel(
+                page,
+                "IncidentOutroPanel",
+                new Color(Paper.r, Paper.g, Paper.b, 0.96f),
+                new Vector2(0.06f, 0.15f),
+                new Vector2(0.94f, 0.38f));
+            AddSurfaceChrome(dialoguePanel, Amber, 3f, 0.26f);
+            var portrait = CreateArtworkImage(
+                dialoguePanel,
+                "IncidentOutroPortrait",
+                new Vector2(0.02f, 0.08f),
+                new Vector2(0.27f, 0.94f));
+            var speaker = CreateText(
+                dialoguePanel,
+                "IncidentOutroSpeaker",
+                string.Empty,
+                25,
+                Wine,
+                TextAlignmentOptions.Left,
+                new Vector2(0.29f, 0.70f),
+                new Vector2(0.96f, 0.92f),
+                true);
+            var body = CreateText(
+                dialoguePanel,
+                "IncidentOutroBody",
+                string.Empty,
+                31,
+                Ink,
+                TextAlignmentOptions.TopLeft,
+                new Vector2(0.29f, 0.08f),
+                new Vector2(0.96f, 0.70f));
+            var continueButton = CreateButton(
+                page,
+                "IncidentOutroContinueButton",
+                _localizer.Get("narrative_continue"),
+                new Vector2(0.08f, 0.035f),
+                new Vector2(0.92f, 0.125f),
+                Amber,
+                Ink,
+                () => { },
+                30);
+            var narrativeView = page.gameObject.AddComponent<NarrativeSequenceView>();
+            narrativeView.Configure(speaker, body, portrait, cueSurface, continueButton);
+            narrativeView.Play(
+                _incidentStage.OutroBeats,
+                _localizer.Locale,
+                VisualAssetLibrary.SeniorClerk,
+                () => RevealIncidentNextAction(page, continueButton));
+        }
+
+        private void RevealIncidentNextAction(RectTransform page, Button outroContinueButton)
+        {
+            if (page == null || outroContinueButton == null)
+            {
+                return;
+            }
+
+            outroContinueButton.gameObject.SetActive(false);
+            var label = _incidentCompletionWasFinal
+                ? _localizer.Get("incident_next_teaser")
+                : _localizer.Get("next_stage");
+            CreateButton(
+                page,
+                "NextStageButton",
+                label,
+                new Vector2(0.08f, 0.035f),
+                new Vector2(0.92f, 0.125f),
+                Amber,
+                Ink,
+                ContinueIncident,
+                _incidentCompletionWasFinal ? 25 : 30);
+        }
+
+        private void RetryIncidentStage()
+        {
+            _incidentResultApplied = false;
+            _incidentCompletionWasFinal = false;
+            ShowIncidentIntro();
+        }
+
+        private void ContinueIncident()
+        {
+            if (!_incidentResultApplied)
+            {
+                return;
+            }
+
+            if (_incidentCompletionWasFinal)
+            {
+                ShowMenu();
+                return;
+            }
+
+            ShowIncidentIntro();
+        }
+
+        private string IncidentQualityLabel(IncidentQuality quality)
+        {
+            switch (quality)
+            {
+                case IncidentQuality.Stable: return _localizer.Get("quality_stable");
+                case IncidentQuality.Precise: return _localizer.Get("quality_precise");
+                case IncidentQuality.Resonant: return _localizer.Get("quality_resonant");
+                default: throw new ArgumentOutOfRangeException(nameof(quality));
+            }
+        }
+
+        private string IncidentQualityBody(IncidentQuality quality)
+        {
+            switch (quality)
+            {
+                case IncidentQuality.Stable: return _localizer.Get("quality_stable_body");
+                case IncidentQuality.Precise: return _localizer.Get("quality_precise_body");
+                case IncidentQuality.Resonant: return _localizer.Get("quality_resonant_body");
+                default: throw new ArgumentOutOfRangeException(nameof(quality));
+            }
+        }
+
+        private void BuildIncidentEndingPresentation(RectTransform page)
+        {
+            var warmth = CreateArtworkImage(page, "IncidentEndingWarmth", Vector2.zero, Vector2.one);
+            warmth.preserveAspect = false;
+            warmth.color = new Color(0.98f, 0.68f, 0.27f, 0.02f);
+            var frost = CreateArtworkImage(page, "IncidentEndingFrost", Vector2.zero, Vector2.one);
+            frost.sprite = VisualAssetLibrary.FrostOverlay;
+            frost.preserveAspect = false;
+            frost.color = new Color(1f, 1f, 1f, 0.56f);
+
+            var ice = CreateArtworkImage(
+                page,
+                "IncidentEndingIce",
+                new Vector2(0.08f, 0.52f),
+                new Vector2(0.49f, 0.78f));
+            ice.sprite = VisualAssetLibrary.Artifact("unmelting-ice");
+            var umbrella = CreateArtworkImage(
+                page,
+                "IncidentEndingUmbrella",
+                new Vector2(0.51f, 0.52f),
+                new Vector2(0.92f, 0.78f));
+            umbrella.sprite = VisualAssetLibrary.Artifact("moon-umbrella");
+            var umbrellaSeal = CreateArtworkImage(
+                umbrella.transform,
+                "IncidentEndingUmbrellaSeal",
+                new Vector2(0.58f, 0.02f),
+                new Vector2(0.94f, 0.38f));
+            umbrellaSeal.sprite = VisualAssetLibrary.VaultIcon;
+            umbrellaSeal.color = Amber;
+
+            _incidentEndingFrost = frost;
+            _incidentEndingWarmth = warmth;
+            _incidentEndingIce = ice.rectTransform;
+            _incidentEndingUmbrella = umbrella.rectTransform;
+
+            CreateText(
+                page,
+                "IncidentEndingTitle",
+                _localizer.Get("incident_complete"),
+                37,
+                Amber,
+                TextAlignmentOptions.Center,
+                new Vector2(0.10f, 0.71f),
+                new Vector2(0.90f, 0.78f),
+                true,
+                TextRole.Display);
+            CreateText(
+                page,
+                "IncidentEndingHook",
+                _localizer.Get("incident_next_teaser"),
+                24,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.10f, 0.49f),
+                new Vector2(0.90f, 0.54f),
+                true);
+
+            if (isActiveAndEnabled)
+            {
+                _incidentEndingRoutine = StartCoroutine(
+                    AnimateIncidentEnding(
+                        _incidentEndingFrost,
+                        _incidentEndingWarmth,
+                        _incidentEndingIce,
+                        _incidentEndingUmbrella));
+            }
+            else
+            {
+                ApplyIncidentEndingFinalState(
+                    _incidentEndingFrost,
+                    _incidentEndingWarmth,
+                    _incidentEndingIce,
+                    _incidentEndingUmbrella);
+            }
+        }
+
+        private IEnumerator AnimateIncidentEnding(
+            Image frost,
+            Image warmth,
+            RectTransform ice,
+            RectTransform umbrella)
+        {
+            const float duration = 1.35f;
+            var elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                var progress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / duration));
+                frost.color = new Color(1f, 1f, 1f, Mathf.Lerp(0.56f, 0.04f, progress));
+                warmth.color = new Color(0.98f, 0.68f, 0.27f, Mathf.Lerp(0.02f, 0.22f, progress));
+                ice.localScale = Vector3.one * Mathf.Lerp(1.06f, 0.97f, progress);
+                umbrella.localScale = Vector3.one * Mathf.Lerp(0.94f, 1.04f, progress);
+                umbrella.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(-4f, 1.5f, progress));
+                yield return null;
+            }
+
+            ApplyIncidentEndingFinalState(frost, warmth, ice, umbrella);
+            _incidentEndingRoutine = null;
+        }
+
+        private static void ApplyIncidentEndingFinalState(
+            Image frost,
+            Image warmth,
+            RectTransform ice,
+            RectTransform umbrella)
+        {
+            frost.color = new Color(1f, 1f, 1f, 0.04f);
+            warmth.color = new Color(0.98f, 0.68f, 0.27f, 0.22f);
+            ice.localScale = Vector3.one * 0.97f;
+            umbrella.localScale = Vector3.one * 1.04f;
+            umbrella.localRotation = Quaternion.Euler(0f, 0f, 1.5f);
+        }
+
+        private void StopIncidentEndingAnimation()
+        {
+            if (_incidentEndingRoutine != null)
+            {
+                StopCoroutine(_incidentEndingRoutine);
+                _incidentEndingRoutine = null;
+            }
+
+            if (_incidentEndingFrost != null &&
+                _incidentEndingWarmth != null &&
+                _incidentEndingIce != null &&
+                _incidentEndingUmbrella != null)
+            {
+                ApplyIncidentEndingFinalState(
+                    _incidentEndingFrost,
+                    _incidentEndingWarmth,
+                    _incidentEndingIce,
+                    _incidentEndingUmbrella);
+            }
+        }
+
         private void ShowResults()
         {
             ApplyResultOnce();
@@ -2097,6 +2528,7 @@ namespace CurioClerk.Presentation
         {
             var requestedScreen = ActiveScreen;
             FlushPendingTransitions();
+            StopIncidentEndingAnimation();
             ActiveScreen = requestedScreen;
             ClearScreen();
             return CreatePanel(_screenRoot, name, Color.clear, Vector2.zero, Vector2.one);

@@ -7,7 +7,9 @@ namespace CurioClerk.Core.Progression
     [Serializable]
     public sealed class PlayerSaveData
     {
-        public const int CurrentVersion = 3;
+        public const int CurrentVersion = 4;
+
+        private const string DefaultIncidentId = "unmelting-ice";
 
         public int version = CurrentVersion;
         public int coins;
@@ -23,6 +25,10 @@ namespace CurioClerk.Core.Progression
         public string equippedCosmeticId = string.Empty;
         public string lastDailyCompletedDate = string.Empty;
         public int dailyBestScore;
+        public string activeIncidentId = DefaultIncidentId;
+        public int activeIncidentStage;
+        public List<IncidentStageRecord> incidentStageRecords = new List<IncidentStageRecord>();
+        public List<string> completedIncidentIds = new List<string>();
 
         public void Sanitize()
         {
@@ -54,6 +60,81 @@ namespace CurioClerk.Core.Progression
             {
                 lastDailyCompletedDate = dailyDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             }
+
+            activeIncidentId = string.IsNullOrWhiteSpace(activeIncidentId) ? DefaultIncidentId : activeIncidentId;
+            activeIncidentStage = Math.Max(0, activeIncidentStage);
+            incidentStageRecords = SanitizeIncidentStageRecords(incidentStageRecords);
+            completedIncidentIds = SanitizeCompletedIncidentIds(completedIncidentIds);
         }
+
+        private static List<IncidentStageRecord> SanitizeIncidentStageRecords(List<IncidentStageRecord> records)
+        {
+            var sanitized = new List<IncidentStageRecord>();
+            if (records == null)
+            {
+                return sanitized;
+            }
+
+            foreach (var record in records)
+            {
+                if (record == null || string.IsNullOrWhiteSpace(record.stageId))
+                {
+                    continue;
+                }
+
+                var safeQuality = Math.Max(0, Math.Min(2, record.bestQuality));
+                IncidentStageRecord existing = null;
+                foreach (var sanitizedRecord in sanitized)
+                {
+                    if (string.Equals(sanitizedRecord.stageId, record.stageId, StringComparison.Ordinal))
+                    {
+                        existing = sanitizedRecord;
+                        break;
+                    }
+                }
+
+                if (existing != null)
+                {
+                    existing.bestQuality = Math.Max(existing.bestQuality, safeQuality);
+                    continue;
+                }
+
+                var sanitizedRecord = new IncidentStageRecord
+                {
+                    stageId = record.stageId,
+                    bestQuality = safeQuality
+                };
+                sanitized.Add(sanitizedRecord);
+            }
+
+            return sanitized;
+        }
+
+        private static List<string> SanitizeCompletedIncidentIds(List<string> incidentIds)
+        {
+            var sanitized = new List<string>();
+            var known = new HashSet<string>(StringComparer.Ordinal);
+            if (incidentIds == null)
+            {
+                return sanitized;
+            }
+
+            foreach (var incidentId in incidentIds)
+            {
+                if (!string.IsNullOrWhiteSpace(incidentId) && known.Add(incidentId))
+                {
+                    sanitized.Add(incidentId);
+                }
+            }
+
+            return sanitized;
+        }
+    }
+
+    [Serializable]
+    public sealed class IncidentStageRecord
+    {
+        public string stageId = string.Empty;
+        public int bestQuality;
     }
 }

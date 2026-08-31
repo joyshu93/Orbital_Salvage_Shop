@@ -1,6 +1,9 @@
 using System;
 using System.Collections;
+using System.Linq;
 using System.Reflection;
+using CurioClerk.Core.Incidents;
+using CurioClerk.Core.Progression;
 using NUnit.Framework;
 
 namespace CurioClerk.Tests.EditMode
@@ -99,6 +102,97 @@ namespace CurioClerk.Tests.EditMode
 
             Assert.That(Field<string>(save, "lastDailyCompletedDate"), Is.EqualTo("2026-08-27"));
             Assert.That(Field<int>(save, "dailyBestScore"), Is.EqualTo(250));
+        }
+
+        [Test]
+        public void ApplyIncidentStage_KeepsTheBestQualityAndAdvancesOnce()
+        {
+            var save = new PlayerSaveData();
+            var service = new ProgressionService();
+
+            service.ApplyIncidentStage(save, Completion("ice-01-crack", IncidentQuality.Precise, 1, false));
+            service.ApplyIncidentStage(save, Completion("ice-01-crack", IncidentQuality.Stable, 1, false));
+
+            Assert.That(save.activeIncidentStage, Is.EqualTo(1));
+            Assert.That(save.incidentStageRecords.Single().bestQuality, Is.EqualTo((int)IncidentQuality.Precise));
+        }
+
+        [Test]
+        public void ApplyIncidentStage_SuppressesDuplicateCompletedIncidents()
+        {
+            var save = new PlayerSaveData();
+            var service = new ProgressionService();
+
+            service.ApplyIncidentStage(save, Completion("ice-05-farewell", IncidentQuality.Resonant, 5, true));
+            service.ApplyIncidentStage(save, Completion("ice-05-farewell", IncidentQuality.Stable, 5, true));
+
+            Assert.That(save.completedIncidentIds, Is.EqualTo(new[] { "unmelting-ice" }));
+            Assert.That(save.activeIncidentStage, Is.EqualTo(5));
+        }
+
+        [Test]
+        public void RestoreIncident_UnknownSaveProgressStartsTheUnmeltingIceAtStageZero()
+        {
+            var save = new PlayerSaveData
+            {
+                activeIncidentId = "another-incident",
+                activeIncidentStage = 4
+            };
+
+            var restored = new ProgressionService().RestoreIncident(
+                save,
+                "unmelting-ice",
+                new[] { "ice-01-crack", "ice-02-glow", "ice-03-echo", "ice-04-frozen-seal", "ice-05-farewell" });
+
+            Assert.That(restored.IncidentId, Is.EqualTo("unmelting-ice"));
+            Assert.That(restored.CurrentStageIndex, Is.Zero);
+        }
+
+        [Test]
+        public void RestoreIncident_BlankSavedIncidentStartsAtStageZero()
+        {
+            var save = new PlayerSaveData
+            {
+                activeIncidentId = string.Empty,
+                activeIncidentStage = 4
+            };
+
+            var restored = new ProgressionService().RestoreIncident(
+                save,
+                "unmelting-ice",
+                new[] { "ice-01-crack", "ice-02-glow", "ice-03-echo", "ice-04-frozen-seal", "ice-05-farewell" });
+
+            Assert.That(restored.CurrentStageIndex, Is.Zero);
+        }
+
+        [Test]
+        public void RestoreIncident_ClampsPastFinalStageToCompletedBoundary()
+        {
+            var save = new PlayerSaveData
+            {
+                activeIncidentId = "unmelting-ice",
+                activeIncidentStage = 99
+            };
+
+            var restored = new ProgressionService().RestoreIncident(
+                save,
+                "unmelting-ice",
+                new[] { "ice-01-crack", "ice-02-glow", "ice-03-echo", "ice-04-frozen-seal", "ice-05-farewell" });
+
+            Assert.That(restored.CurrentStageIndex, Is.EqualTo(5));
+            Assert.That(restored.IsComplete, Is.True);
+        }
+
+        private static IncidentStageCompletion Completion(string stageId, IncidentQuality quality, int nextStageIndex, bool incidentCompleted)
+        {
+            var stageIds = incidentCompleted
+                ? new[] { stageId, "next-stage", "later-stage", "fourth-stage", "fifth-stage" }
+                : new[] { stageId, "next-stage", "later-stage", "fourth-stage", "fifth-stage", "sixth-stage" };
+            var runner = new IncidentRunner(
+                "unmelting-ice",
+                stageIds,
+                nextStageIndex - 1);
+            return runner.CompleteCurrentStage(quality);
         }
 
         private static T Field<T>(object instance, string name)

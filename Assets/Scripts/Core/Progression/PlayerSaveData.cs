@@ -84,11 +84,11 @@ namespace CurioClerk.Core.Progression
 
                 var safeQuality = Math.Max(0, Math.Min(2, record.bestQuality));
                 IncidentStageRecord existing = null;
-                foreach (var sanitizedRecord in sanitized)
+                foreach (var existingRecord in sanitized)
                 {
-                    if (string.Equals(sanitizedRecord.stageId, record.stageId, StringComparison.Ordinal))
+                    if (string.Equals(existingRecord.stageId, record.stageId, StringComparison.Ordinal))
                     {
-                        existing = sanitizedRecord;
+                        existing = existingRecord;
                         break;
                     }
                 }

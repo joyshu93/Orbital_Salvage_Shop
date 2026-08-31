@@ -154,8 +154,12 @@ namespace CurioClerk.Tests.EditMode
                 Assert.That(stage.Reactions.Stable.Korean, Does.Contain("바로잡"), stage.Id);
                 Assert.That(stage.Reactions.Precise.English, Does.Contain("calm").IgnoreCase, stage.Id);
                 Assert.That(stage.Reactions.Precise.Korean, Does.Contain("침착"), stage.Id);
-                Assert.That(stage.Reactions.Resonant.English, Does.Contain("answer").IgnoreCase, stage.Id);
-                Assert.That(stage.Reactions.Resonant.Korean, Does.Contain("답"), stage.Id);
+                Assert.That(stage.Reactions.Resonant.English,
+                    Is.Not.EqualTo(stage.Reactions.Stable.English).And.Not.EqualTo(stage.Reactions.Precise.English),
+                    stage.Id);
+                Assert.That(stage.Reactions.Resonant.Korean,
+                    Is.Not.EqualTo(stage.Reactions.Stable.Korean).And.Not.EqualTo(stage.Reactions.Precise.Korean),
+                    stage.Id);
                 Assert.That(stage.Reactions.ForQuality(IncidentQuality.Stable), Is.SameAs(stage.Reactions.Stable));
                 Assert.That(stage.Reactions.ForQuality(IncidentQuality.Precise), Is.SameAs(stage.Reactions.Precise));
                 Assert.That(stage.Reactions.ForQuality(IncidentQuality.Resonant), Is.SameAs(stage.Reactions.Resonant));

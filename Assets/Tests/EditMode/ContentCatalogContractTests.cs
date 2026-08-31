@@ -135,7 +135,7 @@ namespace CurioClerk.Tests.EditMode
         {
             var incidents = ContentCatalog.CreateIncidents();
 
-            Assert.That(incidents, Has.Count.EqualTo(1));
+            Assert.That(incidents.Count, Is.EqualTo(1));
             Assert.That(incidents[0].Id, Is.EqualTo("unmelting-ice"));
             Assert.That(incidents[0].Stages.Select(stage => stage.Id), Is.EqualTo(new[]
             {

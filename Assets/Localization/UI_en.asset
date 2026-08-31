@@ -459,6 +459,87 @@ MonoBehaviour:
     m_Localized: PRISTINE STREAK {0}
     m_Metadata:
       m_Items: []
+  - m_Id: 3903012326060032
+    m_Localized: Begin Incident
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557504
+    m_Localized: "Continue Incident \xB7 {0}/5"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557505
+    m_Localized: Incident {0}/5
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557506
+    m_Localized: First Incident Resolved
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557507
+    m_Localized: "Next Incident \xB7 The Umbrella That Rained Indoors"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557508
+    m_Localized: Free Shift
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557509
+    m_Localized: Senior Clerk
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557510
+    m_Localized: Continue
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557511
+    m_Localized: Retry This Shift
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557512
+    m_Localized: Next Shift
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557513
+    m_Localized: Stable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557514
+    m_Localized: Precise
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557515
+    m_Localized: Resonant
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557516
+    m_Localized: The shift recovered. The incident remains safely contained.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557517
+    m_Localized: Calm care kept every seal intact.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557518
+    m_Localized: Your care made the curio answer.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557519
+    m_Localized: FROSTED
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557520
+    m_Localized: Your hands have steadied.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557521
+    m_Localized: PROTECT IN HOLD
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557522
+    m_Localized: The office is still here. Try the same shift again when you are
+      ready.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

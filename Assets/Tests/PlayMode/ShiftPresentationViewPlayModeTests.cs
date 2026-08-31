@@ -265,6 +265,35 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator DocketProgress_CompletionRevealsConnectedCenterSigilThenRestoresIt()
+        {
+            var view = CreateDocketView(out _, out _);
+            var sigil = CreateImage("CompletionSigil");
+            sigil.enabled = false;
+            sigil.color = new Color(0.94f, 0.70f, 0.31f, 0f);
+            var restColor = sigil.color;
+            var restScale = new Vector3(0.86f, 0.92f, 1f);
+            sigil.rectTransform.localScale = restScale;
+            view.ConfigureCompletionSigil(sigil);
+            var completed = false;
+
+            view.PlayComplete(() => completed = true);
+            yield return new WaitForSecondsRealtime(0.24f);
+
+            Assert.That(sigil.enabled, Is.True);
+            Assert.That(sigil.color.a, Is.GreaterThan(0.2f));
+            Assert.That(Vector3.Distance(sigil.rectTransform.localScale, restScale), Is.GreaterThan(0.02f),
+                "A completed docket must connect its three stamps through a central reveal.");
+
+            yield return new WaitForSecondsRealtime(0.55f);
+
+            Assert.That(completed, Is.True);
+            Assert.That(sigil.enabled, Is.False);
+            Assert.That(Vector4.Distance(sigil.color, restColor), Is.LessThan(0.001f));
+            Assert.That(Vector3.Distance(sigil.rectTransform.localScale, restScale), Is.LessThan(0.001f));
+        }
+
+        [UnityTest]
         public IEnumerator DocketProgress_DisableThenEnableCompletesPendingPulseOnce()
         {
             var view = CreateDocketView(out _, out _);

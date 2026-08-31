@@ -277,6 +277,23 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Store submission decision | Runtime-generated interface tones are not submitted AI-generated audio files. Recheck the selected store's current disclosure wording if these tones are later rendered into promotional media. |
 | Release status | **Prototype only — listening and device-volume review required before RC.** |
 
+### AUDIO-SYNTH-002 — incident reaction and resolution tones
+
+| Field | Record |
+| --- | --- |
+| Repository files | Runtime synthesis code under `Assets/Scripts/Runtime/Infrastructure/Feedback`; no audio binary is stored or imported |
+| Asset type and intended use | Short procedural cues for authored key reactions and the completion of an incident |
+| Tool | OpenAI Codex authored the deterministic waveform code from the developer-approved first-incident vertical-slice plan |
+| Creation date | 2026-08-31 KST |
+| Prompt summary | Strengthen decisive story moments with warm-occult chimes that remain subordinate to dialogue and readable on mobile speakers. |
+| Negative constraints | No sampled audio, voice, music, named composer or franchise imitation, external model output, trademark sound, third-party recording, jump-scare impact, or harsh alarm. |
+| Reference inputs | Existing repository-owned procedural feedback implementation only; no audio reference file was supplied. |
+| Human direction | The developer approved larger, bolder dialogue, decisions, and reactions while preserving the warm occult atmosphere. Codex limited the scope to two short procedural cues and retained independent sound disablement. |
+| Human edits | No human audio edit is claimed. Final gain, pitch, duration, comfort, dialogue balance, and device-speaker suitability require developer listening review. |
+| Third-party elements | None. Waveforms are computed at runtime from repository-owned source code and Unity's built-in audio APIs. |
+| Store submission decision | Runtime-generated feedback tones are not submitted AI-generated audio files. Recheck the selected store's current disclosure wording if rendered into promotional media. |
+| Release status | **Prototype only — listening and device-volume review required before RC.** |
+
 ### TEXT-UI-001 — Phase 3 feedback settings copy
 
 | Field | Record |

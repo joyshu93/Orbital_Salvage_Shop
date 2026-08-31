@@ -4,7 +4,9 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using CurioClerk.Content;
+using CurioClerk.Content.Incidents;
 using CurioClerk.Core.Artifacts;
+using CurioClerk.Core.Incidents;
 using CurioClerk.Core.Progression;
 using CurioClerk.Core.Rules;
 using CurioClerk.Core.Shifts;
@@ -77,6 +79,10 @@ namespace CurioClerk.Presentation
         private IClock _clock;
         private IShiftSeedProvider _seedProvider;
         private Localizer _localizer;
+        private IncidentDefinition _activeIncident;
+        private IncidentRunner _incidentRunner;
+        private IncidentStageDefinition _incidentStage;
+        private IncidentStageRun _incidentStageRun;
         private RectTransform _screenRoot;
         private TMP_Text _currentSymbol;
         private TMP_Text _currentName;
@@ -117,6 +123,7 @@ namespace CurioClerk.Presentation
         private bool _isDailyShift;
         private string _dailyDateKey = string.Empty;
         private bool _inputLocked;
+        private bool _isIncidentShift;
 
         public AppScreen ActiveScreen { get; private set; }
 
@@ -131,6 +138,8 @@ namespace CurioClerk.Presentation
             _saveStore = new JsonFileSaveStore(Path.Combine(Application.persistentDataPath, "curio-clerk-save.json"));
             _save = _saveStore.LoadOrDefault();
             _localizer = new Localizer(_save.locale);
+            _activeIncident = ContentCatalog.CreateIncidents().Single();
+            RestoreIncidentProgress();
             _adService = Infrastructure.ServiceFactory.CreateAdService();
             _privacy = Infrastructure.ServiceFactory.CreatePrivacyService();
             _feedbackService = Infrastructure.ServiceFactory.CreatePlayerFeedbackService(gameObject);
@@ -159,22 +168,201 @@ namespace CurioClerk.Presentation
 
         public void ShowMenu()
         {
+            RestoreIncidentProgress();
             ActiveScreen = AppScreen.Menu;
             var page = CreatePage("MainMenuScreen");
-            CreateText(page, "Eyebrow", _localizer.Get("subtitle"), 34, Amber, TextAlignmentOptions.Center, new Vector2(0.12f, 0.80f), new Vector2(0.88f, 0.87f), true);
-            CreateText(page, "Title", _localizer.Get("title"), 72, Paper, TextAlignmentOptions.Center, new Vector2(0.08f, 0.64f), new Vector2(0.92f, 0.80f), true, TextRole.Display);
-            CreateText(page, "WelcomeNote", _localizer.Locale == "ko" ? "밤새 들어오는 기묘한 물건을 규칙대로 정리하세요." : "File strange arrivals by lamplight until morning.", 27, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.54f), new Vector2(0.85f, 0.64f));
-            CreateButton(page, "StartShiftButton", _localizer.Get("start"), new Vector2(0.15f, 0.40f), new Vector2(0.85f, 0.49f), Amber, Ink, OnStartPressed);
-            CreateButton(page, "DailyShiftButton", DailyButtonText(), new Vector2(0.15f, 0.30f), new Vector2(0.85f, 0.38f), Paper, Ink, StartDailyShift);
-            CreateButton(page, "CollectionButton", _localizer.Get("collection"), new Vector2(0.15f, 0.20f), new Vector2(0.49f, 0.28f), Wine, Paper, ShowCollection);
-            CreateButton(page, "SettingsButton", _localizer.Get("settings"), new Vector2(0.51f, 0.20f), new Vector2(0.85f, 0.28f), Wine, Paper, ShowSettings);
-            CreateText(page, "Progress", $"{_localizer.Get("coins")}: {_save.coins}   •   {_save.completedShifts}/∞", 23, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.10f), new Vector2(0.85f, 0.17f));
+            CreateText(page, "Eyebrow", _localizer.Get("subtitle"), 30, Amber, TextAlignmentOptions.Center, new Vector2(0.12f, 0.90f), new Vector2(0.88f, 0.95f), true);
+            CreateText(page, "Title", _localizer.Get("title"), 58, Paper, TextAlignmentOptions.Center, new Vector2(0.08f, 0.80f), new Vector2(0.92f, 0.90f), true, TextRole.Display);
 
-            var equipped = ContentCatalog.CreateCosmetics().FirstOrDefault(item => item.Id == _save.equippedCosmeticId);
+            var casePanel = CreatePanel(page, "IncidentCasePanel", new Color(Wine.r, Wine.g, Wine.b, 0.91f), new Vector2(0.08f, 0.53f), new Vector2(0.92f, 0.78f));
+            AddSurfaceChrome(casePanel, Amber, 3f, 0.30f);
+            CreateText(
+                casePanel,
+                "IncidentState",
+                IncidentStateLabel(),
+                28,
+                Amber,
+                TextAlignmentOptions.Center,
+                new Vector2(0.06f, 0.70f),
+                new Vector2(0.94f, 0.94f),
+                true);
+            CreateText(
+                casePanel,
+                "IncidentTitle",
+                _activeIncident.Title.ForLocale(_localizer.Locale),
+                52,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.06f, 0.18f),
+                new Vector2(0.94f, 0.72f),
+                true,
+                TextRole.Display);
+
+            var incidentComplete = _incidentRunner.IsComplete;
+            var incidentButton = CreateButton(
+                page,
+                "IncidentButton",
+                IncidentButtonLabel(),
+                new Vector2(0.09f, 0.38f),
+                new Vector2(0.91f, 0.50f),
+                incidentComplete ? Sage : Amber,
+                incidentComplete ? Paper : Ink,
+                StartIncident,
+                34);
+            incidentButton.interactable = !incidentComplete;
+            CreateButton(page, "FreeShiftButton", _localizer.Get("free_shift"), new Vector2(0.18f, 0.25f), new Vector2(0.82f, 0.34f), Wine, Paper, OnStartPressed, 27);
+            CreateButton(page, "SettingsButton", _localizer.Get("settings"), new Vector2(0.28f, 0.13f), new Vector2(0.72f, 0.21f), Paper, Ink, ShowSettings, 25);
+
+            var equipped = ContentCatalog.CreateCosmetics()
+                .FirstOrDefault(item => item.Id == _save.equippedCosmeticId);
             if (equipped != null)
             {
-                CreateEquippedCosmeticArtwork(page, equipped, new Vector2(0.72f, 0.86f), new Vector2(0.95f, 0.98f), true);
+                CreateEquippedCosmeticArtwork(
+                    page,
+                    equipped,
+                    new Vector2(0.82f, 0.89f),
+                    new Vector2(0.97f, 0.99f),
+                    false);
             }
+        }
+
+        public void StartIncident()
+        {
+            RestoreIncidentProgress();
+            if (_incidentRunner.IsComplete)
+            {
+                ShowMenu();
+                return;
+            }
+
+            ShowIncidentIntro();
+        }
+
+        public void ShowIncidentIntro()
+        {
+            RestoreIncidentProgress();
+            if (_incidentRunner.IsComplete)
+            {
+                ShowMenu();
+                return;
+            }
+
+            _incidentStage = _activeIncident.Stages[_incidentRunner.CurrentStageIndex];
+            ActiveScreen = AppScreen.Narrative;
+            var page = CreatePage("NarrativeScreen");
+            var cueSurface = CreateArtworkImage(page, "NarrativeCueSurface", Vector2.zero, Vector2.one);
+            cueSurface.raycastTarget = false;
+            cueSurface.color = Color.white;
+
+            var portrait = CreateArtworkImage(
+                page,
+                "SeniorClerkPortrait",
+                new Vector2(0.08f, 0.45f),
+                new Vector2(0.92f, 0.92f));
+            portrait.preserveAspect = true;
+            portrait.raycastTarget = false;
+
+            var dialoguePanel = CreatePanel(
+                page,
+                "NarrativeDialoguePanel",
+                new Color(Paper.r, Paper.g, Paper.b, 0.97f),
+                new Vector2(0.06f, 0.18f),
+                new Vector2(0.94f, 0.47f));
+            AddSurfaceChrome(dialoguePanel, Amber, 3f, 0.28f);
+            var speaker = CreateText(
+                dialoguePanel,
+                "NarrativeSpeaker",
+                string.Empty,
+                30,
+                Wine,
+                TextAlignmentOptions.Left,
+                new Vector2(0.06f, 0.70f),
+                new Vector2(0.94f, 0.92f),
+                true);
+            var body = CreateText(
+                dialoguePanel,
+                "NarrativeBody",
+                string.Empty,
+                40,
+                Ink,
+                TextAlignmentOptions.TopLeft,
+                new Vector2(0.06f, 0.08f),
+                new Vector2(0.94f, 0.70f));
+            var continueButton = CreateButton(
+                page,
+                "NarrativeContinueButton",
+                _localizer.Get("narrative_continue"),
+                new Vector2(0.06f, 0.035f),
+                new Vector2(0.94f, 0.155f),
+                Amber,
+                Ink,
+                () => { },
+                32);
+            var narrativeView = page.gameObject.AddComponent<NarrativeSequenceView>();
+            narrativeView.Configure(speaker, body, portrait, cueSurface, continueButton);
+            narrativeView.Play(
+                _incidentStage.IntroBeats,
+                _localizer.Locale,
+                VisualAssetLibrary.SeniorClerk,
+                BeginIncidentStage);
+        }
+
+        public void BeginIncidentStage()
+        {
+            if (_incidentStage == null || _incidentRunner == null || _incidentRunner.IsComplete)
+            {
+                return;
+            }
+
+            _tutorialStage = TutorialStage.None;
+            _isIncidentShift = true;
+            _isDailyShift = false;
+            _dailyDateKey = string.Empty;
+            _activePlan = _incidentStage.CreateShiftPlan(_artifactById);
+            _plannedQueue = _activePlan.Queue;
+            _activeRules = _activePlan.Rules;
+            _session = new ShiftSession(_plannedQueue, _activeRules);
+            _incidentStageRun = new IncidentStageRun(
+                _incidentStage.Id,
+                _incidentStage.ResonanceHoldArtifactId);
+            _seenThisShift.Clear();
+            _resultApplied = false;
+            _appliedResultCoins = 0;
+            _lastCorrectArtifactId = null;
+            _rewardFeedbackKey = null;
+            BuildShiftScreen();
+        }
+
+        private void RestoreIncidentProgress()
+        {
+            if (_activeIncident == null || _save == null)
+            {
+                return;
+            }
+
+            _incidentRunner = _progression.RestoreIncident(
+                _save,
+                _activeIncident.Id,
+                _activeIncident.Stages.Select(stage => stage.Id).ToArray());
+        }
+
+        private string IncidentStateLabel()
+        {
+            return _incidentRunner.IsComplete
+                ? _localizer.Get("incident_complete")
+                : _localizer.Get("incident_stage", _incidentRunner.CurrentStageIndex + 1);
+        }
+
+        private string IncidentButtonLabel()
+        {
+            if (_incidentRunner.IsComplete)
+            {
+                return _localizer.Get("incident_complete");
+            }
+
+            return _incidentRunner.CurrentStageIndex == 0
+                ? _localizer.Get("incident_begin")
+                : _localizer.Get("incident_continue", _incidentRunner.CurrentStageIndex + 1);
         }
 
         public void ShowTutorial()
@@ -205,6 +393,9 @@ namespace CurioClerk.Presentation
 
         private void StartShift(int seed, int band, bool isDailyShift, string dailyDateKey)
         {
+            _isIncidentShift = false;
+            _incidentStage = null;
+            _incidentStageRun = null;
             _isDailyShift = isDailyShift;
             _dailyDateKey = dailyDateKey ?? string.Empty;
             var supportedBand = Mathf.Clamp(band, 1, 3);
@@ -472,14 +663,7 @@ namespace CurioClerk.Presentation
 
         private void OnStartPressed()
         {
-            if (_save.tutorialCompleted)
-            {
-                StartNewShift(_seedProvider.CreateStandardSeed(_save.completedShifts));
-            }
-            else
-            {
-                ShowTutorial();
-            }
+            StartNewShift(_seedProvider.CreateStandardSeed(_save.completedShifts));
         }
 
         private void BuildShiftScreen()
@@ -588,6 +772,9 @@ namespace CurioClerk.Presentation
 
         private void StartTutorialShift()
         {
+            _isIncidentShift = false;
+            _incidentStage = null;
+            _incidentStageRun = null;
             _isDailyShift = false;
             _dailyDateKey = string.Empty;
             var tutorialIds = new[]

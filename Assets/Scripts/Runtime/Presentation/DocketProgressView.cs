@@ -22,6 +22,10 @@ namespace CurioClerk.Presentation
         private Action _completionCallback;
         private bool _hasCompletionRestState;
         private bool _resumeCompletionOnEnable;
+        private Image _completionSigil;
+        private Color _completionSigilRestColor;
+        private Vector3 _completionSigilRestScale;
+        private bool _completionSigilRestEnabled;
 
         private const float CompletionDuration = 0.70f;
 
@@ -70,6 +74,11 @@ namespace CurioClerk.Presentation
             _completionRestScales = new Vector3[_stamps.Length];
         }
 
+        public void ConfigureCompletionSigil(Image completionSigil)
+        {
+            _completionSigil = completionSigil ?? throw new ArgumentNullException(nameof(completionSigil));
+        }
+
         public void Refresh(
             DocketState docket,
             int completedDockets,
@@ -113,6 +122,13 @@ namespace CurioClerk.Presentation
                 _completionRestScales[index] = _stamps[index].rectTransform.localScale;
             }
 
+            if (_completionSigil != null)
+            {
+                _completionSigilRestColor = _completionSigil.color;
+                _completionSigilRestScale = _completionSigil.rectTransform.localScale;
+                _completionSigilRestEnabled = _completionSigil.enabled;
+            }
+
             _hasCompletionRestState = true;
             _completionCallback = completed;
             _completionRoutine = StartCoroutine(AnimateComplete());
@@ -135,6 +151,9 @@ namespace CurioClerk.Presentation
                         Color.white,
                         pulse * 0.32f);
                 }
+
+
+                AnimateCompletionSigil(progress);
 
                 yield return null;
             }
@@ -209,6 +228,33 @@ namespace CurioClerk.Presentation
                     _stamps[index].color = _completionRestColors[index];
                 }
             }
+
+
+            if (_hasCompletionRestState && _completionSigil != null)
+            {
+                _completionSigil.color = _completionSigilRestColor;
+                _completionSigil.rectTransform.localScale = _completionSigilRestScale;
+                _completionSigil.enabled = _completionSigilRestEnabled;
+            }
+        }
+
+        private void AnimateCompletionSigil(float progress)
+        {
+            if (_completionSigil == null)
+            {
+                return;
+            }
+
+            var reveal = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(progress / 0.38f));
+            var fade = 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((progress - 0.70f) / 0.30f));
+            var visibility = reveal * fade;
+            var transparentRest = _completionSigilRestColor;
+            transparentRest.a = 0f;
+            var litColor = new Color(1f, 0.79f, 0.39f, 1f);
+            _completionSigil.enabled = true;
+            _completionSigil.color = Color.Lerp(transparentRest, litColor, visibility);
+            _completionSigil.rectTransform.localScale =
+                _completionSigilRestScale * Mathf.Lerp(0.58f, 1.10f, reveal);
         }
     }
 }

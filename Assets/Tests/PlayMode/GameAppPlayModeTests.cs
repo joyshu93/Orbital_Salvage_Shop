@@ -5,6 +5,7 @@ using System.Reflection;
 using CurioClerk.Content;
 using CurioClerk.Content.Incidents;
 using CurioClerk.Core.Artifacts;
+using CurioClerk.Core.Incidents;
 using CurioClerk.Core.Rules;
 using CurioClerk.Core.Shifts;
 using CurioClerk.Infrastructure;
@@ -41,21 +42,28 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator App_StartsAtMenuAndBuildsAPlayableShiftLayout()
+        public IEnumerator App_StartsAtIncidentLedMenuAndBuildsAPlayableFreeShiftLayout()
         {
-            var appType = Type.GetType("CurioClerk.Presentation.GameApp, CurioClerk.Runtime");
-            Assert.That(appType, Is.Not.Null, "Missing production type: CurioClerk.Presentation.GameApp");
-            var host = new GameObject("GameAppTestHost");
-            var app = host.AddComponent(appType);
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
             yield return null;
+            SetEnglishLocale(app);
+            app.ShowMenu();
 
-            Assert.That(appType.GetProperty("ActiveScreen").GetValue(app).ToString(), Is.EqualTo("Menu"));
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Menu));
             Assert.That(GameObject.Find("CurioClerkCanvas"), Is.Not.Null);
-            Assert.That(GameObject.Find("StartShiftButton"), Is.Not.Null);
+            Assert.That(GameObject.Find("IncidentButton"), Is.Not.Null);
+            Assert.That(GameObject.Find("FreeShiftButton"), Is.Not.Null);
+            Assert.That(GameObject.Find("SettingsButton"), Is.Not.Null);
+            Assert.That(GameObject.Find("StartShiftButton"), Is.Null);
+            Assert.That(GameObject.Find("DailyShiftButton"), Is.Null);
+            Assert.That(GameObject.Find("CollectionButton"), Is.Null);
+            Assert.That(GameObject.Find("Progress"), Is.Null);
+            Assert.That(GameObject.Find("RewardedAdButton"), Is.Null);
+            Assert.That(Session(app), Is.Null, "No shift may start before the player chooses an entry point.");
             var textType = Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro");
             var fontProperty = textType.GetProperty("font");
             var titleText = GameObject.Find("Title").GetComponent(textType);
-            var startButtonText = GameObject.Find("StartShiftButton").GetComponentInChildren(textType);
+            var startButtonText = GameObject.Find("IncidentButton").GetComponentInChildren(textType);
             var titleFont = fontProperty.GetValue(titleText) as UnityEngine.Object;
             var startButtonFont = fontProperty.GetValue(startButtonText) as UnityEngine.Object;
             Assert.That(titleFont, Is.Not.Null);
@@ -64,10 +72,10 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(startButtonFont.name, Does.StartWith("NotoSansKR"));
             Assert.That(titleFont, Is.Not.SameAs(startButtonFont));
 
-            appType.GetMethod("StartNewShift").Invoke(app, new object[] { 4242 });
+            app.StartNewShift(4242);
             yield return null;
 
-            Assert.That(appType.GetProperty("ActiveScreen").GetValue(app).ToString(), Is.EqualTo("Shift"));
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Shift));
             Assert.That(GameObject.Find("CurrentArtifactCard"), Is.Not.Null);
             Assert.That(GameObject.Find("NextPreview0"), Is.Not.Null);
             Assert.That(GameObject.Find("NextPreview1"), Is.Not.Null);
@@ -85,8 +93,94 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(GameObject.Find("CurrentArtifactCard").GetComponent(dragType), Is.Not.Null,
                 "The current artifact card must support drag-to-sort.");
 
-            UnityEngine.Object.Destroy(host);
+        }
+
+        [UnityTest]
+        public IEnumerator Menu_LabelsNewContinuedAndCompletedIncidentInBothLanguages()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
             yield return null;
+
+            SetIncidentProgress(app, 0, false);
+            SetLocale(app, "en");
+            app.ShowMenu();
+            Assert.That(ObjectText("IncidentTitle"), Is.EqualTo("The Unmelting Ice"));
+            Assert.That(ObjectText("IncidentButton"), Is.EqualTo("Begin Incident"));
+
+            SetIncidentProgress(app, 2, false);
+            SetLocale(app, "ko");
+            app.ShowMenu();
+            Assert.That(ObjectText("IncidentTitle"), Is.EqualTo("녹지 않는 얼음"));
+            Assert.That(ObjectText("IncidentButton"), Is.EqualTo("사건 계속 · 3/5"));
+            Assert.That(ObjectText("IncidentState"), Is.EqualTo("사건 3/5"));
+
+            SetIncidentProgress(app, 5, true);
+            app.ShowMenu();
+            Assert.That(ObjectText("IncidentButton"), Is.EqualTo("첫 사건 해결"));
+            Assert.That(GameObject.Find("IncidentButton").GetComponent<UnityEngine.UI.Button>().interactable, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentOpening_IsLargeReadableKoreanNarrativeThenStartsAuthoredShift()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetIncidentProgress(app, 0, false);
+            SetLocale(app, "ko");
+            app.ShowMenu();
+
+            ClickButton("IncidentButton");
+            yield return null;
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Narrative));
+            Assert.That(ObjectText("NarrativeSpeaker"), Is.EqualTo("선임 관리인"));
+            Assert.That(ObjectText("NarrativeBody"),
+                Is.EqualTo("첫날이죠? 물이 되기를 거부하는 것부터 맡아 봅시다."));
+            Assert.That(FindText("NarrativeBody").fontSize, Is.InRange(36f, 42f));
+            var portrait = FindRect("SeniorClerkPortrait");
+            Assert.That(portrait.anchorMax.y - portrait.anchorMin.y, Is.GreaterThanOrEqualTo(0.44f));
+            var continueRect = FindRect("NarrativeContinueButton");
+            Assert.That(continueRect.anchorMax.x - continueRect.anchorMin.x, Is.GreaterThanOrEqualTo(0.84f));
+            Assert.That(continueRect.anchorMax.y - continueRect.anchorMin.y, Is.GreaterThanOrEqualTo(0.10f));
+            Assert.That(GameObject.Find("CurrentArtifactCard"), Is.Null);
+            Assert.That(GameObject.Find("RepairButton"), Is.Null);
+
+            ClickButton("NarrativeContinueButton");
+            yield return null;
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Shift));
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("unmelting-ice"));
+            Assert.That(GameObject.Find("TutorialCoachPanel"), Is.Null,
+                "The incident opening must teach in context instead of routing through the old tutorial wall.");
+            var stageRun = typeof(GameApp)
+                .GetField("_incidentStageRun", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app) as IncidentStageRun;
+            Assert.That(stageRun, Is.Not.Null);
+            Assert.That(stageRun.StageId, Is.EqualTo("ice-01-crack"));
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentOpening_ContinuesFromRestoredStageInsteadOfRestartingTheCase()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetIncidentProgress(app, 2, false);
+            SetLocale(app, "en");
+            app.ShowMenu();
+
+            ClickButton("IncidentButton");
+            yield return null;
+
+            Assert.That(ObjectText("NarrativeBody"),
+                Is.EqualTo("This watch carries the same leaf—and tomorrow’s date. Time takes priority over frost."));
+            ClickButton("NarrativeContinueButton");
+            yield return null;
+
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("moon-umbrella"));
+            var stageRun = typeof(GameApp)
+                .GetField("_incidentStageRun", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app) as IncidentStageRun;
+            Assert.That(stageRun.StageId, Is.EqualTo("ice-03-tomorrow"));
         }
 
         [UnityTest]
@@ -178,7 +272,7 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator DailyFile_ShowsAvailabilityAndStartsDatedChallenge()
+        public IEnumerator DailyFile_RemainsAvailableThroughItsPublicEntryPoint()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
             yield return null;
@@ -187,12 +281,7 @@ namespace CurioClerk.Tests.PlayMode
             SetSaveString(app, "lastDailyCompletedDate", string.Empty);
             SetSaveInt(app, "dailyBestScore", 0);
 
-            app.ShowMenu();
-
-            Assert.That(ObjectText("DailyShiftButton"), Does.Contain("2026-08-26"));
-            Assert.That(ObjectText("DailyShiftButton"), Does.Contain("Available"));
-
-            ClickButton("DailyShiftButton");
+            app.StartDailyShift();
             yield return null;
 
             Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Shift));
@@ -218,7 +307,8 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(ObjectText("DailyResultStatus"), Is.EqualTo($"Today's best: {completedScore}"));
 
             app.ShowMenu();
-            Assert.That(ObjectText("DailyShiftButton"), Does.Contain($"Completed · Best {completedScore}"));
+            Assert.That(GameObject.Find("DailyShiftButton"), Is.Null,
+                "Daily File stays implemented but no longer competes with the authored incident on the main menu.");
         }
 
         [UnityTest]
@@ -1422,6 +1512,18 @@ namespace CurioClerk.Tests.PlayMode
                 .GetField("_localizer", BindingFlags.Instance | BindingFlags.NonPublic)
                 .GetValue(app);
             localizer.SetLocale(locale);
+        }
+
+        private static void SetIncidentProgress(GameApp app, int stageIndex, bool completed)
+        {
+            SetSaveString(app, "activeIncidentId", "unmelting-ice");
+            SetSaveInt(app, "activeIncidentStage", stageIndex);
+            var completedIds = SaveStringList(app, "completedIncidentIds");
+            completedIds.Clear();
+            if (completed)
+            {
+                completedIds.Add("unmelting-ice");
+            }
         }
 
         private static void BeginTutorial(GameApp app)

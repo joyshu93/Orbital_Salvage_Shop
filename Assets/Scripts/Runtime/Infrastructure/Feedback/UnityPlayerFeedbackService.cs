@@ -30,7 +30,9 @@ namespace CurioClerk.Infrastructure.Feedback
                 [PlayerFeedbackCue.Hold] = CreateTone("HoldTone", 0.07f, 330f, 390f, 0.16f),
                 [PlayerFeedbackCue.Correct] = CreateTone("CorrectTone", 0.12f, 490f, 680f, 0.20f),
                 [PlayerFeedbackCue.Wrong] = CreateTone("WrongTone", 0.15f, 210f, 145f, 0.18f),
-                [PlayerFeedbackCue.ShiftComplete] = CreateTone("ShiftCompleteTone", 0.22f, 440f, 720f, 0.18f)
+                [PlayerFeedbackCue.ShiftComplete] = CreateTone("ShiftCompleteTone", 0.22f, 440f, 720f, 0.18f),
+                [PlayerFeedbackCue.KeyReaction] = CreateTone("KeyReactionGlass", 0.30f, 610f, 510f, 0.15f),
+                [PlayerFeedbackCue.IncidentComplete] = CreateTone("IncidentCompleteChime", 0.46f, 360f, 690f, 0.15f)
             };
         }
 

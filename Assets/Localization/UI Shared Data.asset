@@ -455,6 +455,86 @@ MonoBehaviour:
     m_Key: docket_pristine_feedback
     m_Metadata:
       m_Items: []
+  - m_Id: 3903012326060032
+    m_Key: incident_begin
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557504
+    m_Key: incident_continue
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557505
+    m_Key: incident_stage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557506
+    m_Key: incident_complete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557507
+    m_Key: incident_next_teaser
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557508
+    m_Key: free_shift
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557509
+    m_Key: senior_clerk
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557510
+    m_Key: narrative_continue
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557511
+    m_Key: retry_stage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557512
+    m_Key: next_stage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557513
+    m_Key: quality_stable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557514
+    m_Key: quality_precise
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557515
+    m_Key: quality_resonant
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557516
+    m_Key: quality_stable_body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557517
+    m_Key: quality_precise_body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557518
+    m_Key: quality_resonant_body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557519
+    m_Key: trait_frosted
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557520
+    m_Key: calm_streak
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557521
+    m_Key: incident_hold_protect
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3903012401557522
+    m_Key: incident_failed_body
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

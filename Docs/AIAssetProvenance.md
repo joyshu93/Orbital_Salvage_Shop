@@ -172,6 +172,21 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Store submission decision | Ordinary in-game gameplay copy; no separate AI-media declaration currently identified. Recheck selected-store requirements at submission time. |
 | Release status | **Prototype copy — developer bilingual review required before RC.** |
 
+### TEXT-NARRATIVE-004 — Unmelting Ice five-stage prototype script
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Assets/Scripts/Runtime/Content/Incidents/FirstIncidentCatalog.cs`; generated runtime presentation derived from this source after later integration |
+| Asset type and intended use | Five-stage English/Korean opening beats, closing hooks, and Stable/Precise/Resonant artifact reactions for the first playable incident prototype |
+| Tool | OpenAI Codex drafted the bilingual narrative copy from the developer-approved incident specification and fixed implementation plan |
+| Creation date | 2026-08-31 KST |
+| Reference inputs | The approved Curio Clerk narrative occupational puzzle specification, fixed five-stage incident beats, existing artifact catalog fiction, and Three-Seal Docket terminology; no third-party prose supplied or copied |
+| Human direction | The developer approved the exact opening and closing beats, the five authored shift matrix, the caretaker tone, and the semantic limits for Stable, Precise, and Resonant reactions. |
+| Human edits | The approved plan fixes the opening and closing copy. The short quality reactions are prototype drafts; Korean naturalness, English clarity, tone, line wrapping, and contextual fit require developer bilingual review in Unity. |
+| Third-party elements | None identified. No external prose, named style, franchise text, quotation, or third-party reference material was used. |
+| Store submission decision | Ordinary in-game narrative text; no separate AI-media declaration currently identified. Recheck the selected store's current requirements at submission time. |
+| Release status | **Prototype copy — developer bilingual and in-context review required before RC.** |
+
 ### FONT-UI-001 — Gowun Batang display typography
 
 | Field | Record |

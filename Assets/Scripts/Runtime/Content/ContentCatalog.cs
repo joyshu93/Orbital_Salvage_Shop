@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using CurioClerk.Content.Incidents;
 using CurioClerk.Core.Artifacts;
 using CurioClerk.Core.Rules;
 using CurioClerk.Core.Shifts;
@@ -108,6 +109,11 @@ namespace CurioClerk.Content
                 new CosmeticContent("fern-familiar", 520, "Fern Familiar", "고사리 패밀리어", "718B63"),
                 new CosmeticContent("amber-window", 700, "Amber Window", "호박빛 창문", "E0A24B")
             };
+        }
+
+        public static IReadOnlyList<IncidentDefinition> CreateIncidents()
+        {
+            return new[] { FirstIncidentCatalog.Create() };
         }
 
         private static ArtifactContent A(

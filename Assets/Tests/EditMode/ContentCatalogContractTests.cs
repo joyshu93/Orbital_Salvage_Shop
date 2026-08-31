@@ -130,6 +130,26 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(costs[0], Is.GreaterThan(0));
         }
 
+        [Test]
+        public void IncidentCatalog_ExposesExactlyTheFiveOrderedFirstIncidentStages()
+        {
+            var incidents = ContentCatalog.CreateIncidents();
+
+            Assert.That(incidents, Has.Count.EqualTo(1));
+            Assert.That(incidents[0].Id, Is.EqualTo("unmelting-ice"));
+            Assert.That(incidents[0].Stages.Select(stage => stage.Id), Is.EqualTo(new[]
+            {
+                "ice-01-crack",
+                "ice-02-spread",
+                "ice-03-tomorrow",
+                "ice-04-frozen-seal",
+                "ice-05-thaw"
+            }));
+            Assert.That(ContentCatalog.CreateArtifacts().All(artifact =>
+                (artifact.Traits & CurioClerk.Core.Artifacts.ArtifactTraits.Frosted) == 0), Is.True,
+                "Frosted is an incident-stage modifier and must not mutate base catalog traits.");
+        }
+
         private static Type RequireCatalog()
         {
             var type = Type.GetType("CurioClerk.Content.ContentCatalog, CurioClerk.Runtime");

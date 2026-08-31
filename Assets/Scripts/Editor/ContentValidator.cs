@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using CurioClerk.Content;
+using CurioClerk.Content.Incidents;
 using CurioClerk.Core.Rules;
 using CurioClerk.Core.Shifts;
 using TMPro;
@@ -38,7 +39,7 @@ namespace CurioClerk.Editor
             }
 
             Debug.Log("Curio Clerk validation passed: 24 artifacts, 10 rules, 2 rule packs, " +
-                      "3 docket templates, 5 difficulties, 6 cosmetics, 2 scenes.");
+                      "3 docket templates, 1 incident, 5 incident stages, 5 difficulties, 6 cosmetics, 2 scenes.");
         }
 
         private static void ValidateCatalog(ICollection<string> errors)
@@ -127,6 +128,8 @@ namespace CurioClerk.Editor
                 }
             }
 
+            ValidateIncidents(artifacts, ruleEngine, sequenceAnalyzer, errors);
+
             var cosmetics = ContentCatalog.CreateCosmetics();
             if (cosmetics.Count != 6)
             {
@@ -135,6 +138,149 @@ namespace CurioClerk.Editor
 
             AddDuplicateErrors(cosmetics.Select(item => item.Id), "cosmetic", errors);
         }
+
+        private static void ValidateIncidents(
+            IReadOnlyList<ArtifactContent> artifacts,
+            RuleEngine ruleEngine,
+            DocketSequenceAnalyzer sequenceAnalyzer,
+            ICollection<string> errors)
+        {
+            var incidents = ContentCatalog.CreateIncidents();
+            if (incidents.Count != 1)
+            {
+                errors.Add($"Expected 1 incident, found {incidents.Count}.");
+            }
+
+            AddDuplicateErrors(incidents.Select(incident => incident.Id), "incident", errors);
+            var artifactById = artifacts.ToDictionary(artifact => artifact.Id, StringComparer.Ordinal);
+            var stageIds = new List<string>();
+            foreach (var incident in incidents)
+            {
+                if (!HasBilingualCopy(incident.Title))
+                {
+                    errors.Add($"Incident '{incident.Id}' has missing bilingual title text.");
+                }
+
+                if (incident.Stages.Count != 5)
+                {
+                    errors.Add($"Incident '{incident.Id}' must contain five stages.");
+                }
+
+                foreach (var stage in incident.Stages)
+                {
+                    stageIds.Add(stage.Id);
+                    ValidateNarrativeBeats(stage, stage.IntroBeats, "intro", errors);
+                    ValidateNarrativeBeats(stage, stage.OutroBeats, "outro", errors);
+                    ValidateReactions(stage, errors);
+
+                    var queueIds = new HashSet<string>(
+                        stage.Queue.Select(entry => entry.ArtifactId),
+                        StringComparer.Ordinal);
+                    if (!artifactById.ContainsKey(stage.LeadArtifactId) || !queueIds.Contains(stage.LeadArtifactId))
+                    {
+                        errors.Add($"Incident stage '{stage.Id}' has an invalid lead artifact ID.");
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(stage.ResonanceHoldArtifactId) &&
+                        (!artifactById.ContainsKey(stage.ResonanceHoldArtifactId) ||
+                         !queueIds.Contains(stage.ResonanceHoldArtifactId)))
+                    {
+                        errors.Add($"Incident stage '{stage.Id}' has an invalid resonance Hold artifact ID.");
+                    }
+
+                    ShiftPlan plan;
+                    try
+                    {
+                        plan = stage.CreateShiftPlan(artifactById);
+                    }
+                    catch (Exception exception)
+                    {
+                        errors.Add($"Incident stage '{stage.Id}' cannot create a shift plan: {exception.Message}");
+                        continue;
+                    }
+
+                    Destination[] destinations;
+                    try
+                    {
+                        destinations = plan.Queue
+                            .Select(artifact => ruleEngine.Resolve(artifact, plan.Rules))
+                            .ToArray();
+                    }
+                    catch (Exception exception)
+                    {
+                        errors.Add($"Incident stage '{stage.Id}' has invalid sorting rules: {exception.Message}");
+                        continue;
+                    }
+
+                    var counts = new int[3];
+                    foreach (var destination in destinations)
+                    {
+                        counts[(int)destination]++;
+                    }
+
+                    if (counts.Any(count => count != 4))
+                    {
+                        errors.Add($"Incident stage '{stage.Id}' must resolve to four of every destination.");
+                    }
+
+                    var minimumHolds = sequenceAnalyzer.MinimumHolds(destinations);
+                    if (minimumHolds < 0)
+                    {
+                        errors.Add($"Incident stage '{stage.Id}' is not solvable with one Hold slot.");
+                    }
+                    else if (minimumHolds != stage.MinimumRequiredHolds)
+                    {
+                        errors.Add(
+                            $"Incident stage '{stage.Id}' declares {stage.MinimumRequiredHolds} minimum Holds " +
+                            $"but requires {minimumHolds}.");
+                    }
+                }
+            }
+
+            AddDuplicateErrors(stageIds, "incident stage", errors);
+        }
+
+        private static void ValidateNarrativeBeats(
+            IncidentStageDefinition stage,
+            IReadOnlyList<NarrativeBeat> beats,
+            string label,
+            ICollection<string> errors)
+        {
+            if (beats == null || beats.Count == 0)
+            {
+                errors.Add($"Incident stage '{stage.Id}' is missing {label} beats.");
+                return;
+            }
+
+            for (var index = 0; index < beats.Count; index++)
+            {
+                if (beats[index] == null || !HasBilingualCopy(beats[index].Copy))
+                {
+                    errors.Add($"Incident stage '{stage.Id}' has missing bilingual {label} text.");
+                }
+            }
+        }
+
+        private static void ValidateReactions(IncidentStageDefinition stage, ICollection<string> errors)
+        {
+            if (stage.Reactions == null)
+            {
+                errors.Add($"Incident stage '{stage.Id}' is missing quality reactions.");
+                return;
+            }
+
+            if (!HasBilingualCopy(stage.Reactions.Stable) ||
+                !HasBilingualCopy(stage.Reactions.Precise) ||
+                !HasBilingualCopy(stage.Reactions.Resonant))
+            {
+                errors.Add($"Incident stage '{stage.Id}' has missing bilingual quality reactions.");
+            }
+        }
+
+        private static bool HasBilingualCopy(LocalizedCopy copy)
+            => copy != null &&
+               !string.IsNullOrWhiteSpace(copy.English) &&
+               !string.IsNullOrWhiteSpace(copy.Korean);
 
         private static void ValidateAssets(ICollection<string> errors)
         {

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CurioClerk.Content.Incidents;
 using UnityEngine;
 
 namespace CurioClerk.Presentation
@@ -16,6 +17,11 @@ namespace CurioClerk.Presentation
         private static Sprite s_StorageIcon;
         private static Sprite s_VaultIcon;
         private static Sprite s_HoldIcon;
+        private static Sprite s_SeniorClerkNeutral;
+        private static Sprite s_SeniorClerkConcerned;
+        private static Sprite s_SeniorClerkAlert;
+        private static Sprite s_SeniorClerkRelieved;
+        private static Sprite s_FrostOverlay;
 
         internal static Sprite DeskBackground
         {
@@ -62,6 +68,26 @@ namespace CurioClerk.Presentation
             return sprite;
         }
 
+        internal static Sprite SeniorClerk(SeniorClerkMood mood)
+        {
+            switch (mood)
+            {
+                case SeniorClerkMood.Neutral:
+                    return LoadSprite(ref s_SeniorClerkNeutral, "Art/Characters/senior-clerk-neutral");
+                case SeniorClerkMood.Concerned:
+                    return LoadSprite(ref s_SeniorClerkConcerned, "Art/Characters/senior-clerk-concerned");
+                case SeniorClerkMood.Alert:
+                    return LoadSprite(ref s_SeniorClerkAlert, "Art/Characters/senior-clerk-alert");
+                case SeniorClerkMood.Relieved:
+                    return LoadSprite(ref s_SeniorClerkRelieved, "Art/Characters/senior-clerk-relieved");
+                default:
+                    return null;
+            }
+        }
+
+        internal static Sprite FrostOverlay =>
+            LoadSprite(ref s_FrostOverlay, "Art/Effects/frost-overlay");
+
         internal static Sprite RepairIcon => s_RepairIcon ?? (s_RepairIcon = CreateIcon("repair", DrawRepair));
 
         internal static Sprite StorageIcon => s_StorageIcon ?? (s_StorageIcon = CreateIcon("storage", DrawStorage));
@@ -69,6 +95,16 @@ namespace CurioClerk.Presentation
         internal static Sprite VaultIcon => s_VaultIcon ?? (s_VaultIcon = CreateIcon("vault", DrawVault));
 
         internal static Sprite HoldIcon => s_HoldIcon ?? (s_HoldIcon = CreateIcon("hold", DrawHold));
+
+        private static Sprite LoadSprite(ref Sprite cached, string resourcePath)
+        {
+            if (cached == null)
+            {
+                cached = Resources.Load<Sprite>(resourcePath);
+            }
+
+            return cached;
+        }
 
         private static Sprite CreateIcon(string name, Action<Color32[]> draw)
         {

@@ -1,6 +1,6 @@
 # Third-party notices register
 
-Last reviewed: 2026-08-28 (KST)
+Last reviewed: 2026-08-31 (KST)
 
 This is the working inventory for externally sourced material. It is not yet the final in-app notice. Before an RC build, remove unused material, resolve every open item, and make required notices easily viewable in the distributed product or its accompanying materials.
 
@@ -25,6 +25,7 @@ This is the working inventory for externally sourced material. It is not yet the
 | Three-Seal bilingual gameplay copy | `Assets/Scripts/Runtime/Localization/Localizer.cs`, `Assets/Scripts/Runtime/Content/ContentCatalog.cs`, generated localization tables, and generated Artifact assets; provenance entry `TEXT-GAMEPLAY-003` in `Docs/AIAssetProvenance.md`. | Existing project-authored names/descriptions and the approved Three-Seal design only; no third-party prose or attribution identified. | **No third-party notice required.** Human bilingual review remains required before RC. |
 | Unmelting Ice five-stage bilingual narrative script | `Assets/Scripts/Runtime/Content/Incidents/FirstIncidentCatalog.cs`; provenance entry `TEXT-NARRATIVE-004` in `Docs/AIAssetProvenance.md`. | Developer-approved incident specification, fixed authored beats, repository artifact fiction, and original prototype reactions only; no third-party prose or reference text was used. | **No third-party notice required.** Developer bilingual and in-context review remains required before RC. |
 | Narrative occupational puzzle design reference | `Docs/superpowers/specs/2026-08-28-narrative-occupational-puzzle-design.md` and `Docs/Design/NarrativeOccupationalPuzzle/curio-narrative-ux-board.html`; provenance entry `DESIGN-NARRATIVE-001`. | Developer-approved product direction, repository content, original prose, and CSS shapes only; no third-party art, prose, font, or reference input is bundled. | **No third-party notice required.** Internal design material only; promotional reuse requires a separate audit. |
+| First-incident senior clerk portraits and frost overlay | Five selected ImageGen PNGs recorded with hashes as `ART-NARRATIVE-001` and `ART-EFFECT-001`; exact prompts and selection notes are in `Docs/NarrativeSlicePrompts.md`. | Original text prompts and project-owned generated portrait variants only; no third-party image or style reference was supplied. | **No third-party attribution identified. Approved for prototype integration; final similarity/trademark and human release review remain open.** |
 
 ### Gowun Batang Bold
 

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace CurioClerk.Tests.EditMode
@@ -19,6 +20,37 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(type.GetMethod("ValidateReleaseEnvironment", BindingFlags.Public | BindingFlags.Static),
                 Is.Not.Null);
             Assert.That(type.GetMethod("ValidateServiceIds", BindingFlags.Public | BindingFlags.Static), Is.Not.Null);
+        }
+
+        [Test]
+        public void ProjectBuilder_ConfiguresApprovedNarrativeArtForMobileSprites()
+        {
+            var type = FindType("CurioClerk.Editor.ProjectBuilder");
+            Assert.That(type, Is.Not.Null);
+            Assert.That(
+                type.GetMethod("ConfigureNarrativeArtAssets", BindingFlags.NonPublic | BindingFlags.Static),
+                Is.Not.Null,
+                "BuildAll must own deterministic narrative-art import settings.");
+
+            var builderSource = File.ReadAllText(
+                Path.Combine(Application.dataPath, "Scripts", "Editor", "ProjectBuilder.cs"));
+            Assert.That(builderSource, Does.Contain("ConfigureNarrativeArtAssets();"));
+
+            AssertNarrativeSpriteImporter(
+                "Assets/Resources/Art/Characters/senior-clerk-neutral.png",
+                1024);
+            AssertNarrativeSpriteImporter(
+                "Assets/Resources/Art/Characters/senior-clerk-concerned.png",
+                1024);
+            AssertNarrativeSpriteImporter(
+                "Assets/Resources/Art/Characters/senior-clerk-alert.png",
+                1024);
+            AssertNarrativeSpriteImporter(
+                "Assets/Resources/Art/Characters/senior-clerk-relieved.png",
+                1024);
+            AssertNarrativeSpriteImporter(
+                "Assets/Resources/Art/Effects/frost-overlay.png",
+                2048);
         }
 
         [Test]
@@ -166,6 +198,22 @@ namespace CurioClerk.Tests.EditMode
             var method = type.GetMethod("ValidateServiceIds", BindingFlags.Public | BindingFlags.Static);
             Assert.That(method, Is.Not.Null);
             method.Invoke(null, new object[] { appId, rewardedId });
+        }
+
+        private static void AssertNarrativeSpriteImporter(string path, int expectedMaxSize)
+        {
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            Assert.That(sprite, Is.Not.Null, path + " must import as a Sprite.");
+
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            Assert.That(importer, Is.Not.Null, path + " must have a TextureImporter.");
+            Assert.That(importer.textureType, Is.EqualTo(TextureImporterType.Sprite));
+            Assert.That(importer.spriteImportMode, Is.EqualTo(SpriteImportMode.Single));
+            Assert.That(importer.alphaIsTransparency, Is.True);
+            Assert.That(importer.mipmapEnabled, Is.False);
+            Assert.That(importer.filterMode, Is.EqualTo(FilterMode.Bilinear));
+            Assert.That(importer.wrapMode, Is.EqualTo(TextureWrapMode.Clamp));
+            Assert.That(importer.maxTextureSize, Is.EqualTo(expectedMaxSize));
         }
 
         private static void AssertManifestWriteRejectedWithoutPath(string path)

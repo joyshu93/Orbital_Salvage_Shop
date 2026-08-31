@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using CurioClerk.Content;
+using CurioClerk.Content.Incidents;
 using CurioClerk.Core.Artifacts;
 using CurioClerk.Core.Rules;
 using CurioClerk.Core.Shifts;
@@ -629,6 +630,25 @@ namespace CurioClerk.Tests.PlayMode
                     $"Catalog artifact '{artifact.Id}' must have a Resources artwork sprite.");
                 Assert.That(sprite.name, Is.EqualTo(artifact.Id));
             }
+        }
+
+        [UnityTest]
+        public IEnumerator NarrativeArtwork_LoadsEverySeniorClerkMoodAndFrostOverlay()
+        {
+            yield return null;
+
+            foreach (SeniorClerkMood mood in Enum.GetValues(typeof(SeniorClerkMood)))
+            {
+                var portrait = VisualAssetLibrary.SeniorClerk(mood);
+                Assert.That(portrait, Is.Not.Null, mood + " must have a Resources portrait sprite.");
+                Assert.That(portrait.rect.width, Is.GreaterThanOrEqualTo(768));
+                Assert.That(portrait.rect.height, Is.GreaterThanOrEqualTo(1024));
+            }
+
+            var frost = VisualAssetLibrary.FrostOverlay;
+            Assert.That(frost, Is.Not.Null, "The first incident must have a frost overlay sprite.");
+            Assert.That(frost.rect.width, Is.GreaterThanOrEqualTo(1024));
+            Assert.That(frost.rect.height, Is.GreaterThanOrEqualTo(1536));
         }
 
         [UnityTest]

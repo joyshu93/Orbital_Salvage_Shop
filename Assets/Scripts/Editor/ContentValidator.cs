@@ -16,6 +16,14 @@ namespace CurioClerk.Editor
     public sealed class ContentValidator : IPreprocessBuildWithReport
     {
         private const string ContentRoot = "Assets/Resources/Content";
+        private static readonly string[] NarrativeArtPaths =
+        {
+            "Assets/Resources/Art/Characters/senior-clerk-neutral.png",
+            "Assets/Resources/Art/Characters/senior-clerk-concerned.png",
+            "Assets/Resources/Art/Characters/senior-clerk-alert.png",
+            "Assets/Resources/Art/Characters/senior-clerk-relieved.png",
+            "Assets/Resources/Art/Effects/frost-overlay.png"
+        };
 
         public int callbackOrder => -1000;
 
@@ -288,6 +296,18 @@ namespace CurioClerk.Editor
             ValidateAssetCount<RuleDefinition>(ContentRoot + "/Rules", 10, errors);
             ValidateAssetCount<DifficultyProfile>(ContentRoot + "/Difficulties", 5, errors);
             ValidateAssetCount<CosmeticDefinition>(ContentRoot + "/Cosmetics", 6, errors);
+            ValidateNarrativeArt(errors);
+        }
+
+        private static void ValidateNarrativeArt(ICollection<string> errors)
+        {
+            foreach (var path in NarrativeArtPaths)
+            {
+                if (AssetDatabase.LoadAssetAtPath<Sprite>(path) == null)
+                {
+                    errors.Add("Required narrative art sprite is missing: " + path);
+                }
+            }
         }
 
         private static void ValidateScenes(ICollection<string> errors)

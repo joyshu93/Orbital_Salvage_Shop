@@ -31,6 +31,16 @@ namespace CurioClerk.Editor
         private const string LocalizationRoot = "Assets/Localization";
         private const string RenderingRoot = "Assets/Rendering";
         private const string SceneRoot = "Assets/Scenes";
+        private const string NarrativeCharacterRoot = "Assets/Resources/Art/Characters";
+        private const string NarrativeEffectRoot = "Assets/Resources/Art/Effects";
+        private static readonly string[] NarrativePortraitPaths =
+        {
+            NarrativeCharacterRoot + "/senior-clerk-neutral.png",
+            NarrativeCharacterRoot + "/senior-clerk-concerned.png",
+            NarrativeCharacterRoot + "/senior-clerk-alert.png",
+            NarrativeCharacterRoot + "/senior-clerk-relieved.png"
+        };
+        private const string FrostOverlayPath = NarrativeEffectRoot + "/frost-overlay.png";
         private const string ServiceConfigurationPath = "Assets/Resources/ServiceConfiguration.asset";
         private const string GoogleMobileAdsSettingsPath =
             "Assets/GoogleMobileAds/Resources/GoogleMobileAdsSettings.asset";
@@ -56,6 +66,7 @@ namespace CurioClerk.Editor
             ConfigurePlayer();
             EnsureFolders();
             ConfigureBrandAssets();
+            ConfigureNarrativeArtAssets();
             ConfigureFontAssets();
             CreateContentAssets();
             CreateLocalizationAssets();
@@ -487,6 +498,42 @@ namespace CurioClerk.Editor
 #pragma warning disable CS0618
             PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Android, new[] { icon });
 #pragma warning restore CS0618
+        }
+
+        private static void ConfigureNarrativeArtAssets()
+        {
+            EnsureFolder(NarrativeCharacterRoot);
+            EnsureFolder(NarrativeEffectRoot);
+            foreach (var path in NarrativePortraitPaths)
+            {
+                ConfigureNarrativeArtAsset(path, 1024);
+            }
+
+            ConfigureNarrativeArtAsset(FrostOverlayPath, 2048);
+        }
+
+        private static void ConfigureNarrativeArtAsset(string path, int maxTextureSize)
+        {
+            if (!File.Exists(Path.GetFullPath(path)))
+            {
+                throw new InvalidOperationException("Required narrative art is missing: " + path);
+            }
+
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+            if (!(AssetImporter.GetAtPath(path) is TextureImporter importer))
+            {
+                throw new InvalidOperationException("Narrative art could not be imported: " + path);
+            }
+
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.textureCompression = TextureImporterCompression.Compressed;
+            importer.maxTextureSize = maxTextureSize;
+            importer.SaveAndReimport();
         }
 
         private static void ConfigureFontAssets()

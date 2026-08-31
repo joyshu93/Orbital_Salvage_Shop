@@ -43,6 +43,48 @@ Describe visual characteristics in generic production terms instead: palette, ma
 
 ## Provenance ledger
 
+### ART-NARRATIVE-001 — senior night clerk portrait set
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Assets/Resources/Art/Characters/senior-clerk-neutral.png`; `senior-clerk-concerned.png`; `senior-clerk-alert.png`; `senior-clerk-relieved.png` |
+| SHA-256 | Neutral `09259FCDB4EEA196F6689D8FACDC7F36C410D72DB21AC7B85FE5F4565951EE99`; concerned `8553D09FF755B579E75AF9BCFFB711971C35AC7A361D3EA3246ED9A1E15EB8BF`; alert `09A8193D755CFF26E3E86685DDDA4FEC490B93DFA99D08B16372FB3FC56C7411`; relieved `AB7541374EE39EBC17D4AAFA822C0D9AB97F2D1EBBD05E5A13041CF6A7BCD9DC` |
+| Dimensions | Four 768 × 1024 transparent PNGs |
+| Asset type and intended use | Four waist-up visual-novel portraits for the senior night clerk in the first incident; large Android portrait-screen silhouette and emotional state changes |
+| Tool | Built-in OpenAI ImageGen invoked through Codex |
+| Creation date | 2026-08-31 KST |
+| Prompt record | Exact normalized generation and identity-preserving edit prompts are retained in `Docs/NarrativeSlicePrompts.md`. |
+| Selected source outputs and reference inputs | Neutral source output `exec-6c165bd5-02a1-4811-9cd1-6711e3659eb2`; concerned `exec-a9024307-47c2-4743-bbc4-a76a4591be05`; alert `exec-7f60217b-816b-4e43-86cf-04f5d6ca54c5`; relieved `exec-5bd33717-6175-4ccf-a0f2-73e764fd777f`. Neutral used text only. Each expression edit used only that project-owned neutral output. No third-party image was supplied. |
+| Negative constraints | No named artist, studio, game, film, franchise, protected character, real-person likeness, modern clothing, text, logo, signature, watermark, gore, or opaque checkerboard. |
+| Human direction | The developer approved a bold but warm visual-novel presentation, a single recurring senior clerk, large readable expressions, and the plum/parchment/brass Curio Clerk palette. |
+| Technical normalization | The three expression edits arrived with a baked neutral checkerboard. After explicit developer approval, Codex removed only the connected/high-luminance neutral checker field and its edge matte, preserved the character pixels, and resized all four portraits from 1086 × 1448 to 768 × 1024 with high-quality bicubic filtering. No repaint or redraw is claimed. |
+| Human selection | The developer reviewed the four labeled expressions plus the overlay and approved this set for prototype integration on 2026-08-31 KST. Alternate opaque-background and inconsistent-identity generations were rejected. |
+| Similarity and trademark review | No visible text, logo, signature, watermark, famous likeness, or recognizable protected character was identified during prototype review. Final release similarity/trademark review remains pending. |
+| Third-party elements | None intentionally requested or supplied; no attribution currently identified. |
+| Store submission decision | Treat selected portraits and prominent screenshots containing them as AI-assisted/generated media wherever the selected store asks. Recheck current wording at submission. |
+| Release status | **Approved for first-incident prototype integration. Not yet approved as final release art.** |
+
+### ART-EFFECT-001 — incident frost-edge overlay
+
+| Field | Record |
+| --- | --- |
+| Repository file | `Assets/Resources/Art/Effects/frost-overlay.png` |
+| SHA-256 | `A583F60946BA77C2F357ED3CF6B80FBD867AFC5FCC5A56A162E276F98A9D25A2` |
+| Dimensions | 1024 × 1536 transparent PNG; sampled center alpha is 0 |
+| Asset type and intended use | Transparent 9:16 frost-edge overlay with a clear center for artifact and narrative emphasis |
+| Tool | Built-in OpenAI ImageGen invoked through Codex |
+| Creation date | 2026-08-31 KST |
+| Prompt record | Exact normalized generation prompt is retained in `Docs/NarrativeSlicePrompts.md`. |
+| Reference inputs | Text only; no third-party input or reference image. |
+| Negative constraints | No text, letters, symbols, logos, signatures, watermarks, opaque checkerboard, central obstruction, gore, or franchise imagery. |
+| Human direction | The developer approved atmosphere-preserving but visibly stronger frost/amber feedback around a readable portrait gameplay center. |
+| Human selection and technical review | The developer approved the labeled overlay preview on 2026-08-31 KST. Codex confirmed true alpha at the center and retained the original 1024 × 1536 output without repaint or redraw. |
+| Similarity and trademark review | No visible text, symbol, logo, signature, watermark, or recognizable protected imagery was identified during prototype review. Final release review remains pending. |
+| Third-party elements | None intentionally requested or supplied; no attribution currently identified. |
+| Store submission decision | Treat the selected overlay and prominent screenshots containing it as AI-assisted/generated media wherever the selected store asks. |
+| Release status | **Approved for first-incident prototype integration. Not yet approved as final release art.** |
+
+
 ### DESIGN-NARRATIVE-001 — narrative occupational puzzle specification and visual board
 
 | Field | Record |

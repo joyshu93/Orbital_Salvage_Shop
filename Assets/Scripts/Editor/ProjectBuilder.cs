@@ -128,6 +128,53 @@ namespace CurioClerk.Editor
             }
         }
 
+        [MenuItem("Tools/Curio Clerk/Build Android Offline QA APK")]
+        public static void BuildAndroidOfflineQa()
+        {
+            IDisposable offlineQaState = null;
+            try
+            {
+                ValidateUnityVersion();
+                ConfigureAndroidExternalTools();
+                ContentValidator.ValidateOrThrow();
+                EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android);
+                offlineQaState = ConfigureOfflineQaBuildState();
+
+                var output = Path.GetFullPath(
+                    Path.Combine(Application.dataPath, "../Builds/Android/CurioClerk-qa.apk"));
+                Directory.CreateDirectory(Path.GetDirectoryName(output) ??
+                                          throw new InvalidOperationException("Invalid build output path."));
+                if (File.Exists(output))
+                {
+                    File.Delete(output);
+                }
+
+                var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+                {
+                    scenes = new[] { "Assets/Scenes/Bootstrap.unity", "Assets/Scenes/Main.unity" },
+                    locationPathName = output,
+                    target = BuildTarget.Android,
+                    options = BuildOptions.Development,
+                    extraScriptingDefines = new[] { "CURIO_OFFLINE_QA" }
+                });
+
+                if (report.summary.result != BuildResult.Succeeded || !File.Exists(output))
+                {
+                    throw new BuildFailedException(
+                        $"Android offline QA build failed with {report.summary.totalErrors} errors.");
+                }
+
+                Debug.Log($"Android offline QA APK built successfully ({report.summary.totalSize} bytes).");
+            }
+            finally
+            {
+                offlineQaState?.Dispose();
+            }
+        }
+
+        public static GraphicsDeviceType[] GetOfflineQaGraphicsApis()
+            => new[] { GraphicsDeviceType.OpenGLES3 };
+
         public static void ValidateReleaseEnvironment()
         {
             ReleaseEnvironment environment = null;
@@ -324,6 +371,60 @@ namespace CurioClerk.Editor
             AssetDatabase.SaveAssets();
         }
 
+        private static UnityEngine.Object LoadOrCreateGoogleMobileAdsSettings()
+        {
+            var existing = AssetDatabase.LoadMainAssetAtPath(GoogleMobileAdsSettingsPath);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            var settingsType = Type.GetType(
+                "GoogleMobileAds.Editor.GoogleMobileAdsSettings, GoogleMobileAds.Editor");
+            var loadInstance = settingsType?.GetMethod(
+                "LoadInstance",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            if (loadInstance == null)
+            {
+                throw new BuildFailedException(
+                    "The pinned Google Mobile Ads package does not expose its settings creation path.");
+            }
+
+            try
+            {
+                var created = loadInstance.Invoke(null, null) as UnityEngine.Object;
+                if (created == null)
+                {
+                    throw new BuildFailedException("Google Mobile Ads settings could not be created.");
+                }
+
+                return created;
+            }
+            catch (BuildFailedException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                throw new BuildFailedException("Google Mobile Ads settings could not be created.");
+            }
+        }
+
+        private static IDisposable ConfigureOfflineQaBuildState()
+        {
+            var scope = new OfflineQaBuildStateScope();
+            try
+            {
+                scope.Apply();
+                return scope;
+            }
+            catch
+            {
+                scope.Dispose();
+                throw;
+            }
+        }
+
         private static void ConfigureReleaseSigning(ReleaseEnvironment environment)
         {
             PlayerSettings.Android.useCustomKeystore = true;
@@ -359,16 +460,62 @@ namespace CurioClerk.Editor
             }
         }
 
+        public static string[] ResolveAndroidToolchainRoots(string currentEditorAndroid)
+        {
+            var environmentRoots = new[]
+            {
+                Environment.GetEnvironmentVariable("CURIO_ANDROID_SDK_ROOT"),
+                Environment.GetEnvironmentVariable("CURIO_ANDROID_NDK_ROOT"),
+                Environment.GetEnvironmentVariable("CURIO_ANDROID_JDK_ROOT")
+            };
+            if (environmentRoots.Any(root => !string.IsNullOrWhiteSpace(root)))
+            {
+                if (environmentRoots.Any(string.IsNullOrWhiteSpace))
+                {
+                    throw new BuildFailedException("The external Android toolchain environment is incomplete.");
+                }
+
+                return ValidateAndroidToolchainRoots(environmentRoots);
+            }
+
+            var bundledRoots = new[]
+            {
+                Path.Combine(currentEditorAndroid, "SDK"),
+                Path.Combine(currentEditorAndroid, "NDK"),
+                Path.Combine(currentEditorAndroid, "OpenJDK")
+            };
+            if (AndroidToolchainRootsExist(bundledRoots))
+            {
+                return bundledRoots.Select(Path.GetFullPath).ToArray();
+            }
+
+            var localApplicationData = Environment.GetEnvironmentVariable("LOCALAPPDATA");
+            if (string.IsNullOrWhiteSpace(localApplicationData))
+            {
+                localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            }
+
+            var userProfile = Environment.GetEnvironmentVariable("USERPROFILE");
+            if (string.IsNullOrWhiteSpace(userProfile))
+            {
+                userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            }
+
+            var externalSdk = Path.Combine(localApplicationData, "Android", "Sdk");
+            var externalJdk = FindJdkRoot(Path.Combine(userProfile, "UnityPersonal", "OpenJDK17"));
+            return ValidateAndroidToolchainRoots(new[]
+            {
+                externalSdk,
+                Path.Combine(externalSdk, "ndk", "27.2.12479018"),
+                externalJdk
+            });
+        }
+
         private static void ConfigureAndroidExternalTools()
         {
             var currentEditorAndroid = Path.Combine(Path.GetDirectoryName(EditorApplication.applicationPath) ?? string.Empty,
                 "Data", "PlaybackEngines", "AndroidPlayer");
-            if (!Directory.Exists(Path.Combine(currentEditorAndroid, "SDK")) ||
-                !Directory.Exists(Path.Combine(currentEditorAndroid, "NDK")) ||
-                !Directory.Exists(Path.Combine(currentEditorAndroid, "OpenJDK")))
-            {
-                throw new BuildFailedException("Unity-provided Android SDK, NDK and OpenJDK were not found. Add the three Android child modules for Unity 6000.3.21f1 in Unity Hub.");
-            }
+            var roots = ResolveAndroidToolchainRoots(currentEditorAndroid);
 
             var settingsType = Type.GetType("UnityEditor.Android.AndroidExternalToolsSettings, UnityEditor.Android.Extensions");
             if (settingsType == null)
@@ -376,11 +523,55 @@ namespace CurioClerk.Editor
                 throw new BuildFailedException("AndroidExternalToolsSettings API was not loaded. Verify Android Build Support for Unity 6000.3.21f1.");
             }
 
-            SetStaticProperty(settingsType, "sdkRootPath", Path.Combine(currentEditorAndroid, "SDK"));
-            SetStaticProperty(settingsType, "ndkRootPath", Path.Combine(currentEditorAndroid, "NDK"));
-            SetStaticProperty(settingsType, "jdkRootPath", Path.Combine(currentEditorAndroid, "OpenJDK"));
+            SetStaticProperty(settingsType, "sdkRootPath", roots[0]);
+            SetStaticProperty(settingsType, "ndkRootPath", roots[1]);
+            SetStaticProperty(settingsType, "jdkRootPath", roots[2]);
             SetStaticProperty(settingsType, "stopGradleDaemonsOnExit", true);
-            Debug.Log($"Android external tools configured from Unity installation: {currentEditorAndroid}");
+            Debug.Log("Android external tools configured for the scoped Android build.");
+        }
+
+        private static string[] ValidateAndroidToolchainRoots(string[] roots)
+        {
+            if (!AndroidToolchainRootsExist(roots))
+            {
+                throw new BuildFailedException(
+                    "Android SDK 36, CMake 3.22.1, NDK r27c, or OpenJDK 17 is missing or incomplete.");
+            }
+
+            return roots.Select(Path.GetFullPath).ToArray();
+        }
+
+        private static bool AndroidToolchainRootsExist(string[] roots)
+        {
+            return roots != null && roots.Length == 3 &&
+                   !string.IsNullOrWhiteSpace(roots[0]) &&
+                   !string.IsNullOrWhiteSpace(roots[1]) &&
+                   !string.IsNullOrWhiteSpace(roots[2]) &&
+                   File.Exists(Path.Combine(roots[0], "platforms", "android-36", "android.jar")) &&
+                   File.Exists(Path.Combine(roots[0], "build-tools", "36.0.0", "aapt2.exe")) &&
+                   File.Exists(Path.Combine(roots[0], "platform-tools", "adb.exe")) &&
+                   File.Exists(Path.Combine(roots[0], "cmdline-tools", "16.0", "bin", "sdkmanager.bat")) &&
+                   File.Exists(Path.Combine(roots[0], "cmake", "3.22.1", "bin", "cmake.exe")) &&
+                   File.Exists(Path.Combine(roots[1], "ndk-build.cmd")) &&
+                   File.Exists(Path.Combine(roots[2], "bin", "java.exe"));
+        }
+
+        private static string FindJdkRoot(string container)
+        {
+            if (File.Exists(Path.Combine(container, "bin", "java.exe")))
+            {
+                return container;
+            }
+
+            if (!Directory.Exists(container))
+            {
+                return string.Empty;
+            }
+
+            return Directory.EnumerateDirectories(container)
+                       .OrderByDescending(path => path, StringComparer.OrdinalIgnoreCase)
+                       .FirstOrDefault(path => File.Exists(Path.Combine(path, "bin", "java.exe"))) ??
+                   string.Empty;
         }
 
         private static void SetStaticProperty(Type type, string name, object value)
@@ -392,6 +583,77 @@ namespace CurioClerk.Editor
             }
 
             property.SetValue(null, value);
+        }
+
+        private static bool ReadStaticBoolean(Type type, string name)
+        {
+            var property = type.GetProperty(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            if (property == null || !property.CanRead || property.PropertyType != typeof(bool))
+            {
+                throw new BuildFailedException($"Build integration property '{name}' is unavailable.");
+            }
+
+            return (bool)property.GetValue(null);
+        }
+
+        private static string ReadSerializedString(UnityEngine.Object target, string propertyName, string error)
+        {
+            var serialized = new SerializedObject(target);
+            var property = serialized.FindProperty(propertyName);
+            if (property == null || property.propertyType != SerializedPropertyType.String)
+            {
+                throw new BuildFailedException(error);
+            }
+
+            return property.stringValue;
+        }
+
+        private static bool ReadSerializedBoolean(UnityEngine.Object target, string propertyName, string error)
+        {
+            var serialized = new SerializedObject(target);
+            var property = serialized.FindProperty(propertyName);
+            if (property == null || property.propertyType != SerializedPropertyType.Boolean)
+            {
+                throw new BuildFailedException(error);
+            }
+
+            return property.boolValue;
+        }
+
+        private static void WriteSerializedString(
+            UnityEngine.Object target,
+            string propertyName,
+            string value,
+            string error)
+        {
+            var serialized = new SerializedObject(target);
+            var property = serialized.FindProperty(propertyName);
+            if (property == null || property.propertyType != SerializedPropertyType.String)
+            {
+                throw new BuildFailedException(error);
+            }
+
+            property.stringValue = value ?? string.Empty;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(target);
+        }
+
+        private static void WriteSerializedBoolean(
+            UnityEngine.Object target,
+            string propertyName,
+            bool value,
+            string error)
+        {
+            var serialized = new SerializedObject(target);
+            var property = serialized.FindProperty(propertyName);
+            if (property == null || property.propertyType != SerializedPropertyType.Boolean)
+            {
+                throw new BuildFailedException(error);
+            }
+
+            property.boolValue = value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(target);
         }
 
         public static void LogAndroidToolingApi()
@@ -765,6 +1027,128 @@ namespace CurioClerk.Editor
                 }
 
                 current = next;
+            }
+        }
+
+        private sealed class OfflineQaBuildStateScope : IDisposable
+        {
+            private readonly bool _buildAppBundle;
+            private readonly bool _useDefaultGraphicsApis;
+            private readonly GraphicsDeviceType[] _graphicsApis;
+            private readonly bool _useCustomKeystore;
+            private readonly string _keystoreName;
+            private readonly string _keystorePass;
+            private readonly string _keyAliasName;
+            private readonly string _keyAliasPass;
+            private readonly bool _hadMobileAdsSettings;
+            private readonly UnityEngine.Object _mobileAdsSettings;
+            private readonly string _appId;
+            private readonly bool _gradleBuildPreProcessorEnabled;
+            private readonly Type _resolverSettingsType;
+            private readonly bool _autoResolveOnBuild;
+            private bool _disposed;
+
+            public OfflineQaBuildStateScope()
+            {
+                _buildAppBundle = EditorUserBuildSettings.buildAppBundle;
+                _useDefaultGraphicsApis = PlayerSettings.GetUseDefaultGraphicsAPIs(BuildTarget.Android);
+                _graphicsApis = PlayerSettings.GetGraphicsAPIs(BuildTarget.Android);
+                _useCustomKeystore = PlayerSettings.Android.useCustomKeystore;
+                _keystoreName = PlayerSettings.Android.keystoreName;
+                _keystorePass = PlayerSettings.Android.keystorePass;
+                _keyAliasName = PlayerSettings.Android.keyaliasName;
+                _keyAliasPass = PlayerSettings.Android.keyaliasPass;
+
+                _mobileAdsSettings = AssetDatabase.LoadMainAssetAtPath(GoogleMobileAdsSettingsPath);
+                _hadMobileAdsSettings = _mobileAdsSettings != null;
+                if (_mobileAdsSettings == null)
+                {
+                    _mobileAdsSettings = LoadOrCreateGoogleMobileAdsSettings();
+                }
+
+                _appId = ReadSerializedString(
+                    _mobileAdsSettings,
+                    "adMobAndroidAppId",
+                    "The Google Mobile Ads settings schema is unsupported.");
+                _gradleBuildPreProcessorEnabled = ReadSerializedBoolean(
+                    _mobileAdsSettings,
+                    "enableGradleBuildPreProcessor",
+                    "The Google Mobile Ads Gradle setting schema is unsupported.");
+
+                _resolverSettingsType = Type.GetType(
+                    "GooglePlayServices.SettingsDialog, Google.JarResolver");
+                if (_resolverSettingsType == null)
+                {
+                    throw new BuildFailedException("The pinned Android dependency resolver settings are unavailable.");
+                }
+
+                _autoResolveOnBuild = ReadStaticBoolean(_resolverSettingsType, "AutoResolveOnBuild");
+            }
+
+            public void Apply()
+            {
+                EditorUserBuildSettings.buildAppBundle = false;
+                PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
+                PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, GetOfflineQaGraphicsApis());
+                PlayerSettings.Android.useCustomKeystore = false;
+                WriteSerializedString(
+                    _mobileAdsSettings,
+                    "adMobAndroidAppId",
+                    GoogleSampleAppId,
+                    "The Google Mobile Ads settings schema is unsupported.");
+                WriteSerializedBoolean(
+                    _mobileAdsSettings,
+                    "enableGradleBuildPreProcessor",
+                    false,
+                    "The Google Mobile Ads Gradle setting schema is unsupported.");
+                SetStaticProperty(_resolverSettingsType, "AutoResolveOnBuild", false);
+                AssetDatabase.SaveAssets();
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+                EditorUserBuildSettings.buildAppBundle = _buildAppBundle;
+                PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, _graphicsApis);
+                PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, _useDefaultGraphicsApis);
+                PlayerSettings.Android.useCustomKeystore = _useCustomKeystore;
+                PlayerSettings.Android.keystoreName = _keystoreName;
+                PlayerSettings.Android.keystorePass = _keystorePass;
+                PlayerSettings.Android.keyaliasName = _keyAliasName;
+                PlayerSettings.Android.keyaliasPass = _keyAliasPass;
+                SetStaticProperty(_resolverSettingsType, "AutoResolveOnBuild", _autoResolveOnBuild);
+
+                if (_hadMobileAdsSettings)
+                {
+                    var mobileAdsSettings = AssetDatabase.LoadMainAssetAtPath(GoogleMobileAdsSettingsPath);
+                    if (mobileAdsSettings == null)
+                    {
+                        throw new BuildFailedException(
+                            "Google Mobile Ads settings disappeared while restoring the offline QA build state.");
+                    }
+
+                    WriteSerializedString(
+                        mobileAdsSettings,
+                        "adMobAndroidAppId",
+                        _appId,
+                        "The Google Mobile Ads settings schema is unsupported.");
+                    WriteSerializedBoolean(
+                        mobileAdsSettings,
+                        "enableGradleBuildPreProcessor",
+                        _gradleBuildPreProcessorEnabled,
+                        "The Google Mobile Ads Gradle setting schema is unsupported.");
+                }
+                else
+                {
+                    AssetDatabase.DeleteAsset(GoogleMobileAdsSettingsPath);
+                }
+
+                AssetDatabase.SaveAssets();
             }
         }
 

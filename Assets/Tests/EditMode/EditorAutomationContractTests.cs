@@ -4,6 +4,7 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace CurioClerk.Tests.EditMode
 {
@@ -17,9 +18,102 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(type, Is.Not.Null);
             Assert.That(type.GetMethod("BuildAll", BindingFlags.Public | BindingFlags.Static), Is.Not.Null);
             Assert.That(type.GetMethod("BuildAndroid", BindingFlags.Public | BindingFlags.Static), Is.Not.Null);
+            Assert.That(type.GetMethod("BuildAndroidOfflineQa", BindingFlags.Public | BindingFlags.Static),
+                Is.Not.Null);
+            Assert.That(type.GetMethod("GetOfflineQaGraphicsApis", BindingFlags.Public | BindingFlags.Static),
+                Is.Not.Null);
+            Assert.That(type.GetMethod("ResolveAndroidToolchainRoots", BindingFlags.Public | BindingFlags.Static),
+                Is.Not.Null);
             Assert.That(type.GetMethod("ValidateReleaseEnvironment", BindingFlags.Public | BindingFlags.Static),
                 Is.Not.Null);
             Assert.That(type.GetMethod("ValidateServiceIds", BindingFlags.Public | BindingFlags.Static), Is.Not.Null);
+        }
+
+        [Test]
+        public void ProjectBuilder_OfflineQaGraphicsApis_UseOpenGles3Only()
+        {
+            var type = FindType("CurioClerk.Editor.ProjectBuilder");
+            Assert.That(type, Is.Not.Null);
+            var method = type.GetMethod(
+                "GetOfflineQaGraphicsApis",
+                BindingFlags.Public | BindingFlags.Static);
+            Assert.That(method, Is.Not.Null);
+
+            var graphicsApis = method.Invoke(null, null) as GraphicsDeviceType[];
+
+            Assert.That(graphicsApis, Is.EqualTo(new[] { GraphicsDeviceType.OpenGLES3 }));
+        }
+
+        [Test]
+        public void ProjectBuilder_ResolveAndroidToolchainRoots_FallsBackToApprovedExternalLayout()
+        {
+            var directory = Path.Combine(Path.GetTempPath(), "curio-android-roots-" + Guid.NewGuid().ToString("N"));
+            var localApplicationData = Path.Combine(directory, "local");
+            var userProfile = Path.Combine(directory, "user");
+            var sdk = Path.Combine(localApplicationData, "Android", "Sdk");
+            var ndk = Path.Combine(sdk, "ndk", "27.2.12479018");
+            var jdk = Path.Combine(userProfile, "UnityPersonal", "OpenJDK17", "jdk-17.0.20.1+1");
+            var environmentNames = new[]
+            {
+                "CURIO_ANDROID_SDK_ROOT",
+                "CURIO_ANDROID_NDK_ROOT",
+                "CURIO_ANDROID_JDK_ROOT",
+                "LOCALAPPDATA",
+                "USERPROFILE"
+            };
+            var originalValues = new string[environmentNames.Length];
+
+            try
+            {
+                WriteAndroidToolchainFixture(sdk, ndk, jdk);
+                for (var index = 0; index < environmentNames.Length; index++)
+                {
+                    originalValues[index] = Environment.GetEnvironmentVariable(environmentNames[index]);
+                }
+
+                Environment.SetEnvironmentVariable("CURIO_ANDROID_SDK_ROOT", null);
+                Environment.SetEnvironmentVariable("CURIO_ANDROID_NDK_ROOT", null);
+                Environment.SetEnvironmentVariable("CURIO_ANDROID_JDK_ROOT", null);
+                Environment.SetEnvironmentVariable("LOCALAPPDATA", localApplicationData);
+                Environment.SetEnvironmentVariable("USERPROFILE", userProfile);
+
+                var type = FindType("CurioClerk.Editor.ProjectBuilder");
+                Assert.That(type, Is.Not.Null);
+                var method = type.GetMethod("ResolveAndroidToolchainRoots", BindingFlags.Public | BindingFlags.Static);
+                Assert.That(method, Is.Not.Null);
+                var roots = method.Invoke(null, new object[] { Path.Combine(directory, "missing-bundled") }) as string[];
+
+                Assert.That(roots, Is.EqualTo(new[] { sdk, ndk, jdk }));
+            }
+            finally
+            {
+                for (var index = 0; index < environmentNames.Length; index++)
+                {
+                    Environment.SetEnvironmentVariable(environmentNames[index], originalValues[index]);
+                }
+
+                if (Directory.Exists(directory))
+                {
+                    Directory.Delete(directory, true);
+                }
+            }
+        }
+
+        [Test]
+        public void RuntimeAssembly_ReferencesGoogleMobileAdsCoreForAndroidPlayerCompilation()
+        {
+            var asmdefPath = Path.Combine(
+                Application.dataPath,
+                "Scripts",
+                "Runtime",
+                "CurioClerk.Runtime.asmdef");
+            var asmdef = JsonUtility.FromJson<AssemblyDefinitionContract>(File.ReadAllText(asmdefPath));
+
+            Assert.That(asmdef.overrideReferences, Is.True);
+            Assert.That(
+                asmdef.precompiledReferences,
+                Does.Contain("GoogleMobileAds.Core.dll"),
+                "Android Player compilation requires the assembly that defines Reward and AdRequest.");
         }
 
         [Test]
@@ -216,6 +310,24 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(importer.maxTextureSize, Is.EqualTo(expectedMaxSize));
         }
 
+        private static void WriteAndroidToolchainFixture(string sdk, string ndk, string jdk)
+        {
+            WriteFixtureFile(Path.Combine(sdk, "platforms", "android-36", "android.jar"));
+            WriteFixtureFile(Path.Combine(sdk, "build-tools", "36.0.0", "aapt2.exe"));
+            WriteFixtureFile(Path.Combine(sdk, "platform-tools", "adb.exe"));
+            WriteFixtureFile(Path.Combine(sdk, "cmdline-tools", "16.0", "bin", "sdkmanager.bat"));
+            WriteFixtureFile(Path.Combine(sdk, "cmake", "3.22.1", "bin", "cmake.exe"));
+            WriteFixtureFile(Path.Combine(ndk, "ndk-build.cmd"));
+            WriteFixtureFile(Path.Combine(jdk, "bin", "java.exe"));
+        }
+
+        private static void WriteFixtureFile(string path)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path) ??
+                                      throw new InvalidOperationException("Fixture path has no parent."));
+            File.WriteAllText(path, string.Empty);
+        }
+
         private static void AssertManifestWriteRejectedWithoutPath(string path)
         {
             var type = FindType("CurioClerk.Editor.ReleaseBuildManifest");
@@ -250,6 +362,13 @@ namespace CurioClerk.Tests.EditMode
             public string architecture = string.Empty;
             public string backend = string.Empty;
             public string aabSha256 = string.Empty;
+        }
+
+        [Serializable]
+        private sealed class AssemblyDefinitionContract
+        {
+            public bool overrideReferences = default;
+            public string[] precompiledReferences = Array.Empty<string>();
         }
     }
 }

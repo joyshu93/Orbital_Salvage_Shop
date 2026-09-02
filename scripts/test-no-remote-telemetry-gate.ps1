@@ -41,6 +41,7 @@ try {
   "name": "CurioClerk.Runtime",
   "precompiledReferences": [
     "GoogleMobileAds.dll",
+    "GoogleMobileAds.Core.dll",
     "GoogleMobileAds.Ump.dll"
   ]
 }

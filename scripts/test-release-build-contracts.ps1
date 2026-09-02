@@ -65,8 +65,8 @@ Assert-Contract ($actualManifestFieldNames.Count -eq $expectedManifestFieldNames
     'ReleaseBuildManifest must serialize exactly the ten approved public fields.'
 
 $serviceFactory = Get-Content -LiteralPath $serviceFactoryPath -Raw
-Assert-Contract ($serviceFactory -match '(?s)#if UNITY_ANDROID && !UNITY_EDITOR && DEVELOPMENT_BUILD.*?new GoogleRewardedAdService\(AndroidRewardedTestUnitId\).*?#elif UNITY_ANDROID && !UNITY_EDITOR.*?Resources\.Load<ServiceConfiguration>\("ServiceConfiguration"\).*?new GoogleRewardedAdService\(rewardedId\).*?#else.*?new UnavailableAdService\(\)') `
-    'ServiceFactory must preserve development sample, validated live Android release, and unavailable fallback routing.'
+Assert-Contract ($serviceFactory -match '(?s)#if CURIO_OFFLINE_QA.*?new UnavailableAdService\(\).*?#elif UNITY_ANDROID && !UNITY_EDITOR && DEVELOPMENT_BUILD.*?new GoogleRewardedAdService\(AndroidRewardedTestUnitId\).*?#elif UNITY_ANDROID && !UNITY_EDITOR.*?Resources\.Load<ServiceConfiguration>\("ServiceConfiguration"\).*?new GoogleRewardedAdService\(rewardedId\).*?#else.*?new UnavailableAdService\(\)') `
+    'ServiceFactory must preserve offline QA, development sample, validated live Android release, and unavailable fallback routing.'
 Assert-Contract ($serviceFactory -match 'string\.Equals\(rewardedId, AndroidRewardedTestUnitId, StringComparison\.Ordinal\)') `
     'The Android release route must reject the Google sample rewarded unit.'
 

@@ -11,7 +11,7 @@ namespace CurioClerk.Infrastructure
 {
     public static class ServiceFactory
     {
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if UNITY_ANDROID && !UNITY_EDITOR && !CURIO_OFFLINE_QA
         private const string AndroidRewardedTestUnitId = "ca-app-pub-3940256099942544/5224354917";
         private static readonly Regex AndroidRewardedUnitIdPattern =
             new Regex(@"\Aca-app-pub-[0-9]+/[0-9]+\z", RegexOptions.CultureInvariant);
@@ -31,7 +31,9 @@ namespace CurioClerk.Infrastructure
                 return s_TestAdService;
             }
 #endif
-#if UNITY_ANDROID && !UNITY_EDITOR && DEVELOPMENT_BUILD
+#if CURIO_OFFLINE_QA
+            return new UnavailableAdService();
+#elif UNITY_ANDROID && !UNITY_EDITOR && DEVELOPMENT_BUILD
             return new GoogleRewardedAdService(AndroidRewardedTestUnitId);
 #elif UNITY_ANDROID && !UNITY_EDITOR
             var configuration = Resources.Load<ServiceConfiguration>("ServiceConfiguration");
@@ -59,7 +61,7 @@ namespace CurioClerk.Infrastructure
                 return s_TestPrivacyService;
             }
 #endif
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if UNITY_ANDROID && !UNITY_EDITOR && !CURIO_OFFLINE_QA
             return new GoogleUmpPrivacyService();
 #else
             return new DefaultPrivacyService();

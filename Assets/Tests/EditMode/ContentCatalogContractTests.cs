@@ -156,7 +156,7 @@ namespace CurioClerk.Tests.EditMode
         {
             var keys = new[]
             {
-                "incident_begin", "incident_continue", "incident_stage", "incident_complete",
+                "incident_begin", "incident_continue", "incident_stage", "incident_complete", "incident_replay",
                 "incident_next_teaser", "free_shift", "senior_clerk", "narrative_continue",
                 "retry_stage", "next_stage", "quality_stable", "quality_precise", "quality_resonant",
                 "quality_stable_body", "quality_precise_body", "quality_resonant_body", "trait_frosted",
@@ -178,6 +178,7 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(korean["incident_continue"], Is.EqualTo("사건 계속 · {0}/5"));
             Assert.That(korean["incident_stage"], Is.EqualTo("사건 {0}/5"));
             Assert.That(korean["incident_complete"], Is.EqualTo("첫 사건 해결"));
+            Assert.That(korean["incident_replay"], Is.EqualTo("사건 다시보기"));
             Assert.That(korean["incident_next_teaser"], Is.EqualTo("다음 사건 · 실내에서 비를 맞은 우산"));
             Assert.That(korean["free_shift"], Is.EqualTo("자유 교대"));
             Assert.That(korean["senior_clerk"], Is.EqualTo("선임 관리인"));

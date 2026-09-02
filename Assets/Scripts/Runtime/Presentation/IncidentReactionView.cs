@@ -16,12 +16,16 @@ namespace CurioClerk.Presentation
 
         private RectTransform _artifactCard;
         private TMP_Text _reactionText;
+        private Image _reactionVeil;
         private Image _frostOverlay;
         private Image _warmthOverlay;
         private IPlayerFeedbackService _feedbackService;
         private Vector3 _cardRestScale;
         private Quaternion _cardRestRotation;
+        private Vector2 _textRestPosition;
+        private Vector3 _textRestScale;
         private Color _textRestColor;
+        private Color _reactionVeilRestColor;
         private Color _frostRestColor;
         private Color _warmthRestColor;
         private Coroutine _reactionRoutine;
@@ -32,18 +36,23 @@ namespace CurioClerk.Presentation
         public void Configure(
             RectTransform artifactCard,
             TMP_Text reactionText,
+            Image reactionVeil,
             Image frostOverlay,
             Image warmthOverlay,
             IPlayerFeedbackService feedbackService)
         {
             _artifactCard = artifactCard ?? throw new ArgumentNullException(nameof(artifactCard));
             _reactionText = reactionText ?? throw new ArgumentNullException(nameof(reactionText));
+            _reactionVeil = reactionVeil ?? throw new ArgumentNullException(nameof(reactionVeil));
             _frostOverlay = frostOverlay ?? throw new ArgumentNullException(nameof(frostOverlay));
             _warmthOverlay = warmthOverlay ?? throw new ArgumentNullException(nameof(warmthOverlay));
             _feedbackService = feedbackService;
             _cardRestScale = _artifactCard.localScale;
             _cardRestRotation = _artifactCard.localRotation;
+            _textRestPosition = _reactionText.rectTransform.anchoredPosition;
+            _textRestScale = _reactionText.rectTransform.localScale;
             _textRestColor = _reactionText.color;
+            _reactionVeilRestColor = _reactionVeil.color;
             _frostRestColor = _frostOverlay.color;
             _warmthRestColor = _warmthOverlay.color;
             _frosted = _frostOverlay.enabled;
@@ -97,11 +106,19 @@ namespace CurioClerk.Presentation
             {
                 elapsed += Time.unscaledDeltaTime;
                 var progress = Mathf.Clamp01(elapsed / KeyReactionDuration);
-                var arrive = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(progress / 0.24f));
+                var arrive = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(progress / 0.18f));
                 var depart = 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((progress - 0.78f) / 0.22f));
                 var presence = arrive * depart;
-                _artifactCard.localScale = _cardRestScale * (1f + presence * 0.085f);
-                _artifactCard.localRotation = _cardRestRotation * Quaternion.Euler(0f, 0f, presence * -1.8f);
+                var arrivalShock = Mathf.Sin(arrive * Mathf.PI);
+                _artifactCard.localScale = _cardRestScale * (1f + presence * 0.12f + arrivalShock * 0.04f);
+                _artifactCard.localRotation = _cardRestRotation * Quaternion.Euler(0f, 0f, presence * -2.4f);
+                _reactionText.rectTransform.localScale = _textRestScale *
+                                                         (Mathf.Lerp(0.72f, 1f, arrive) + arrivalShock * 0.20f);
+                _reactionText.rectTransform.anchoredPosition = Vector2.Lerp(
+                    _textRestPosition + Vector2.down * 18f,
+                    _textRestPosition,
+                    arrive);
+                SetVeilAlpha(arrive * depart * 0.82f);
                 SetTextAlpha(Mathf.Clamp01(presence * 1.35f));
                 AnimateCue(cue, presence);
                 yield return null;
@@ -122,6 +139,8 @@ namespace CurioClerk.Presentation
                 var visibility = Mathf.Sin(progress * Mathf.PI);
                 _artifactCard.localRotation = _cardRestRotation * Quaternion.Euler(0f, 0f, resistance * 3.2f);
                 _artifactCard.localScale = _cardRestScale * (1f - Mathf.Abs(resistance) * 0.025f);
+                _reactionText.rectTransform.localScale = _textRestScale * (0.92f + visibility * 0.08f);
+                SetVeilAlpha(Mathf.Sqrt(Mathf.Max(0f, visibility)) * 0.70f);
                 SetTextAlpha(Mathf.Clamp01(visibility * 1.8f));
                 yield return null;
             }
@@ -173,7 +192,18 @@ namespace CurioClerk.Presentation
         {
             _reactionText.text = text;
             _reactionText.enabled = true;
+            _reactionVeil.enabled = true;
+            _reactionText.rectTransform.anchoredPosition = _textRestPosition + Vector2.down * 18f;
+            _reactionText.rectTransform.localScale = _textRestScale * 0.72f;
+            SetVeilAlpha(0f);
             SetTextAlpha(0f);
+        }
+
+        private void SetVeilAlpha(float alpha)
+        {
+            var color = _reactionVeilRestColor;
+            color.a = Mathf.Clamp01(alpha);
+            _reactionVeil.color = color;
         }
 
         private void SetTextAlpha(float alpha)
@@ -201,8 +231,12 @@ namespace CurioClerk.Presentation
 
             _artifactCard.localScale = _cardRestScale;
             _artifactCard.localRotation = _cardRestRotation;
+            _reactionText.rectTransform.anchoredPosition = _textRestPosition;
+            _reactionText.rectTransform.localScale = _textRestScale;
             _reactionText.color = _textRestColor;
             _reactionText.enabled = false;
+            _reactionVeil.color = _reactionVeilRestColor;
+            _reactionVeil.enabled = false;
             _warmthOverlay.color = _warmthRestColor;
             _warmthOverlay.enabled = false;
             ApplyPersistentFrost();
@@ -235,7 +269,11 @@ namespace CurioClerk.Presentation
 
         private void EnsureConfigured()
         {
-            if (_artifactCard == null || _reactionText == null || _frostOverlay == null || _warmthOverlay == null)
+            if (_artifactCard == null ||
+                _reactionText == null ||
+                _reactionVeil == null ||
+                _frostOverlay == null ||
+                _warmthOverlay == null)
             {
                 throw new InvalidOperationException("Configure the incident reaction view before using it.");
             }

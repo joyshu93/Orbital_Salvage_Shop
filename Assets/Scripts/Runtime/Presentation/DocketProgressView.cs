@@ -18,9 +18,14 @@ namespace CurioClerk.Presentation
         private Color[] _stampedColors;
         private Color[] _completionRestColors;
         private Vector3[] _completionRestScales;
+        private bool[] _stamped;
+        private Color[] _resonanceRestColors;
+        private Vector3[] _resonanceRestScales;
         private Coroutine _completionRoutine;
+        private Coroutine _resonanceRoutine;
         private Action _completionCallback;
         private bool _hasCompletionRestState;
+        private bool _hasResonanceRestState;
         private bool _resumeCompletionOnEnable;
         private Image _completionSigil;
         private Color _completionSigilRestColor;
@@ -28,6 +33,7 @@ namespace CurioClerk.Presentation
         private bool _completionSigilRestEnabled;
 
         private const float CompletionDuration = 0.70f;
+        private const float ResonanceDuration = 0.56f;
 
         public void Configure(
             TMP_Text counter,
@@ -72,6 +78,9 @@ namespace CurioClerk.Presentation
             _openColor = openColor;
             _completionRestColors = new Color[_stamps.Length];
             _completionRestScales = new Vector3[_stamps.Length];
+            _stamped = new bool[_stamps.Length];
+            _resonanceRestColors = new Color[_stamps.Length];
+            _resonanceRestScales = new Vector3[_stamps.Length];
         }
 
         public void ConfigureCompletionSigil(Image completionSigil)
@@ -86,6 +95,7 @@ namespace CurioClerk.Presentation
             string openLabel,
             string completedLabel)
         {
+            StopResonance();
             if (_counter == null || _stamps == null || _labels == null || _stampedColors == null)
             {
                 throw new InvalidOperationException("Configure the docket view before refreshing it.");
@@ -96,9 +106,28 @@ namespace CurioClerk.Presentation
             for (var index = 0; index < _stamps.Length; index++)
             {
                 var stamped = docket != null && docket.IsStamped((Destination)index);
+                _stamped[index] = stamped;
                 _stamps[index].color = stamped ? _stampedColors[index] : _openColor;
                 _labels[index].text = stamped ? completedLabel : openLabel;
             }
+        }
+
+        public void PlayResonancePulse()
+        {
+            if (_stamps == null || _stamped == null)
+            {
+                return;
+            }
+
+            StopResonance();
+            for (var index = 0; index < _stamps.Length; index++)
+            {
+                _resonanceRestColors[index] = _stamps[index].color;
+                _resonanceRestScales[index] = _stamps[index].rectTransform.localScale;
+            }
+
+            _hasResonanceRestState = true;
+            _resonanceRoutine = StartCoroutine(AnimateResonancePulse());
         }
 
         public void PlayComplete(Action completed)
@@ -166,8 +195,40 @@ namespace CurioClerk.Presentation
             completion?.Invoke();
         }
 
+        private IEnumerator AnimateResonancePulse()
+        {
+            var elapsed = 0f;
+            while (elapsed < ResonanceDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                var progress = Mathf.Clamp01(elapsed / ResonanceDuration);
+                var pulse = Mathf.Abs(Mathf.Sin(progress * Mathf.PI * 2f));
+                for (var index = 0; index < _stamps.Length; index++)
+                {
+                    if (!_stamped[index])
+                    {
+                        continue;
+                    }
+
+                    _stamps[index].rectTransform.localScale =
+                        _resonanceRestScales[index] * (1f + pulse * 0.15f);
+                    _stamps[index].color = Color.Lerp(
+                        _resonanceRestColors[index],
+                        Color.white,
+                        pulse * 0.38f);
+                }
+
+                yield return null;
+            }
+
+            RestoreResonanceState();
+            _hasResonanceRestState = false;
+            _resonanceRoutine = null;
+        }
+
         private void OnDisable()
         {
+            StopResonance();
             _resumeCompletionOnEnable = _completionRoutine != null && _completionCallback != null;
             if (_completionRoutine != null)
             {
@@ -206,6 +267,37 @@ namespace CurioClerk.Presentation
             StopCoroutine(_completionRoutine);
             _completionRoutine = null;
             _completionCallback = null;
+        }
+
+        private void StopResonance()
+        {
+            if (_resonanceRoutine != null)
+            {
+                StopCoroutine(_resonanceRoutine);
+                _resonanceRoutine = null;
+            }
+
+            RestoreResonanceState();
+            _hasResonanceRestState = false;
+        }
+
+        private void RestoreResonanceState()
+        {
+            if (!_hasResonanceRestState || _stamps == null || _resonanceRestScales == null)
+            {
+                return;
+            }
+
+            for (var index = 0; index < _stamps.Length; index++)
+            {
+                if (_stamps[index] == null || _resonanceRestScales[index] == default)
+                {
+                    continue;
+                }
+
+                _stamps[index].rectTransform.localScale = _resonanceRestScales[index];
+                _stamps[index].color = _resonanceRestColors[index];
+            }
         }
 
         private void RestoreCompletionState()

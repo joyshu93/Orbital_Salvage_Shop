@@ -572,6 +572,10 @@ MonoBehaviour:
       \uC900\uBE44\uB418\uBA74 \uAC19\uC740 \uAD50\uB300\uB97C \uB2E4\uC2DC \uC2DC\uC791\uD558\uC138\uC694."
     m_Metadata:
       m_Items: []
+  - m_Id: 4651928709476352
+    m_Localized: "\uC0AC\uAC74 \uB2E4\uC2DC\uBCF4\uAE30"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

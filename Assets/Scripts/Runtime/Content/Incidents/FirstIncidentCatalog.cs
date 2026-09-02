@@ -24,24 +24,47 @@ namespace CurioClerk.Content.Incidents
         {
             return Stage(
                 "ice-01-crack",
-                "First night? Start with the one that refuses to become water.",
-                "첫날이죠? 물이 되기를 거부하는 것부터 맡아 봅시다.",
-                SeniorClerkMood.Neutral,
-                IncidentVisualCue.None,
-                "The crack is sealed. The leaf inside moved anyway.",
-                "금은 봉합됐어요. 그런데 안쪽의 낙엽은 움직였습니다.",
-                SeniorClerkMood.Concerned,
-                IncidentVisualCue.Frost,
+                new[]
+                {
+                    Beat(
+                        "First night? Remember this: nothing left behind here is truly silent.",
+                        "첫날이죠? 이것만 기억하세요. 이곳에 남겨진 물건은 결코 침묵하지 않습니다.",
+                        SeniorClerkMood.Neutral,
+                        IncidentVisualCue.AmberWarmth),
+                    Beat(
+                        "This ice refuses to melt. Sort tonight's curios before the frost reaches the shelves.",
+                        "이 얼음은 녹기를 거부합니다. 서리가 선반에 닿기 전에 오늘 밤 물건들을 분류하세요.",
+                        SeniorClerkMood.Concerned,
+                        IncidentVisualCue.Frost),
+                    Beat(
+                        "Each docket needs one seal from each desk. If that desk is already sealed, protect the curio in Hold.",
+                        "장부마다 세 책상의 인장을 하나씩 채웁니다. 이미 찍힌 곳의 물건은 보류에서 지키세요.",
+                        SeniorClerkMood.Alert,
+                        IncidentVisualCue.InkSeal)
+                },
+                new[]
+                {
+                    Beat(
+                        "The crack is sealed. The leaf inside moved anyway.",
+                        "금은 봉합됐어요. 그런데 안쪽의 낙엽은 움직였습니다.",
+                        SeniorClerkMood.Concerned,
+                        IncidentVisualCue.Frost),
+                    Beat(
+                        "You did more than sort it. The ice answered you. Tomorrow night, follow what the frost chooses.",
+                        "분류만 한 게 아니에요. 얼음이 당신에게 답했습니다. 다음 밤엔 서리가 고른 것을 따라가세요.",
+                        SeniorClerkMood.Alert,
+                        IncidentVisualCue.InkSeal)
+                },
                 "unmelting-ice",
                 null,
                 1,
                 Reactions(
-                    "The corrected route steadies the crack. The ice remains safely whole.",
-                    "바로잡은 뒤 금이 잦아듭니다. 얼음은 무사히 형태를 지킵니다.",
-                    "Under your calm hands, the sealed crack does not spread.",
-                    "침착한 손길 아래 봉합된 금이 더 번지지 않습니다.",
-                    "A leaf turns once inside the ice, answering your careful touch.",
-                    "얼음 속 낙엽이 한 번 돌아, 조심스러운 손길에 답합니다."),
+                    "The corrected route stops the frost at the shelves. The crack steadies, but the leaf keeps turning.",
+                    "바로잡은 경로가 선반 앞에서 서리를 막습니다. 금은 잦아들지만 낙엽은 계속 돕니다.",
+                    "Every seal lands cleanly under your calm hands. The leaf presses against the ice as if it knows your name.",
+                    "침착한 손길에 모든 인장이 정확히 찍힙니다. 낙엽이 당신의 이름을 아는 듯 얼음 벽에 닿습니다.",
+                    "The final seal rings. The leaf opens like an eye, and the whole office exhales warm air.",
+                    "마지막 인장이 울립니다. 낙엽이 눈처럼 펼쳐지고, 보관소 전체가 따뜻한 숨을 내쉽니다."),
                 Rules(
                     R(ArtifactTraits.Fragile, Destination.Repair),
                     R(ArtifactTraits.Temporal, Destination.Vault)),
@@ -181,6 +204,29 @@ namespace CurioClerk.Content.Incidents
 
         private static IncidentStageDefinition Stage(
             string id,
+            NarrativeBeat[] introBeats,
+            NarrativeBeat[] outroBeats,
+            string leadArtifactId,
+            string resonanceHoldArtifactId,
+            int minimumRequiredHolds,
+            ArtifactReaction reactions,
+            SortingRule[] rules,
+            IncidentArtifactEntry[] queue)
+        {
+            return new IncidentStageDefinition(
+                id,
+                introBeats,
+                outroBeats,
+                reactions,
+                leadArtifactId,
+                resonanceHoldArtifactId,
+                queue,
+                rules,
+                minimumRequiredHolds);
+        }
+
+        private static IncidentStageDefinition Stage(
+            string id,
             string introEnglish,
             string introKorean,
             SeniorClerkMood introMood,
@@ -196,17 +242,24 @@ namespace CurioClerk.Content.Incidents
             SortingRule[] rules,
             IncidentArtifactEntry[] queue)
         {
-            return new IncidentStageDefinition(
+            return Stage(
                 id,
                 new[] { new NarrativeBeat(Copy(introEnglish, introKorean), introMood, introCue) },
                 new[] { new NarrativeBeat(Copy(outroEnglish, outroKorean), outroMood, outroCue) },
-                reactions,
                 leadArtifactId,
                 resonanceHoldArtifactId,
-                queue,
+                minimumRequiredHolds,
+                reactions,
                 rules,
-                minimumRequiredHolds);
+                queue);
         }
+
+        private static NarrativeBeat Beat(
+            string english,
+            string korean,
+            SeniorClerkMood mood,
+            IncidentVisualCue visualCue)
+            => new NarrativeBeat(Copy(english, korean), mood, visualCue);
 
         private static ArtifactReaction Reactions(
             string stableEnglish,

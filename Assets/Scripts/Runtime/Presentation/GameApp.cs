@@ -93,6 +93,9 @@ namespace CurioClerk.Presentation
         private Image _artifactIllustration;
         private Image _artifactCardSurface;
         private Image _curioFarewellSeal;
+        private Image _curioResponseVeil;
+        private Image _curioResponseSeal;
+        private Outline _curioResponseOutline;
         private CanvasGroup _curioFarewellSealGroup;
         private TMP_Text _heldText;
         private readonly TMP_Text[] _nextTexts = new TMP_Text[2];
@@ -136,6 +139,7 @@ namespace CurioClerk.Presentation
         private bool _incidentResultApplied;
         private IncidentQuality _incidentResultQuality;
         private bool _incidentCompletionWasFinal;
+        private bool _isIncidentReplay;
         private Coroutine _incidentEndingRoutine;
         private Image _incidentEndingFrost;
         private Image _incidentEndingWarmth;
@@ -194,6 +198,7 @@ namespace CurioClerk.Presentation
 
         public void ShowMenu()
         {
+            _isIncidentReplay = false;
             RestoreIncidentProgress();
             ActiveScreen = AppScreen.Menu;
             var page = CreatePage("MainMenuScreen");
@@ -225,6 +230,7 @@ namespace CurioClerk.Presentation
                 TextRole.Display);
 
             var incidentComplete = _incidentRunner.IsComplete;
+            UnityEngine.Events.UnityAction incidentAction = incidentComplete ? ReplayIncident : StartIncident;
             var incidentButton = CreateButton(
                 page,
                 "IncidentButton",
@@ -233,9 +239,8 @@ namespace CurioClerk.Presentation
                 new Vector2(0.91f, 0.50f),
                 incidentComplete ? Sage : Amber,
                 incidentComplete ? Paper : Ink,
-                StartIncident,
+                incidentAction,
                 34);
-            incidentButton.interactable = !incidentComplete;
             CreateButton(page, "FreeShiftButton", _localizer.Get("free_shift"), new Vector2(0.18f, 0.25f), new Vector2(0.82f, 0.34f), Wine, Paper, OnStartPressed, 27);
             CreateButton(page, "SettingsButton", _localizer.Get("settings"), new Vector2(0.28f, 0.13f), new Vector2(0.72f, 0.21f), Paper, Ink, ShowSettings, 25);
 
@@ -254,6 +259,7 @@ namespace CurioClerk.Presentation
 
         public void StartIncident()
         {
+            _isIncidentReplay = false;
             RestoreIncidentProgress();
             if (_incidentRunner.IsComplete)
             {
@@ -264,9 +270,29 @@ namespace CurioClerk.Presentation
             ShowIncidentIntro();
         }
 
-        public void ShowIncidentIntro()
+        public void ReplayIncident()
         {
             RestoreIncidentProgress();
+            if (!_incidentRunner.IsComplete)
+            {
+                StartIncident();
+                return;
+            }
+
+            _isIncidentReplay = true;
+            _incidentRunner = new IncidentRunner(
+                _activeIncident.Id,
+                _activeIncident.Stages.Select(stage => stage.Id).ToArray(),
+                0);
+            ShowIncidentIntro();
+        }
+
+        public void ShowIncidentIntro()
+        {
+            if (!_isIncidentReplay)
+            {
+                RestoreIncidentProgress();
+            }
             if (_incidentRunner.IsComplete)
             {
                 ShowMenu();
@@ -387,7 +413,7 @@ namespace CurioClerk.Presentation
         {
             if (_incidentRunner.IsComplete)
             {
-                return _localizer.Get("incident_complete");
+                return _localizer.Get("incident_replay");
             }
 
             return _incidentRunner.CurrentStageIndex == 0
@@ -466,6 +492,7 @@ namespace CurioClerk.Presentation
 
             var artifact = _session.CurrentArtifact;
             var artifactId = artifact.Id;
+            var returningHeldResonance = IsReturningHeldResonance(artifactId);
             var content = _artifactById[artifactId];
             var outcome = _session.Sort(destination);
             if (outcome.Disposition == SortDisposition.Correct)
@@ -516,7 +543,10 @@ namespace CurioClerk.Presentation
             SetShiftInputLocked(true);
             _feedbackAnimator?.SetIdleEnabled(false);
             var isKeyReaction = IsIncidentKeyArtifact(artifactId) && _incidentReactionView != null;
-            Action beginFiling = () => BeginCorrectFiling(outcome, !isKeyReaction && !terminalCorrectSort);
+            Action beginFiling = () => BeginCorrectFiling(
+                outcome,
+                !isKeyReaction && !terminalCorrectSort,
+                returningHeldResonance);
             if (isKeyReaction)
             {
                 _incidentReactionView.PlayKeyReaction(
@@ -529,7 +559,10 @@ namespace CurioClerk.Presentation
             beginFiling();
         }
 
-        private void BeginCorrectFiling(SortOutcome outcome, bool playCorrectCue)
+        private void BeginCorrectFiling(
+            SortOutcome outcome,
+            bool playCorrectCue,
+            bool playResonancePulse)
         {
             if (playCorrectCue)
             {
@@ -537,6 +570,10 @@ namespace CurioClerk.Presentation
             }
 
             RefreshDocketDuringTransition(outcome);
+            if (playResonancePulse)
+            {
+                _docketProgress?.PlayResonancePulse();
+            }
             _feedbackAnimator?.SetIdleEnabled(false);
             if (_feedbackAnimator == null || !_feedbackAnimator.isActiveAndEnabled)
             {
@@ -566,6 +603,7 @@ namespace CurioClerk.Presentation
             var artifactId = _session?.CurrentArtifact?.Id;
             if (_session != null && _session.Hold())
             {
+                _feedbackAnimator?.SetHeldResonanceEnabled(false);
                 if (_isIncidentShift && _incidentStageRun != null && !string.IsNullOrWhiteSpace(artifactId))
                 {
                     _incidentStageRun.RecordHold(artifactId);
@@ -807,9 +845,43 @@ namespace CurioClerk.Presentation
             var copyMinimumX = _isIncidentShift ? 0.51f : 0.47f;
             _currentName = CreateText(card, "ArtifactName", string.Empty, 42, Ink, TextAlignmentOptions.Left, new Vector2(copyMinimumX, 0.72f), new Vector2(0.95f, 0.94f), true, TextRole.Display);
             _currentDescription = CreateText(card, "ArtifactDescription", string.Empty, 25, Ink, TextAlignmentOptions.TopLeft, new Vector2(copyMinimumX, 0.30f), new Vector2(0.94f, 0.71f));
-            _curioResolution = CreateText(card, "CurioResolution", string.Empty, 23, Ink, TextAlignmentOptions.TopLeft, new Vector2(copyMinimumX, 0.30f), new Vector2(0.94f, 0.71f), false, TextRole.Display);
-            _curioResolution.gameObject.SetActive(false);
             _currentTraits = CreateText(card, "ArtifactTraits", string.Empty, 24, Wine, TextAlignmentOptions.Center, new Vector2(0.08f, 0.06f), new Vector2(0.92f, 0.20f), true);
+            var curioResponseSurface = CreatePanel(
+                card,
+                "CurioResponseVeil",
+                new Color(0.16f, 0.035f, 0.09f, 0.94f),
+                new Vector2(0.025f, 0.04f),
+                new Vector2(0.975f, 0.96f));
+            _curioResponseVeil = curioResponseSurface.GetComponent<Image>();
+            _curioResponseVeil.raycastTarget = false;
+            AddSurfaceChrome(curioResponseSurface, Amber, 3f, 0.42f);
+            _curioResponseOutline = curioResponseSurface.GetComponent<Outline>();
+            var curioResolutionGroup = curioResponseSurface.gameObject.AddComponent<CanvasGroup>();
+            curioResolutionGroup.alpha = 0f;
+            curioResolutionGroup.blocksRaycasts = false;
+            curioResolutionGroup.interactable = false;
+            _curioResponseSeal = CreateArtworkImage(
+                curioResponseSurface,
+                "CurioResponseSeal",
+                new Vector2(0.39f, 0.66f),
+                new Vector2(0.61f, 0.91f));
+            var responseSealGlow = _curioResponseSeal.gameObject.AddComponent<Outline>();
+            responseSealGlow.effectColor = new Color(Amber.r, Amber.g, Amber.b, 0.82f);
+            responseSealGlow.effectDistance = new Vector2(4f, -4f);
+            responseSealGlow.useGraphicAlpha = false;
+            _curioResponseSeal.gameObject.SetActive(false);
+            _curioResolution = CreateText(
+                curioResponseSurface,
+                "CurioResolution",
+                string.Empty,
+                46,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.07f, 0.10f),
+                new Vector2(0.93f, 0.66f),
+                true,
+                TextRole.Display);
+            _curioResolution.gameObject.SetActive(false);
 
             if (_isIncidentShift)
             {
@@ -823,15 +895,24 @@ namespace CurioClerk.Presentation
                 frostOverlay.color = new Color(1f, 1f, 1f, 0.28f);
                 frostOverlay.enabled = false;
                 frostOverlay.transform.SetSiblingIndex(1);
+                var reactionVeil = CreatePanel(
+                    card,
+                    "IncidentReactionVeil",
+                    new Color(0.16f, 0.035f, 0.09f, 0.82f),
+                    new Vector2(0.025f, 0.04f),
+                    new Vector2(0.975f, 0.96f));
+                var reactionVeilImage = reactionVeil.GetComponent<Image>();
+                reactionVeilImage.raycastTarget = false;
+                reactionVeilImage.enabled = false;
                 var reactionText = CreateText(
                     card,
                     "IncidentReactionText",
                     string.Empty,
-                    34,
-                    Wine,
+                    42,
+                    Paper,
                     TextAlignmentOptions.Center,
-                    new Vector2(0.08f, 0.22f),
-                    new Vector2(0.92f, 0.78f),
+                    new Vector2(0.07f, 0.18f),
+                    new Vector2(0.93f, 0.82f),
                     true,
                     TextRole.Display);
                 reactionText.enabled = false;
@@ -839,6 +920,7 @@ namespace CurioClerk.Presentation
                 _incidentReactionView.Configure(
                     card.GetComponent<RectTransform>(),
                     reactionText,
+                    reactionVeilImage,
                     frostOverlay,
                     _incidentWarmthOverlay,
                     _feedbackService);
@@ -872,6 +954,11 @@ namespace CurioClerk.Presentation
             _feedbackAnimator.ConfigureFarewell(
                 _curioFarewellSeal.rectTransform,
                 _curioFarewellSealGroup);
+            _feedbackAnimator.ConfigureCurioResponse(
+                curioResponseSurface,
+                _curioResolution.rectTransform,
+                _curioResponseSeal.rectTransform,
+                curioResolutionGroup);
 
             var destinationBottom = _isIncidentShift ? 0.015f : 0.035f;
             var destinationTop = _isIncidentShift ? 0.125f : 0.145f;
@@ -1351,7 +1438,7 @@ namespace CurioClerk.Presentation
             {
                 _incidentReactionView?.PlayMistake(reason);
             }
-            else if (!wasCorrect && playAnimation)
+            if (!wasCorrect && playAnimation)
             {
                 _feedbackAnimator?.PlayWrong();
             }
@@ -1391,6 +1478,13 @@ namespace CurioClerk.Presentation
             => _isIncidentShift &&
                _incidentStage != null &&
                artifactId == _incidentStage.LeadArtifactId;
+
+        private bool IsReturningHeldResonance(string artifactId)
+            => _isIncidentShift &&
+               _incidentStage != null &&
+               _incidentStageRun?.ResonanceConditionMet == true &&
+               !string.IsNullOrWhiteSpace(_incidentStage.ResonanceHoldArtifactId) &&
+               artifactId == _incidentStage.ResonanceHoldArtifactId;
 
         private string IncidentKeyReactionText()
         {
@@ -1591,6 +1685,14 @@ namespace CurioClerk.Presentation
             _currentDescription.gameObject.SetActive(false);
             _curioResolution.text = Resolution(content);
             _curioResolution.gameObject.SetActive(true);
+            _curioResponseSeal.sprite = DestinationIcon(destination);
+            _curioResponseSeal.color = DestinationColor(destination);
+            _curioResponseSeal.gameObject.SetActive(true);
+            if (_curioResponseOutline != null)
+            {
+                var accent = DestinationColor(destination);
+                _curioResponseOutline.effectColor = new Color(accent.r, accent.g, accent.b, 0.86f);
+            }
             _curioFarewellSeal.sprite = DestinationIcon(destination);
             _curioFarewellSeal.color = DestinationColor(destination);
             _curioFarewellSealGroup.alpha = 0f;
@@ -1720,6 +1822,13 @@ namespace CurioClerk.Presentation
                 SetPreviewArtwork(_heldIllustration, heldContent.Id);
             }
 
+            _feedbackAnimator?.SetHeldResonanceEnabled(
+                _isIncidentShift &&
+                _incidentStage != null &&
+                _session.HeldArtifact != null &&
+                !string.IsNullOrWhiteSpace(_incidentStage.ResonanceHoldArtifactId) &&
+                _session.HeldArtifact.Id == _incidentStage.ResonanceHoldArtifactId);
+
             for (var index = 0; index < _nextTexts.Length; index++)
             {
                 var nextArtifact = _session.PeekNextArtifact(index);
@@ -1784,6 +1893,7 @@ namespace CurioClerk.Presentation
 
             _currentDescription?.gameObject.SetActive(true);
             _curioResolution?.gameObject.SetActive(false);
+            _curioResponseSeal?.gameObject.SetActive(false);
             if (_curioFarewellSeal != null)
             {
                 _curioFarewellSeal.gameObject.SetActive(false);
@@ -1824,11 +1934,17 @@ namespace CurioClerk.Presentation
 
             var quality = _incidentStageRun.Evaluate(_session.CreateResult());
             var completion = _incidentRunner.CompleteCurrentStage(quality);
-            _progression.ApplyIncidentStage(_save, completion);
+            if (!_isIncidentReplay)
+            {
+                _progression.ApplyIncidentStage(_save, completion);
+            }
             _incidentResultQuality = quality;
             _incidentCompletionWasFinal = completion.IncidentCompleted;
             _incidentResultApplied = true;
-            Save();
+            if (!_isIncidentReplay)
+            {
+                Save();
+            }
         }
 
         private void BuildIncidentFailureResults(RectTransform page)

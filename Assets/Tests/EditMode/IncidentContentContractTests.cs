@@ -26,8 +26,8 @@ namespace CurioClerk.Tests.EditMode
                 "RRSVRSVRSVSV",
                 1,
                 Array.Empty<string>(),
-                "First night? Start with the one that refuses to become water.",
-                "첫날이죠? 물이 되기를 거부하는 것부터 맡아 봅시다.",
+                "First night? Remember this: nothing left behind here is truly silent.",
+                "첫날이죠? 이것만 기억하세요. 이곳에 남겨진 물건은 결코 침묵하지 않습니다.",
                 "The crack is sealed. The leaf inside moved anyway.",
                 "금은 봉합됐어요. 그런데 안쪽의 낙엽은 움직였습니다."),
             new StageExpectation(
@@ -136,7 +136,7 @@ namespace CurioClerk.Tests.EditMode
             var incident = ContentCatalog.CreateIncidents().Single();
             AssertBilingual(incident.Title, "incident title");
 
-            for (var index = 0; index < ExpectedStages.Length; index++)
+            for (var index = 1; index < ExpectedStages.Length; index++)
             {
                 var expected = ExpectedStages[index];
                 var stage = incident.Stages[index];
@@ -164,6 +164,68 @@ namespace CurioClerk.Tests.EditMode
                 Assert.That(stage.Reactions.ForQuality(IncidentQuality.Precise), Is.SameAs(stage.Reactions.Precise));
                 Assert.That(stage.Reactions.ForQuality(IncidentQuality.Resonant), Is.SameAs(stage.Reactions.Resonant));
             }
+        }
+
+        [Test]
+        public void FirstIncident_FirstShiftExplainsTheFantasyTheThreatAndTheClerksJobBeforeLeavingAStoryHook()
+        {
+            var stage = ContentCatalog.CreateIncidents().Single().Stages[0];
+
+            Assert.That(stage.IntroBeats, Has.Count.EqualTo(3));
+            Assert.That(stage.IntroBeats.Select(beat => beat.Copy.English), Is.EqualTo(new[]
+            {
+                "First night? Remember this: nothing left behind here is truly silent.",
+                "This ice refuses to melt. Sort tonight's curios before the frost reaches the shelves.",
+                "Each docket needs one seal from each desk. If that desk is already sealed, protect the curio in Hold."
+            }));
+            Assert.That(stage.IntroBeats.Select(beat => beat.Copy.Korean), Is.EqualTo(new[]
+            {
+                "첫날이죠? 이것만 기억하세요. 이곳에 남겨진 물건은 결코 침묵하지 않습니다.",
+                "이 얼음은 녹기를 거부합니다. 서리가 선반에 닿기 전에 오늘 밤 물건들을 분류하세요.",
+                "장부마다 세 책상의 인장을 하나씩 채웁니다. 이미 찍힌 곳의 물건은 보류에서 지키세요."
+            }));
+            Assert.That(stage.IntroBeats.Select(beat => beat.Mood), Is.EqualTo(new[]
+            {
+                SeniorClerkMood.Neutral,
+                SeniorClerkMood.Concerned,
+                SeniorClerkMood.Alert
+            }));
+            Assert.That(stage.IntroBeats.Select(beat => beat.VisualCue), Is.EqualTo(new[]
+            {
+                IncidentVisualCue.AmberWarmth,
+                IncidentVisualCue.Frost,
+                IncidentVisualCue.InkSeal
+            }));
+
+            Assert.That(stage.OutroBeats, Has.Count.EqualTo(2));
+            Assert.That(stage.OutroBeats.Select(beat => beat.Copy.English), Is.EqualTo(new[]
+            {
+                "The crack is sealed. The leaf inside moved anyway.",
+                "You did more than sort it. The ice answered you. Tomorrow night, follow what the frost chooses."
+            }));
+            Assert.That(stage.OutroBeats.Select(beat => beat.Copy.Korean), Is.EqualTo(new[]
+            {
+                "금은 봉합됐어요. 그런데 안쪽의 낙엽은 움직였습니다.",
+                "분류만 한 게 아니에요. 얼음이 당신에게 답했습니다. 다음 밤엔 서리가 고른 것을 따라가세요."
+            }));
+            Assert.That(stage.OutroBeats.Select(beat => beat.Mood), Is.EqualTo(new[]
+            {
+                SeniorClerkMood.Concerned,
+                SeniorClerkMood.Alert
+            }));
+            Assert.That(stage.OutroBeats.Select(beat => beat.VisualCue), Is.EqualTo(new[]
+            {
+                IncidentVisualCue.Frost,
+                IncidentVisualCue.InkSeal
+            }));
+
+            AssertReaction(stage.Reactions.Stable, stage.Id + " Stable");
+            AssertReaction(stage.Reactions.Precise, stage.Id + " Precise");
+            AssertReaction(stage.Reactions.Resonant, stage.Id + " Resonant");
+            Assert.That(stage.Reactions.Stable.English, Does.Contain("correct").IgnoreCase);
+            Assert.That(stage.Reactions.Stable.Korean, Does.Contain("바로잡"));
+            Assert.That(stage.Reactions.Precise.English, Does.Contain("calm").IgnoreCase);
+            Assert.That(stage.Reactions.Precise.Korean, Does.Contain("침착"));
         }
 
         [Test]

@@ -118,8 +118,50 @@ namespace CurioClerk.Tests.PlayMode
 
             SetIncidentProgress(app, 5, true);
             app.ShowMenu();
-            Assert.That(ObjectText("IncidentButton"), Is.EqualTo("첫 사건 해결"));
-            Assert.That(GameObject.Find("IncidentButton").GetComponent<UnityEngine.UI.Button>().interactable, Is.False);
+            Assert.That(ObjectText("IncidentButton"), Is.EqualTo("사건 다시보기"));
+            Assert.That(GameObject.Find("IncidentButton").GetComponent<UnityEngine.UI.Button>().interactable, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator CompletedIncident_ReplayStartsAtFirstStageWithoutChangingSavedProgress()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetIncidentProgress(app, 5, true);
+            app.SaveData.incidentStageRecords.Add(new IncidentStageRecord
+            {
+                stageId = "ice-01-crack",
+                bestQuality = (int)IncidentQuality.Resonant
+            });
+            SetLocale(app, "ko");
+            app.ShowMenu();
+            var saveStore = new RecordingSaveStore();
+            typeof(GameApp)
+                .GetField("_saveStore", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(app, saveStore);
+
+            ClickButton("IncidentButton");
+            yield return null;
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Narrative));
+            Assert.That(ObjectText("NarrativeBody"),
+                Is.EqualTo("첫날이죠? 이것만 기억하세요. 이곳에 남겨진 물건은 결코 침묵하지 않습니다."));
+            Assert.That(app.SaveData.activeIncidentStage, Is.EqualTo(5));
+            Assert.That(app.SaveData.completedIncidentIds, Does.Contain("unmelting-ice"));
+            Assert.That(app.SaveData.incidentStageRecords[0].bestQuality,
+                Is.EqualTo((int)IncidentQuality.Resonant));
+
+            yield return AdvanceNarrativeToShift(app);
+            yield return CompleteActiveShift(app);
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.IncidentResults));
+            Assert.That(saveStore.SaveCalls, Is.Zero,
+                "Replaying a resolved incident must not cross the persistence boundary.");
+            Assert.That(app.SaveData.activeIncidentStage, Is.EqualTo(5));
+            Assert.That(app.SaveData.completedIncidentIds, Does.Contain("unmelting-ice"));
+            Assert.That(app.SaveData.incidentStageRecords, Has.Count.EqualTo(1));
+            Assert.That(app.SaveData.incidentStageRecords[0].bestQuality,
+                Is.EqualTo((int)IncidentQuality.Resonant));
         }
 
         [UnityTest]
@@ -137,7 +179,7 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Narrative));
             Assert.That(ObjectText("NarrativeSpeaker"), Is.EqualTo("선임 관리인"));
             Assert.That(ObjectText("NarrativeBody"),
-                Is.EqualTo("첫날이죠? 물이 되기를 거부하는 것부터 맡아 봅시다."));
+                Is.EqualTo("첫날이죠? 이것만 기억하세요. 이곳에 남겨진 물건은 결코 침묵하지 않습니다."));
             Assert.That(FindText("NarrativeBody").fontSize, Is.InRange(36f, 42f));
             var portrait = FindRect("SeniorClerkPortrait");
             Assert.That(portrait.anchorMax.y - portrait.anchorMin.y, Is.GreaterThanOrEqualTo(0.44f));
@@ -147,6 +189,18 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(GameObject.Find("CurrentArtifactCard"), Is.Null);
             Assert.That(GameObject.Find("RepairButton"), Is.Null);
 
+            ClickButton("NarrativeContinueButton");
+            yield return null;
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Narrative));
+            Assert.That(ObjectText("NarrativeBody"),
+                Is.EqualTo("이 얼음은 녹기를 거부합니다. 서리가 선반에 닿기 전에 오늘 밤 물건들을 분류하세요."));
+            ClickButton("NarrativeContinueButton");
+            yield return null;
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Narrative));
+            Assert.That(ObjectText("NarrativeBody"),
+                Is.EqualTo("장부마다 세 책상의 인장을 하나씩 채웁니다. 이미 찍힌 곳의 물건은 보류에서 지키세요."));
             ClickButton("NarrativeContinueButton");
             yield return null;
 
@@ -195,8 +249,7 @@ namespace CurioClerk.Tests.PlayMode
             app.ShowMenu();
             ClickButton("IncidentButton");
             yield return null;
-            ClickButton("NarrativeContinueButton");
-            yield return null;
+            yield return AdvanceNarrativeToShift(app);
             Canvas.ForceUpdateCanvases();
 
             var queue = PlannedQueue(app);
@@ -289,8 +342,7 @@ namespace CurioClerk.Tests.PlayMode
             app.ShowMenu();
             ClickButton("IncidentButton");
             yield return null;
-            ClickButton("NarrativeContinueButton");
-            yield return null;
+            yield return AdvanceNarrativeToShift(app);
             Assert.That(CurrentArtifactId(app), Is.EqualTo("unmelting-ice"));
 
             ChooseDestination(app, (int)Destination.Vault);
@@ -322,6 +374,63 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator FrozenSeal_ReturningHeldWatchKeepsMovingAndRingsOnlySealedDesks()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            yield return BeginIncidentShift(app, 3, "ko");
+
+            ChooseDestination(app, (int)Destination.Vault);
+            yield return WaitForFilingTransition(app);
+            app.HoldCurrent();
+            yield return WaitForFilingTransition(app);
+
+            var heldArtwork = FindRect("HeldPreviewArtwork");
+            var heldPosition = heldArtwork.anchoredPosition;
+            yield return new WaitForSecondsRealtime(0.17f);
+            Assert.That(Vector2.Distance(heldArtwork.anchoredPosition, heldPosition), Is.GreaterThan(0.2f),
+                "The protected watch must remain visibly alive after entering Hold.");
+
+            ChooseDestination(app, (int)Destination.Repair);
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, (int)Destination.Storage);
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, (int)Destination.Repair);
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, (int)Destination.Storage);
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, (int)Destination.Vault);
+            yield return WaitForFilingTransition(app);
+            ChooseDestination(app, (int)Destination.Storage);
+            yield return WaitForFilingTransition(app);
+            app.HoldCurrent();
+            yield return WaitForFilingTransition(app);
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("mossy-watch"));
+
+            var repairStamp = FindRect("DocketStampRepair");
+            var storageStamp = FindRect("DocketStampStorage");
+            var vaultStamp = FindRect("DocketStampVault");
+            var repairRestScale = repairStamp.localScale;
+            var storageRestScale = storageStamp.localScale;
+            var vaultRestScale = vaultStamp.localScale;
+
+            ChooseDestination(app, (int)Destination.Vault);
+            yield return new WaitForSecondsRealtime(0.10f);
+            Assert.That(ObjectText("IncidentReactionText"),
+                Is.EqualTo("보류된 시계가 답하자 봉인된 물건들이 같은 박자로 떨립니다."));
+
+            yield return new WaitForSecondsRealtime(1.29f);
+            Assert.That(Vector3.Distance(repairStamp.localScale, repairRestScale), Is.LessThan(0.01f),
+                "The still-open Repair desk must remain quiet.");
+            Assert.That(Vector3.Distance(storageStamp.localScale, storageRestScale), Is.GreaterThan(0.04f),
+                "The sealed Storage desk must answer the returned watch.");
+            Assert.That(Vector3.Distance(vaultStamp.localScale, vaultRestScale), Is.GreaterThan(0.04f),
+                "The newly sealed Vault desk must answer the returned watch.");
+
+            yield return WaitForFilingTransition(app);
+        }
+
+        [UnityTest]
         public IEnumerator FirstIncidentHoldPrompt_TeachesProtectionAndAnOpenDeskInBothLanguages()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
@@ -331,8 +440,7 @@ namespace CurioClerk.Tests.PlayMode
             app.ShowMenu();
             ClickButton("IncidentButton");
             yield return null;
-            ClickButton("NarrativeContinueButton");
-            yield return null;
+            yield return AdvanceNarrativeToShift(app);
 
             ChooseDestination(app, (int)Destination.Repair);
             yield return WaitForFilingTransition(app);
@@ -444,9 +552,12 @@ namespace CurioClerk.Tests.PlayMode
             yield return null;
             yield return BeginIncidentShift(app, 3, "ko");
             var heartsBefore = SessionHearts(app);
+            var feedbackPanel = FindRect("SortFeedbackPanel");
+            var feedbackRestScale = feedbackPanel.localScale;
             feedback.Cues.Clear();
 
             ChooseDestination(app, (int)Destination.Repair);
+            yield return new WaitForSecondsRealtime(0.08f);
 
             Assert.That(CurrentArtifactId(app), Is.EqualTo("unmelting-ice"),
                 "An incident mistake must keep the curio available for correction.");
@@ -465,8 +576,10 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(crack.enabled, Is.True);
             Assert.That(crack.rectTransform.localScale.x, Is.GreaterThan(0.9f));
             Assert.That(feedback.Cues, Does.Contain(PlayerFeedbackCue.Wrong));
+            Assert.That(Vector3.Distance(feedbackPanel.localScale, feedbackRestScale), Is.GreaterThan(0.04f),
+                "Incident mistakes must retain the strong filing impact beneath their authored reaction.");
 
-            yield return new WaitForSecondsRealtime(0.62f);
+            yield return new WaitForSecondsRealtime(0.54f);
             Assert.That(reaction.enabled, Is.False);
             feedback.Cues.Clear();
             ChooseDestination(app, (int)Destination.Vault);
@@ -509,9 +622,16 @@ namespace CurioClerk.Tests.PlayMode
             ChooseDestination(app, (int)Destination.Repair);
 
             Assert.That(feedback.Cues, Is.EqualTo(new[] { PlayerFeedbackCue.KeyReaction }));
-            Assert.That(FindText("IncidentReactionText").enabled, Is.True);
+            yield return new WaitForSecondsRealtime(0.16f);
+            var reactionText = FindText("IncidentReactionText");
+            Assert.That(reactionText.enabled, Is.True);
+            Assert.That(reactionText.fontSize, Is.GreaterThanOrEqualTo(40f),
+                "A key incident line must read as the dominant visual beat on a portrait phone.");
+            var reactionVeil = GameObject.Find("IncidentReactionVeil").GetComponent<UnityEngine.UI.Image>();
+            Assert.That(reactionVeil.enabled, Is.True);
+            Assert.That(reactionVeil.color.a, Is.GreaterThan(0.55f));
             Assert.That(ObjectText("IncidentReactionText"),
-                Is.EqualTo("침착한 손길 아래 봉합된 금이 더 번지지 않습니다."));
+                Is.EqualTo("침착한 손길에 모든 인장이 정확히 찍힙니다. 낙엽이 당신의 이름을 아는 듯 얼음 벽에 닿습니다."));
             Assert.That(GameObject.Find("ArtifactIllustration").GetComponent<UnityEngine.UI.Image>().sprite.name,
                 Is.EqualTo("unmelting-ice"));
             Assert.That(typeof(GameApp).GetField("_inputLocked", BindingFlags.Instance | BindingFlags.NonPublic)
@@ -709,6 +829,11 @@ namespace CurioClerk.Tests.PlayMode
 
             ClickButton("IncidentOutroContinueButton");
             Assert.That(saveStore.SaveCalls, Is.EqualTo(1));
+            Assert.That(ObjectText("IncidentOutroBody"),
+                Is.EqualTo("분류만 한 게 아니에요. 얼음이 당신에게 답했습니다. 다음 밤엔 서리가 고른 것을 따라가세요."));
+            Assert.That(GameObject.Find("NextStageButton"), Is.Null,
+                "Every authored outro beat must be acknowledged before the next shift is offered.");
+            ClickButton("IncidentOutroContinueButton");
             Assert.That(GameObject.Find("NextStageButton"), Is.Not.Null);
             ClickButton("NextStageButton");
             yield return null;
@@ -733,37 +858,37 @@ namespace CurioClerk.Tests.PlayMode
                     "en",
                     "Stable",
                     "The shift recovered. The incident remains safely contained.",
-                    "The corrected route steadies the crack. The ice remains safely whole."),
+                    "The corrected route stops the frost at the shelves. The crack steadies, but the leaf keeps turning."),
                 new IncidentResultCopyCase(
                     IncidentQuality.Precise,
                     "en",
                     "Precise",
                     "Calm care kept every seal intact.",
-                    "Under your calm hands, the sealed crack does not spread."),
+                    "Every seal lands cleanly under your calm hands. The leaf presses against the ice as if it knows your name."),
                 new IncidentResultCopyCase(
                     IncidentQuality.Resonant,
                     "en",
                     "Resonant",
                     "Your care made the curio answer.",
-                    "A leaf turns once inside the ice, answering your careful touch."),
+                    "The final seal rings. The leaf opens like an eye, and the whole office exhales warm air."),
                 new IncidentResultCopyCase(
                     IncidentQuality.Stable,
                     "ko",
                     "안정",
                     "실수를 바로잡았습니다. 사건은 안전하게 진정되었습니다.",
-                    "바로잡은 뒤 금이 잦아듭니다. 얼음은 무사히 형태를 지킵니다."),
+                    "바로잡은 경로가 선반 앞에서 서리를 막습니다. 금은 잦아들지만 낙엽은 계속 돕니다."),
                 new IncidentResultCopyCase(
                     IncidentQuality.Precise,
                     "ko",
                     "정교",
                     "침착한 손길로 모든 인장을 지켰습니다.",
-                    "침착한 손길 아래 봉합된 금이 더 번지지 않습니다."),
+                    "침착한 손길에 모든 인장이 정확히 찍힙니다. 낙엽이 당신의 이름을 아는 듯 얼음 벽에 닿습니다."),
                 new IncidentResultCopyCase(
                     IncidentQuality.Resonant,
                     "ko",
                     "공명",
                     "당신의 손길에 물건이 답했습니다.",
-                    "얼음 속 낙엽이 한 번 돌아, 조심스러운 손길에 답합니다.")
+                    "마지막 인장이 울립니다. 낙엽이 눈처럼 펼쳐지고, 보관소 전체가 따뜻한 숨을 내쉽니다.")
             };
 
             foreach (var resultCase in cases)
@@ -777,6 +902,9 @@ namespace CurioClerk.Tests.PlayMode
                 Assert.That(ObjectText("IncidentQualityLabel"), Is.EqualTo(resultCase.Label));
                 Assert.That(ObjectText("IncidentQualityBody"), Is.EqualTo(resultCase.QualityBody));
                 Assert.That(ObjectText("IncidentReactionBody"), Is.EqualTo(resultCase.ReactionBody));
+                ClickButton("IncidentOutroContinueButton");
+                Assert.That(GameObject.Find("NextStageButton"), Is.Null,
+                    "The first incident outro still has one more authored beat.");
                 ClickButton("IncidentOutroContinueButton");
                 Assert.That(GameObject.Find("NextStageButton"), Is.Not.Null,
                     resultCase.Quality + " must never block story progression in " + resultCase.Locale + ".");
@@ -1682,6 +1810,18 @@ namespace CurioClerk.Tests.PlayMode
                 Is.Not.EqualTo(cardRestColor),
                 "A correct filing must tint the curio card with its destination color.");
 
+            yield return new WaitForSecondsRealtime(0.26f);
+            var responseVeil = GameObject.Find("CurioResponseVeil");
+            Assert.That(responseVeil.GetComponent<CanvasGroup>().alpha,
+                Is.GreaterThan(0.75f),
+                "The authored curio response must visibly replace the ordinary card for a clear story beat.");
+            Assert.That(responseVeil.GetComponent<UnityEngine.UI.Image>().color.a,
+                Is.GreaterThan(0.9f));
+            Assert.That(GameObject.Find("CurioResolution").GetComponent<TMP_Text>().fontSize,
+                Is.GreaterThanOrEqualTo(46f));
+            Assert.That(GameObject.Find("CurioResponseSeal").GetComponent<UnityEngine.UI.Image>().sprite.name,
+                Is.EqualTo("vault-icon"));
+
             yield return WaitForFilingTransition(app);
 
             Assert.That(CurrentArtifactId(app), Is.EqualTo("clockwork-moth"));
@@ -2267,8 +2407,19 @@ namespace CurioClerk.Tests.PlayMode
             app.ShowMenu();
             ClickButton("IncidentButton");
             yield return null;
-            ClickButton("NarrativeContinueButton");
-            yield return null;
+            yield return AdvanceNarrativeToShift(app);
+        }
+
+        private static IEnumerator AdvanceNarrativeToShift(GameApp app)
+        {
+            for (var safety = 0; safety < 8 && app.ActiveScreen == AppScreen.Narrative; safety++)
+            {
+                ClickButton("NarrativeContinueButton");
+                yield return null;
+            }
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Shift),
+                "Incident narrative must reach the authored shift within the safety bound.");
         }
 
         private static void BeginTutorial(GameApp app)

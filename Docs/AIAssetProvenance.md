@@ -223,8 +223,8 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Tool | OpenAI Codex drafted the bilingual narrative copy from the developer-approved incident specification and fixed implementation plan |
 | Creation date | 2026-08-31 KST |
 | Reference inputs | The approved Curio Clerk narrative occupational puzzle specification, fixed five-stage incident beats, existing artifact catalog fiction, and Three-Seal Docket terminology; no third-party prose supplied or copied |
-| Human direction | The developer approved the exact opening and closing beats, the five authored shift matrix, the caretaker tone, and the semantic limits for Stable, Precise, and Resonant reactions. |
-| Human edits | The approved plan fixes the opening and closing copy. The short quality reactions are prototype drafts; Korean naturalness, English clarity, tone, line wrapping, and contextual fit require developer bilingual review in Unity. |
+| Human direction | The developer approved the five authored shift matrix and caretaker tone, then requested stronger, larger dialogue, judgment, and reactions without breaking the warm occult atmosphere. On 2026-09-01, the first shift was revised to state the fantasy, immediate threat, three-seal/Hold job, and next-night hook more clearly. |
+| Human edits | The opening, closing, and quality reactions remain prototype drafts. Korean naturalness, English clarity, tone, line wrapping, and contextual fit require developer bilingual review in Unity. |
 | Third-party elements | None identified. No external prose, named style, franchise text, quotation, or third-party reference material was used. |
 | Store submission decision | Ordinary in-game narrative text; no separate AI-media declaration currently identified. Recheck the selected store's current requirements at submission time. |
 | Release status | **Prototype copy — developer bilingual and in-context review required before RC.** |

@@ -181,19 +181,28 @@ namespace CurioClerk.Tests.PlayMode
         public IEnumerator IncidentReaction_KeyMomentOwnsCardAndKeepsAuthoredLineReadable()
         {
             var feedback = new RecordingFeedbackService();
-            var view = CreateReactionView(feedback, out var card, out var line, out _, out _);
+            var view = CreateReactionView(feedback, out var card, out var line, out var veil, out _, out _);
             var restScale = card.localScale;
+            var lineRestScale = line.rectTransform.localScale;
             var completionCount = 0;
 
             view.PlayKeyReaction(
                 "얼음이 대답했다. 창고의 숨결이 한 박자 멎는다.",
                 IncidentVisualCue.Frost,
                 () => completionCount++);
-            yield return new WaitForSecondsRealtime(0.16f);
+            yield return WaitUntilOrTimeout(
+                () => veil.color.a > 0.55f,
+                0.35f,
+                "the incident reaction veil arrival");
 
             Assert.That(line.enabled, Is.True);
             Assert.That(line.text, Is.EqualTo("얼음이 대답했다. 창고의 숨결이 한 박자 멎는다."));
             Assert.That(Vector3.Distance(card.localScale, restScale), Is.GreaterThan(0.02f));
+            Assert.That(veil.enabled, Is.True,
+                "The key line needs an opaque-enough stage instead of competing with card copy and artwork.");
+            Assert.That(veil.color.a, Is.GreaterThan(0.55f));
+            Assert.That(line.rectTransform.localScale.x, Is.GreaterThan(lineRestScale.x - 0.01f),
+                "The reaction line must grow to its readable authored size.");
             Assert.That(feedback.Cues, Is.EqualTo(new[] { PlayerFeedbackCue.KeyReaction }));
 
             yield return new WaitForSecondsRealtime(0.76f);
@@ -203,6 +212,8 @@ namespace CurioClerk.Tests.PlayMode
             yield return new WaitForSecondsRealtime(0.46f);
             Assert.That(completionCount, Is.EqualTo(1));
             Assert.That(line.enabled, Is.False);
+            Assert.That(veil.enabled, Is.False);
+            Assert.That(Vector3.Distance(line.rectTransform.localScale, lineRestScale), Is.LessThan(0.001f));
             Assert.That(Vector3.Distance(card.localScale, restScale), Is.LessThan(0.001f));
         }
 
@@ -306,12 +317,24 @@ namespace CurioClerk.Tests.PlayMode
             out TMP_Text line,
             out Image frost,
             out Image warmth)
+            => CreateReactionView(feedback, out card, out line, out _, out frost, out warmth);
+
+        private IncidentReactionView CreateReactionView(
+            IPlayerFeedbackService feedback,
+            out RectTransform card,
+            out TMP_Text line,
+            out Image veil,
+            out Image frost,
+            out Image warmth)
         {
             _host = new GameObject("IncidentReactionHost", typeof(RectTransform));
             card = CreateRect("ArtifactCard");
             card.localScale = new Vector3(0.96f, 1.02f, 1f);
             card.localRotation = Quaternion.Euler(0f, 0f, 1.5f);
             line = CreateText("ReactionLine");
+            veil = CreateImage("ReactionVeil");
+            veil.enabled = false;
+            veil.color = new Color(0.16f, 0.035f, 0.09f, 0f);
             frost = CreateImage("FrostOverlay");
             frost.enabled = false;
             frost.color = new Color(0.58f, 0.82f, 0.95f, 0.38f);
@@ -319,7 +342,7 @@ namespace CurioClerk.Tests.PlayMode
             warmth.enabled = false;
             warmth.color = new Color(0.96f, 0.68f, 0.25f, 0f);
             var view = _host.AddComponent<IncidentReactionView>();
-            view.Configure(card, line, frost, warmth, feedback);
+            view.Configure(card, line, veil, frost, warmth, feedback);
             return view;
         }
 
@@ -349,6 +372,20 @@ namespace CurioClerk.Tests.PlayMode
             var child = new GameObject(name, typeof(RectTransform));
             child.transform.SetParent(_host.transform, false);
             return child.GetComponent<RectTransform>();
+        }
+
+        private static IEnumerator WaitUntilOrTimeout(
+            Func<bool> condition,
+            float timeoutSeconds,
+            string description)
+        {
+            var deadline = Time.realtimeSinceStartup + timeoutSeconds;
+            while (!condition() && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+
+            Assert.That(condition(), Is.True, $"Timed out waiting for {description}.");
         }
 
         private Sprite CreateSprite(string name)

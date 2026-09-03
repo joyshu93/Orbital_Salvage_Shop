@@ -176,8 +176,11 @@ namespace CurioClerk.Core.Progression
             }
 
             save.Sanitize();
+            var incidentChanged = !string.Equals(save.activeIncidentId, completion.IncidentId, StringComparison.Ordinal);
             save.activeIncidentId = completion.IncidentId;
-            save.activeIncidentStage = Math.Max(save.activeIncidentStage, Math.Max(0, completion.NextStageIndex));
+            save.activeIncidentStage = incidentChanged
+                ? Math.Max(0, completion.NextStageIndex)
+                : Math.Max(save.activeIncidentStage, Math.Max(0, completion.NextStageIndex));
 
             IncidentStageRecord record = null;
             foreach (var candidate in save.incidentStageRecords)

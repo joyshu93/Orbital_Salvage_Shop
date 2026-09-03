@@ -62,6 +62,39 @@ namespace CurioClerk.Tests.EditMode
         }
 
         [Test]
+        public void Resolve_LaterIncidentCompletionDoesNotCarryForwardEarlierIncidentStageIndex()
+        {
+            var save = new PlayerSaveData();
+            var service = new ProgressionService();
+            var ice = new IncidentRunner(
+                "unmelting-ice",
+                new[] { "ice-01", "ice-02", "ice-03", "ice-04", "ice-05" },
+                0);
+
+            for (var index = 0; index < 5; index++)
+            {
+                service.ApplyIncidentStage(save, ice.CompleteCurrentStage(IncidentQuality.Precise));
+            }
+
+            var rain = new IncidentRunner(
+                "remembering-rain",
+                new[] { "rain-01-voices" },
+                0,
+                completesWhenAllStagesCompleted: false);
+            service.ApplyIncidentStage(save, rain.CompleteCurrentStage(IncidentQuality.Precise));
+
+            var snapshot = new IncidentProgressResolver().Resolve(
+                save,
+                Definitions(rainStages: new[] { "rain-01-voices", "rain-02-window" }));
+
+            Assert.That(save.activeIncidentId, Is.EqualTo("remembering-rain"));
+            Assert.That(save.activeIncidentStage, Is.EqualTo(1));
+            Assert.That(snapshot.Current.Definition.Id, Is.EqualTo("remembering-rain"));
+            Assert.That(snapshot.Current.Lifecycle, Is.EqualTo(IncidentLifecycle.Available));
+            Assert.That(snapshot.Current.NextStageIndex, Is.EqualTo(1));
+        }
+
+        [Test]
         public void Resolve_UnknownLegacyIncidentFallsBackWithoutLosingOtherSaveData()
         {
             var save = new PlayerSaveData

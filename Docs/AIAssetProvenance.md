@@ -233,7 +233,7 @@ Describe visual characteristics in generic production terms instead: palette, ma
 
 | Field | Record |
 | --- | --- |
-| Repository files | `Docs/superpowers/specs/2026-09-03-multi-incident-remembering-rain-design.md` |
+| Repository files | `Docs/superpowers/specs/2026-09-03-multi-incident-remembering-rain-design.md`; `Docs/superpowers/plans/2026-09-03-multi-incident-remembering-rain.md` |
 | Asset type and intended use | Internal product and technical specification for a reusable multi-incident progression model, the portrait incident-board menu, and the first playable shift of the second incident; not an in-game or store asset |
 | Tool | OpenAI Codex authored the specification from the developer-approved design dialogue |
 | Creation date | 2026-09-03 KST |

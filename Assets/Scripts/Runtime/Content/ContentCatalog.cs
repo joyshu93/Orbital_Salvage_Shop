@@ -112,9 +112,7 @@ namespace CurioClerk.Content
         }
 
         public static IReadOnlyList<IncidentDefinition> CreateIncidents()
-        {
-            return new[] { FirstIncidentCatalog.Create() };
-        }
+            => new[] { FirstIncidentCatalog.Create(), SecondIncidentCatalog.Create() };
 
         private static ArtifactContent A(
             string id,

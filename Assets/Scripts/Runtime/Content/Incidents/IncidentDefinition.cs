@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using CurioClerk.Core.Artifacts;
 using CurioClerk.Core.Incidents;
 using CurioClerk.Core.Rules;
@@ -222,7 +223,14 @@ namespace CurioClerk.Content.Incidents
 
     public sealed class IncidentDefinition
     {
-        public IncidentDefinition(string id, LocalizedCopy title, IReadOnlyList<IncidentStageDefinition> stages)
+        public IncidentDefinition(
+            string id,
+            LocalizedCopy title,
+            string leadArtifactId,
+            IncidentVisualCue boardVisualCue,
+            bool completesWhenAllStagesCompleted,
+            LocalizedCopy awaitingContentClue,
+            IReadOnlyList<IncidentStageDefinition> stages)
         {
             if (string.IsNullOrWhiteSpace(id))
             {
@@ -232,6 +240,18 @@ namespace CurioClerk.Content.Incidents
             if (title == null)
             {
                 throw new ArgumentNullException(nameof(title));
+            }
+
+            if (string.IsNullOrWhiteSpace(leadArtifactId))
+            {
+                throw new ArgumentException("An incident lead artifact ID is required.", nameof(leadArtifactId));
+            }
+
+            if (!completesWhenAllStagesCompleted && awaitingContentClue == null)
+            {
+                throw new ArgumentException(
+                    "Open incidents require an awaiting-content clue.",
+                    nameof(awaitingContentClue));
             }
 
             if (stages == null || stages.Count == 0)
@@ -255,6 +275,10 @@ namespace CurioClerk.Content.Incidents
 
             Id = id;
             Title = title;
+            LeadArtifactId = leadArtifactId;
+            BoardVisualCue = boardVisualCue;
+            CompletesWhenAllStagesCompleted = completesWhenAllStagesCompleted;
+            AwaitingContentClue = awaitingContentClue;
             Stages = Array.AsReadOnly(copiedStages);
         }
 
@@ -262,6 +286,20 @@ namespace CurioClerk.Content.Incidents
 
         public LocalizedCopy Title { get; }
 
+        public string LeadArtifactId { get; }
+
+        public IncidentVisualCue BoardVisualCue { get; }
+
+        public bool CompletesWhenAllStagesCompleted { get; }
+
+        public LocalizedCopy AwaitingContentClue { get; }
+
         public IReadOnlyList<IncidentStageDefinition> Stages { get; }
+
+        public IncidentProgressDefinition CreateProgressDefinition()
+            => new IncidentProgressDefinition(
+                Id,
+                Stages.Select(stage => stage.Id).ToArray(),
+                CompletesWhenAllStagesCompleted);
     }
 }

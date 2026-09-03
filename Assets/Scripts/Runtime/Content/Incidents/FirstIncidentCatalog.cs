@@ -10,7 +10,11 @@ namespace CurioClerk.Content.Incidents
             return new IncidentDefinition(
                 "unmelting-ice",
                 Copy("The Unmelting Ice", "녹지 않는 얼음"),
-                new[]
+                leadArtifactId: "unmelting-ice",
+                boardVisualCue: IncidentVisualCue.Frost,
+                completesWhenAllStagesCompleted: true,
+                awaitingContentClue: null,
+                stages: new[]
                 {
                     StageOne(),
                     StageTwo(),

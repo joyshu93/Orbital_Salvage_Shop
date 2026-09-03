@@ -246,6 +246,29 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator IncidentBoardTransition_RaisesCurrentCardAndExpandsRainVeilBeforeSettling()
+        {
+            _host = new GameObject("IncidentBoardTransitionHost", typeof(RectTransform));
+            var current = CreateRect("Current");
+            var resolved = CreateRect("Resolved");
+            var veil = CreateRect("RainVeil");
+            var currentGroup = current.gameObject.AddComponent<CanvasGroup>();
+            var resolvedGroup = resolved.gameObject.AddComponent<CanvasGroup>();
+            var veilGroup = veil.gameObject.AddComponent<CanvasGroup>();
+            var view = _host.AddComponent<IncidentBoardTransitionView>();
+            view.Configure(current, currentGroup, resolved, resolvedGroup, veilGroup);
+
+            view.Play(reveal: true, profile: null);
+            yield return new WaitForSecondsRealtime(0.12f);
+
+            Assert.That(current.anchoredPosition.y, Is.LessThan(-0.1f),
+                "The current card must still be rising instead of snapping directly to its settled position.");
+            Assert.That(veil.localScale.x, Is.LessThan(0.999f),
+                "The rain veil must visibly expand during the reveal.");
+            Assert.That(veilGroup.alpha, Is.GreaterThan(0f));
+        }
+
+        [UnityTest]
         public IEnumerator IncidentReaction_IncidentCompleteWarmsScreenAndInvokesFeedbackOnce()
         {
             var feedback = new RecordingFeedbackService();

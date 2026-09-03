@@ -1160,18 +1160,13 @@ namespace CurioClerk.Presentation
             if (outcome.DidCompleteShift)
             {
                 _inputLocked = false;
-                var completedIncident = _isIncidentShift &&
-                                        _activeIncident != null &&
-                                        _activeIncident.CompletesWhenAllStagesCompleted &&
-                                        _incidentRunner.CurrentStageIndex + 1 >= _activeIncident.Stages.Count;
-                _feedbackService.Play(
-                    completedIncident ? PlayerFeedbackCue.IncidentComplete : PlayerFeedbackCue.ShiftComplete);
                 if (_isIncidentShift)
                 {
                     ShowIncidentResults();
                 }
                 else
                 {
+                    _feedbackService.Play(PlayerFeedbackCue.ShiftComplete);
                     ShowResults();
                 }
                 return;
@@ -1950,6 +1945,8 @@ namespace CurioClerk.Presentation
 
             var quality = _incidentStageRun.Evaluate(_session.CreateResult());
             var completion = _incidentRunner.CompleteCurrentStage(quality);
+            _feedbackService.Play(
+                completion.IncidentCompleted ? PlayerFeedbackCue.IncidentComplete : PlayerFeedbackCue.ShiftComplete);
             if (!_isIncidentReplay)
             {
                 _progression.ApplyIncidentStage(_save, completion);

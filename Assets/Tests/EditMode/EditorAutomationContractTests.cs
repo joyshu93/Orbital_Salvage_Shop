@@ -263,8 +263,18 @@ namespace CurioClerk.Tests.EditMode
             var profileType = FindType("CurioClerk.Content.IncidentPresentationProfile");
             Assert.That(profileType, Is.Not.Null);
 
-            AssertProfile("Assets/Resources/Content/IncidentPresentation/unmelting-ice.asset", "unmelting-ice");
-            AssertProfile("Assets/Resources/Content/IncidentPresentation/remembering-rain.asset", "remembering-rain");
+            AssertProfile(
+                "Assets/Resources/Content/IncidentPresentation/unmelting-ice.asset",
+                "unmelting-ice",
+                new Color32(214, 168, 95, 255),
+                new Color32(110, 51, 79, 255),
+                0.85f);
+            AssertProfile(
+                "Assets/Resources/Content/IncidentPresentation/remembering-rain.asset",
+                "remembering-rain",
+                new Color32(128, 148, 184, 255),
+                new Color32(52, 59, 87, 255),
+                1.00f);
         }
 
         [Test]
@@ -308,15 +318,22 @@ namespace CurioClerk.Tests.EditMode
             return null;
         }
 
-        private static void AssertProfile(string path, string incidentId)
+        private static void AssertProfile(
+            string path,
+            string incidentId,
+            Color expectedAccent,
+            Color expectedSurface,
+            float expectedTransitionStrength)
         {
             var profileType = FindType("CurioClerk.Content.IncidentPresentationProfile");
             var profile = AssetDatabase.LoadAssetAtPath(path, profileType);
 
             Assert.That(profile, Is.Not.Null, path);
             Assert.That(profileType.GetProperty("IncidentId").GetValue(profile), Is.EqualTo(incidentId));
-            Assert.That(profileType.GetProperty("AccentColor").GetValue(profile), Is.Not.Null);
-            Assert.That(profileType.GetProperty("SurfaceColor").GetValue(profile), Is.Not.Null);
+            Assert.That((Color)profileType.GetProperty("AccentColor").GetValue(profile), Is.EqualTo(expectedAccent));
+            Assert.That((Color)profileType.GetProperty("SurfaceColor").GetValue(profile), Is.EqualTo(expectedSurface));
+            Assert.That((float)profileType.GetProperty("TransitionStrength").GetValue(profile),
+                Is.EqualTo(expectedTransitionStrength));
         }
 
         private static void ValidateServiceIds(string appId, string rewardedId)

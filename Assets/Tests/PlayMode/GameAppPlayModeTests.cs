@@ -255,6 +255,19 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(app.SaveData.completedIncidentIds, Does.Not.Contain("remembering-rain"));
             Assert.That(ObjectText("IncidentOutroBody"),
                 Is.EqualTo("비가 멎습니다. 봉인 안쪽에 빗방울 하나만 남았습니다."));
+
+            ClickButton("IncidentOutroContinueButton");
+            Assert.That(ObjectText("IncidentOutroBody"),
+                Is.EqualTo("빗방울이 속삭입니다. “돌아오겠다고 약속했잖아.” 선임 관리인은 대답하지 않습니다."));
+            ClickButton("IncidentOutroContinueButton");
+            Assert.That(ObjectText("NextStageButton"), Is.EqualTo("사건 보드로 돌아가기"));
+            ClickButton("NextStageButton");
+            yield return null;
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Menu));
+            Assert.That(ObjectText("IncidentClue"), Is.EqualTo("빗속의 목소리는 선임 관리인을 알고 있다."));
+            Assert.That(ObjectText("IncidentWaitingState"), Is.EqualTo("다음 교대 준비 중"));
+            Assert.That(GameObject.Find("IncidentButton"), Is.Null);
         }
 
         [UnityTest]
@@ -288,18 +301,31 @@ namespace CurioClerk.Tests.PlayMode
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
             yield return null;
-            SetIncidentProgress(app, 5, true);
-            app.ShowMenu();
+            yield return BeginIncidentShift(app, 4, "en");
+            yield return CompleteActiveShift(app);
+            ClickButton("IncidentOutroContinueButton");
+            ClickButton("NextStageButton");
+            yield return null;
+
+            var currentCard = GameObject.Find("CurrentIncidentCard");
+            var resolvedCard = GameObject.Find("ResolvedIncidentCard_unmelting-ice");
+            Assert.That(currentCard, Is.Not.Null);
+            Assert.That(resolvedCard, Is.Not.Null);
+            Assert.That(currentCard.GetComponent<CanvasGroup>(), Is.Not.Null);
+            Assert.That(resolvedCard.GetComponent<CanvasGroup>(), Is.Not.Null);
 
             app.gameObject.SetActive(false);
             yield return null;
             app.gameObject.SetActive(true);
             yield return null;
-            app.ShowMenu();
 
-            Assert.That(GameObject.Find("CurrentIncidentCard"), Is.Not.Null);
-            Assert.That(GameObject.Find("ResolvedIncidentCard_unmelting-ice"), Is.Not.Null);
-            Assert.That(GameObject.Find("IncidentButton"), Is.Not.Null);
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Menu));
+            Assert.That(currentCard.activeInHierarchy, Is.True);
+            Assert.That(resolvedCard.activeInHierarchy, Is.True);
+            Assert.That(currentCard.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f).Within(0.001f));
+            Assert.That(resolvedCard.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f).Within(0.001f));
+            Assert.That(currentCard.GetComponent<RectTransform>().localScale, Is.EqualTo(Vector3.one));
+            Assert.That(resolvedCard.GetComponent<RectTransform>().localScale, Is.EqualTo(Vector3.one));
         }
 
         [UnityTest]

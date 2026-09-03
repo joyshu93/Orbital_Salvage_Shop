@@ -219,11 +219,11 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Field | Record |
 | --- | --- |
 | Repository files | `Assets/Scripts/Runtime/Content/Incidents/FirstIncidentCatalog.cs`; generated runtime presentation derived from this source after later integration |
-| Asset type and intended use | Five-stage English/Korean opening beats, closing hooks, and Stable/Precise/Resonant artifact reactions for the first playable incident prototype |
-| Tool | OpenAI Codex drafted the bilingual narrative copy from the developer-approved incident specification and fixed implementation plan |
-| Creation date | 2026-08-31 KST |
+| Asset type and intended use | Five-stage English/Korean opening beats, closing hooks, and Stable/Precise/Resonant artifact reactions for the first playable incident prototype; includes the revised stage-two frost trail and stage-three temporal-priority reveal |
+| Tool | OpenAI Codex drafted and revised the bilingual narrative copy from the developer-approved incident specification and fixed implementation plan |
+| Creation date | 2026-08-31 KST; stage-two and stage-three pacing revision 2026-09-03 KST |
 | Reference inputs | The approved Curio Clerk narrative occupational puzzle specification, fixed five-stage incident beats, existing artifact catalog fiction, and Three-Seal Docket terminology; no third-party prose supplied or copied |
-| Human direction | The developer approved the five authored shift matrix and caretaker tone, then requested stronger, larger dialogue, judgment, and reactions without breaking the warm occult atmosphere. On 2026-09-01, the first shift was revised to state the fantasy, immediate threat, three-seal/Hold job, and next-night hook more clearly. |
+| Human direction | The developer approved the five authored shift matrix and caretaker tone, then requested stronger, larger dialogue, judgment, and reactions without breaking the warm occult atmosphere. On 2026-09-01, the first shift was revised to state the fantasy, immediate threat, three-seal/Hold job, and next-night hook more clearly. On 2026-09-03, the developer approved moving the ice reveal later in stage two and repeating visible frost-versus-time priority judgments in stage three without adding a new system. |
 | Human edits | The opening, closing, and quality reactions remain prototype drafts. Korean naturalness, English clarity, tone, line wrapping, and contextual fit require developer bilingual review in Unity. |
 | Third-party elements | None identified. No external prose, named style, franchise text, quotation, or third-party reference material was used. |
 | Store submission decision | Ordinary in-game narrative text; no separate AI-media declaration currently identified. Recheck the selected store's current requirements at submission time. |

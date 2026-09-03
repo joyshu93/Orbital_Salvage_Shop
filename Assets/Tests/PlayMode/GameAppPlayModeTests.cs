@@ -228,7 +228,7 @@ namespace CurioClerk.Tests.PlayMode
             yield return null;
 
             Assert.That(ObjectText("NarrativeBody"),
-                Is.EqualTo("This watch carries the same leaf—and tomorrow’s date. Time takes priority over frost."));
+                Is.EqualTo("The missing leaf is inside this watch, dated tomorrow. It is both frosted and temporal—time outranks frost."));
             ClickButton("NarrativeContinueButton");
             yield return null;
 
@@ -840,7 +840,7 @@ namespace CurioClerk.Tests.PlayMode
 
             Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Narrative));
             Assert.That(ObjectText("NarrativeBody"),
-                Is.EqualTo("서리가 동료를 골랐군요. 흰 테가 생긴 물건은 모두 같은 상태로 보세요."));
+                Is.EqualTo("서리가 네 물건을 골랐어요. 흰 테가 생긴 것은 모두 보관실로 보내, 추위가 얼음으로 돌아가지 못하게 하세요."));
         }
 
         [UnityTest]
@@ -947,7 +947,7 @@ namespace CurioClerk.Tests.PlayMode
             yield return null;
             Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Narrative));
             Assert.That(ObjectText("NarrativeBody"),
-                Is.EqualTo("이 시계에도 같은 낙엽이 있어요. 날짜는 내일이고요. 시간 이상이 서리보다 우선입니다."));
+                Is.EqualTo("사라진 낙엽이 이 시계 안에 있어요. 날짜는 내일입니다. 서리와 시간성이 겹치면 시간 규칙이 먼저예요."));
         }
 
         [UnityTest]

@@ -34,32 +34,32 @@ namespace CurioClerk.Tests.EditMode
                 "ice-02-spread",
                 new[]
                 {
-                    "whispering-key", "silent-bell", "sleeping-teacup", "unmelting-ice",
+                    "whispering-key", "silent-bell", "sleeping-teacup", "patient-compass",
                     "backward-candle", "moon-umbrella", "humming-scarf", "clockwork-moth",
-                    "patient-compass", "lantern-snail", "murmur-box", "yesterday-ticket"
+                    "unmelting-ice", "lantern-snail", "murmur-box", "yesterday-ticket"
                 },
                 "VVRSRSVSSRVR",
                 2,
-                new[] { "unmelting-ice", "moon-umbrella", "clockwork-moth", "patient-compass" },
-                "The frost has chosen company. Treat every white-rimmed curio as one condition.",
-                "서리가 동료를 골랐군요. 흰 테가 생긴 물건은 모두 같은 상태로 보세요.",
-                "The leaf is gone. No water escaped.",
-                "낙엽이 사라졌어요. 물은 한 방울도 새지 않았는데요."),
+                new[] { "patient-compass", "moon-umbrella", "clockwork-moth", "unmelting-ice" },
+                "The frost has marked four curios. File every white-rimmed one to Storage before the cold returns to the ice.",
+                "서리가 네 물건을 골랐어요. 흰 테가 생긴 것은 모두 보관실로 보내, 추위가 얼음으로 돌아가지 못하게 하세요.",
+                "All four white rims have faded. The leaf inside the ice is gone, yet not a drop escaped.",
+                "네 개의 흰 테가 모두 사라졌어요. 얼음 속 낙엽도 사라졌지만, 물은 한 방울도 새지 않았습니다."),
             new StageExpectation(
                 "ice-03-tomorrow",
                 new[]
                 {
-                    "moon-umbrella", "sleeping-teacup", "clockwork-moth", "unmelting-ice",
-                    "patient-compass", "thimble-storm", "mossy-watch", "porcelain-tooth",
+                    "moon-umbrella", "sleeping-teacup", "clockwork-moth", "mossy-watch",
+                    "patient-compass", "thimble-storm", "unmelting-ice", "porcelain-tooth",
                     "lantern-snail", "rain-jar", "tide-locket", "rusty-comet"
                 },
                 "RRSVSSVRRVSV",
                 3,
-                new[] { "clockwork-moth", "unmelting-ice", "patient-compass", "thimble-storm", "tide-locket" },
-                "This watch carries the same leaf—and tomorrow’s date. Time takes priority over frost.",
-                "이 시계에도 같은 낙엽이 있어요. 날짜는 내일이고요. 시간 이상이 서리보다 우선입니다.",
-                "Tomorrow is pointing back at this desk.",
-                "내일이 이 책상을 가리키고 있습니다."),
+                new[] { "clockwork-moth", "mossy-watch", "unmelting-ice", "rain-jar", "rusty-comet" },
+                "The missing leaf is inside this watch, dated tomorrow. It is both frosted and temporal—time outranks frost.",
+                "사라진 낙엽이 이 시계 안에 있어요. 날짜는 내일입니다. 서리와 시간성이 겹치면 시간 규칙이 먼저예요.",
+                "The watch points back at this desk. Tomorrow is not waiting for us anymore.",
+                "시계가 다시 이 책상을 가리킵니다. 이제 내일은 우리를 기다려 주지 않아요."),
             new StageExpectation(
                 "ice-04-frozen-seal",
                 new[]
@@ -164,6 +164,27 @@ namespace CurioClerk.Tests.EditMode
                 Assert.That(stage.Reactions.ForQuality(IncidentQuality.Precise), Is.SameAs(stage.Reactions.Precise));
                 Assert.That(stage.Reactions.ForQuality(IncidentQuality.Resonant), Is.SameAs(stage.Reactions.Resonant));
             }
+        }
+
+        [Test]
+        public void StageThree_RepeatsFourFrostedTemporalPriorityJudgmentsAcrossTheShift()
+        {
+            var stage = ContentCatalog.CreateIncidents().Single().Stages[2];
+            var artifacts = ContentCatalog.CreateArtifacts().ToDictionary(item => item.Id, StringComparer.Ordinal);
+            var plan = stage.CreateShiftPlan(artifacts);
+            var engine = new RuleEngine();
+            var conflicts = plan.Queue.Where(item =>
+                (item.Traits & ArtifactTraits.Frosted) != 0 &&
+                (item.Traits & ArtifactTraits.Temporal) != 0).ToArray();
+
+            Assert.That(conflicts.Select(item => item.Id), Is.EqualTo(new[]
+            {
+                "mossy-watch", "unmelting-ice", "rain-jar", "rusty-comet"
+            }));
+            Assert.That(conflicts.Select(item => engine.ResolveDetailed(item, plan.Rules).RuleId),
+                Is.All.EqualTo("incident-temporal-vault"));
+            Assert.That(conflicts.Select(item => engine.Resolve(item, plan.Rules)),
+                Is.All.EqualTo(Destination.Vault));
         }
 
         [Test]

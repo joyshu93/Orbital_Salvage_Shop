@@ -78,64 +78,64 @@ namespace CurioClerk.Content.Incidents
         {
             return Stage(
                 "ice-02-spread",
-                "The frost has chosen company. Treat every white-rimmed curio as one condition.",
-                "서리가 동료를 골랐군요. 흰 테가 생긴 물건은 모두 같은 상태로 보세요.",
+                "The frost has marked four curios. File every white-rimmed one to Storage before the cold returns to the ice.",
+                "서리가 네 물건을 골랐어요. 흰 테가 생긴 것은 모두 보관실로 보내, 추위가 얼음으로 돌아가지 못하게 하세요.",
                 SeniorClerkMood.Concerned,
                 IncidentVisualCue.Frost,
-                "The leaf is gone. No water escaped.",
-                "낙엽이 사라졌어요. 물은 한 방울도 새지 않았는데요.",
+                "All four white rims have faded. The leaf inside the ice is gone, yet not a drop escaped.",
+                "네 개의 흰 테가 모두 사라졌어요. 얼음 속 낙엽도 사라졌지만, 물은 한 방울도 새지 않았습니다.",
                 SeniorClerkMood.Alert,
                 IncidentVisualCue.Frost,
                 "unmelting-ice",
                 null,
                 2,
                 Reactions(
-                    "After the correction, the wandering frost draws back from the other curios.",
-                    "바로잡자 떠돌던 서리가 다른 물건들에서 물러납니다.",
-                    "Your calm care keeps every white rim thin and still.",
-                    "침착하게 돌보자 모든 흰 테가 얇고 고요하게 머뭅니다.",
-                    "Frost traces a quiet circle around your ledger, then bows away.",
-                    "서리가 장부 둘레에 고요한 원을 그리고 물러서며 답합니다."),
+                    "The corrected routes pull all four white rims away from the shelves. The ice keeps the last trace.",
+                    "바로잡은 경로를 따라 네 개의 흰 테가 선반에서 걷힙니다. 마지막 서리만 얼음에 남습니다.",
+                    "Under your calm care, three rims fade. The fourth races back into the ice.",
+                    "침착한 손길에 세 개의 흰 테가 사라집니다. 네 번째 서리는 얼음 속으로 달아납니다.",
+                    "The fourth rim snaps shut around the ice. Inside it, the leaf vanishes without a drop.",
+                    "네 번째 흰 테가 얼음 둘레로 닫힙니다. 그 안에서 낙엽이 물 한 방울 없이 사라집니다."),
                 Rules(
                     R(ArtifactTraits.Frosted, Destination.Storage),
                     R(ArtifactTraits.Cursed, Destination.Vault),
                     R(ArtifactTraits.Fragile, Destination.Repair)),
                 Entries(
-                    E("whispering-key"), E("silent-bell"), E("sleeping-teacup"), E("unmelting-ice", true),
+                    E("whispering-key"), E("silent-bell"), E("sleeping-teacup"), E("patient-compass", true),
                     E("backward-candle"), E("moon-umbrella", true), E("humming-scarf"), E("clockwork-moth", true),
-                    E("patient-compass", true), E("lantern-snail"), E("murmur-box"), E("yesterday-ticket")));
+                    E("unmelting-ice", true), E("lantern-snail"), E("murmur-box"), E("yesterday-ticket")));
         }
 
         private static IncidentStageDefinition StageThree()
         {
             return Stage(
                 "ice-03-tomorrow",
-                "This watch carries the same leaf—and tomorrow’s date. Time takes priority over frost.",
-                "이 시계에도 같은 낙엽이 있어요. 날짜는 내일이고요. 시간 이상이 서리보다 우선입니다.",
+                "The missing leaf is inside this watch, dated tomorrow. It is both frosted and temporal—time outranks frost.",
+                "사라진 낙엽이 이 시계 안에 있어요. 날짜는 내일입니다. 서리와 시간성이 겹치면 시간 규칙이 먼저예요.",
                 SeniorClerkMood.Alert,
                 IncidentVisualCue.InkSeal,
-                "Tomorrow is pointing back at this desk.",
-                "내일이 이 책상을 가리키고 있습니다.",
+                "The watch points back at this desk. Tomorrow is not waiting for us anymore.",
+                "시계가 다시 이 책상을 가리킵니다. 이제 내일은 우리를 기다려 주지 않아요.",
                 SeniorClerkMood.Concerned,
                 IncidentVisualCue.InkSeal,
                 "mossy-watch",
                 null,
                 3,
                 Reactions(
-                    "The corrected order draws the loose minute back into the watch.",
-                    "바로잡은 순서가 풀려난 1분을 시계 안으로 되돌립니다.",
-                    "Your calm care lets the watch keep one honest present.",
-                    "침착한 손길 덕분에 시계가 정직한 현재를 지킵니다.",
-                    "The watch answers with tomorrow’s rhythm once, then matches your pulse.",
-                    "시계가 내일의 박자를 한 번 울리고 당신의 맥박에 맞춰 답합니다."),
+                    "The corrected priority drags tomorrow's loose minute back into the watch.",
+                    "바로잡은 우선순위가 내일에서 풀려난 1분을 시계 안으로 끌어옵니다.",
+                    "Your calm judgment sends frost aside and gives the watch one honest present.",
+                    "침착한 판단이 서리를 밀어내고 시계에 정직한 현재를 돌려줍니다.",
+                    "Four frosted clocks strike tomorrow together. The watch answers by matching your pulse.",
+                    "서리 낀 네 개의 시간이 함께 내일을 울립니다. 시계가 당신의 맥박에 맞춰 답합니다."),
                 Rules(
                     R(ArtifactTraits.Temporal, Destination.Vault),
                     R(ArtifactTraits.Frosted, Destination.Storage),
                     R(ArtifactTraits.Fragile, Destination.Repair)),
                 Entries(
-                    E("moon-umbrella"), E("sleeping-teacup"), E("clockwork-moth", true), E("unmelting-ice", true),
-                    E("patient-compass", true), E("thimble-storm", true), E("mossy-watch"), E("porcelain-tooth"),
-                    E("lantern-snail"), E("rain-jar"), E("tide-locket", true), E("rusty-comet")));
+                    E("moon-umbrella"), E("sleeping-teacup"), E("clockwork-moth", true), E("mossy-watch", true),
+                    E("patient-compass"), E("thimble-storm"), E("unmelting-ice", true), E("porcelain-tooth"),
+                    E("lantern-snail"), E("rain-jar", true), E("tide-locket"), E("rusty-comet", true)));
         }
 
         private static IncidentStageDefinition StageFour()

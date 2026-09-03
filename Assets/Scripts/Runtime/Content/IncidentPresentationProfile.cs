@@ -49,7 +49,10 @@ namespace CurioClerk.Content
         }
 
         private static bool TryParseColor(string hex, out Color color)
-            => !string.IsNullOrWhiteSpace(hex) &&
-               ColorUtility.TryParseHtmlString("#" + hex, out color);
+        {
+            color = default;
+            return !string.IsNullOrWhiteSpace(hex) &&
+                   ColorUtility.TryParseHtmlString("#" + hex, out color);
+        }
     }
 }

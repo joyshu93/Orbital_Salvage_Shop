@@ -340,8 +340,11 @@ namespace CurioClerk.Editor
         }
 
         private static bool TryParseStyleColor(string hex, out Color color)
-            => !string.IsNullOrWhiteSpace(hex) &&
-               ColorUtility.TryParseHtmlString("#" + hex, out color);
+        {
+            color = default;
+            return !string.IsNullOrWhiteSpace(hex) &&
+                   ColorUtility.TryParseHtmlString("#" + hex, out color);
+        }
 
         private static void ValidateNarrativeBeats(
             IncidentStageDefinition stage,

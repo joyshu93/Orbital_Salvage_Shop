@@ -350,14 +350,14 @@ namespace CurioClerk.Tests.PlayMode
 
             Assert.That(CurrentArtifactId(app), Is.EqualTo("mossy-watch"));
             Assert.That(ObjectText("SortFeedback"), Is.EqualTo(
-                "봉인고 인장이 얼었습니다. 다음 봉인 물건은 보류에서 보호하고 수리실 순서를 먼저 여세요."));
+                "봉인고 인장이 얼었습니다. 시계는 봉인고가 맞지만 방금 그 인장을 썼어요. 보류에서 지키고 수리실을 먼저 여세요."));
             Assert.That(GameObject.Find("VaultButton").GetComponent<UnityEngine.UI.Button>().interactable,
                 Is.False);
             Assert.That(GameObject.Find("HoldButton").GetComponent<UnityEngine.UI.Button>().interactable,
                 Is.True);
-            Assert.That(ObjectText("ArtifactTraits"), Does.Not.Contain("서리 묻음"));
+            Assert.That(ObjectText("ArtifactTraits"), Does.Contain("서리 묻음").And.Contain("시간성"));
             Assert.That(GameObject.Find("IncidentFrostOverlay").GetComponent<UnityEngine.UI.Image>().enabled,
-                Is.False, "Stage-only frost must clear when the next artifact is not Frosted.");
+                Is.True, "The protected watch must visibly combine the learned frost and temporal judgment.");
 
             app.HoldCurrent();
             var stageRun = (IncidentStageRun)typeof(GameApp)
@@ -397,12 +397,6 @@ namespace CurioClerk.Tests.PlayMode
             yield return WaitForFilingTransition(app);
             ChooseDestination(app, (int)Destination.Repair);
             yield return WaitForFilingTransition(app);
-            ChooseDestination(app, (int)Destination.Storage);
-            yield return WaitForFilingTransition(app);
-            ChooseDestination(app, (int)Destination.Vault);
-            yield return WaitForFilingTransition(app);
-            ChooseDestination(app, (int)Destination.Storage);
-            yield return WaitForFilingTransition(app);
             app.HoldCurrent();
             yield return WaitForFilingTransition(app);
             Assert.That(CurrentArtifactId(app), Is.EqualTo("mossy-watch"));
@@ -417,13 +411,13 @@ namespace CurioClerk.Tests.PlayMode
             ChooseDestination(app, (int)Destination.Vault);
             yield return new WaitForSecondsRealtime(0.10f);
             Assert.That(ObjectText("IncidentReactionText"),
-                Is.EqualTo("보류된 시계가 답하자 봉인된 물건들이 같은 박자로 떨립니다."));
+                Is.EqualTo("시계가 보류에서 맑은 종소리와 함께 깨어납니다. 보호한 물건들이 모두 우산을 향합니다."));
 
             yield return new WaitForSecondsRealtime(1.29f);
-            Assert.That(Vector3.Distance(repairStamp.localScale, repairRestScale), Is.LessThan(0.01f),
-                "The still-open Repair desk must remain quiet.");
-            Assert.That(Vector3.Distance(storageStamp.localScale, storageRestScale), Is.GreaterThan(0.04f),
-                "The sealed Storage desk must answer the returned watch.");
+            Assert.That(Vector3.Distance(repairStamp.localScale, repairRestScale), Is.GreaterThan(0.04f),
+                "The sealed Repair desk must answer the returned watch.");
+            Assert.That(Vector3.Distance(storageStamp.localScale, storageRestScale), Is.LessThan(0.01f),
+                "The still-open Storage desk must remain quiet.");
             Assert.That(Vector3.Distance(vaultStamp.localScale, vaultRestScale), Is.GreaterThan(0.04f),
                 "The newly sealed Vault desk must answer the returned watch.");
 
@@ -665,7 +659,7 @@ namespace CurioClerk.Tests.PlayMode
 
             Assert.That(feedback.Cues, Is.EqualTo(new[] { PlayerFeedbackCue.KeyReaction }));
             Assert.That(ObjectText("IncidentReactionText"),
-                Is.EqualTo("침착한 손길 뒤 책상에는 물도, 인장의 긴장도 남지 않습니다."));
+                Is.EqualTo("침착한 손길 뒤 책상은 마른 채로 남습니다. 봉인된 우산 안에서 빗방울 하나가 울립니다."));
             yield return WaitForFilingTransition(app);
         }
 
@@ -972,9 +966,9 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(ObjectText("IncidentEndingHook"),
                 Is.EqualTo("다음 사건 · 실내에서 비를 맞은 우산"));
             Assert.That(ObjectText("IncidentReactionBody"),
-                Is.EqualTo("봉인된 우산 안에서 비가 답하고 보관소가 따뜻해집니다."));
+                Is.EqualTo("얼음이 따뜻한 빛으로 무너집니다. 우산 안에서 비가 북을 울리고 보관소 전체가 답합니다."));
             Assert.That(ObjectText("IncidentOutroBody"),
-                Is.EqualTo("얼음은 물 없이 녹았습니다. 봉인된 우산 소포 안에서 빗소리가 납니다."));
+                Is.EqualTo("얼음이 물 한 방울 없이 따뜻한 빛으로 무너집니다. 봉인된 우산 안에서 비가 대답합니다."));
             Assert.That(GameObject.Find("IncidentEndingIce"), Is.Not.Null);
             Assert.That(GameObject.Find("IncidentEndingUmbrella"), Is.Not.Null);
             Assert.That(GameObject.Find("IncidentEndingUmbrellaSeal"), Is.Not.Null);

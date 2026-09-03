@@ -65,31 +65,31 @@ namespace CurioClerk.Tests.EditMode
                 new[]
                 {
                     "unmelting-ice", "mossy-watch", "moon-umbrella", "clockwork-moth",
-                    "sleeping-teacup", "patient-compass", "rain-jar", "thimble-storm",
-                    "tide-locket", "porcelain-tooth", "rusty-comet", "lantern-snail"
+                    "sleeping-teacup", "porcelain-tooth", "patient-compass", "lantern-snail",
+                    "thimble-storm", "rain-jar", "tide-locket", "rusty-comet"
                 },
-                "VVRSRSVSSRVR",
+                "VVRSRRSRSVSV",
                 2,
-                new[] { "unmelting-ice", "clockwork-moth", "patient-compass", "thimble-storm", "tide-locket" },
-                "The Vault seal is frozen. Protect the next Vault curio in Hold and open Repair first.",
-                "봉인고 인장이 얼었습니다. 다음 봉인 물건은 보류에서 보호하고 수리실 순서를 먼저 여세요.",
-                "The held curios are trembling in the same rhythm.",
-                "보류했던 물건들이 같은 박자로 떨고 있어요."),
+                new[] { "unmelting-ice", "mossy-watch", "clockwork-moth", "patient-compass", "thimble-storm", "tide-locket" },
+                "The Vault seal is frozen. The watch belongs in Vault, but that seal was just used. Protect it in Hold and open Repair first.",
+                "봉인고 인장이 얼었습니다. 시계는 봉인고가 맞지만 방금 그 인장을 썼어요. 보류에서 지키고 수리실을 먼저 여세요.",
+                "The watch is safe. Everything you protected is trembling toward the moon-mended umbrella.",
+                "시계는 무사합니다. 당신이 보호한 물건들이 모두 달빛으로 기운 우산을 향해 떨고 있어요."),
             new StageExpectation(
                 "ice-05-thaw",
                 new[]
                 {
                     "paper-fish", "moon-umbrella", "clockwork-moth", "unmelting-ice",
-                    "patient-compass", "thimble-storm", "mossy-watch", "mirror-seed",
+                    "patient-compass", "mossy-watch", "thimble-storm", "mirror-seed",
                     "ink-snowglobe", "rain-jar", "tide-locket", "rusty-comet"
                 },
-                "RRSVSSVRRVSV",
+                "RRSVSVSRRVSV",
                 3,
-                new[] { "clockwork-moth", "unmelting-ice", "patient-compass", "thimble-storm", "tide-locket" },
-                "No new rule tonight. Read the priority, protect the order, and let the ice answer.",
-                "오늘 새 규칙은 없습니다. 우선순위를 읽고, 순서를 보호하고, 얼음이 답하게 하세요.",
-                "The ice melts without water. Rain begins inside the sealed umbrella parcel.",
-                "얼음은 물 없이 녹았습니다. 봉인된 우산 소포 안에서 빗소리가 납니다.")
+                new[] { "clockwork-moth", "unmelting-ice", "rain-jar", "tide-locket" },
+                "One last shift. No new rule: protect what cannot be filed, trust time over frost, and listen for rain.",
+                "마지막 교대입니다. 새 규칙은 없어요. 지금 처리할 수 없는 것은 보호하고, 서리보다 시간을 믿고, 빗소리를 따라가세요.",
+                "The ice collapses into warm light—without water. Rain answers from inside the sealed umbrella.",
+                "얼음이 물 한 방울 없이 따뜻한 빛으로 무너집니다. 봉인된 우산 안에서 비가 대답합니다.")
         };
 
         [Test]

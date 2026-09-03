@@ -142,64 +142,64 @@ namespace CurioClerk.Content.Incidents
         {
             return Stage(
                 "ice-04-frozen-seal",
-                "The Vault seal is frozen. Protect the next Vault curio in Hold and open Repair first.",
-                "봉인고 인장이 얼었습니다. 다음 봉인 물건은 보류에서 보호하고 수리실 순서를 먼저 여세요.",
+                "The Vault seal is frozen. The watch belongs in Vault, but that seal was just used. Protect it in Hold and open Repair first.",
+                "봉인고 인장이 얼었습니다. 시계는 봉인고가 맞지만 방금 그 인장을 썼어요. 보류에서 지키고 수리실을 먼저 여세요.",
                 SeniorClerkMood.Alert,
                 IncidentVisualCue.InkSeal,
-                "The held curios are trembling in the same rhythm.",
-                "보류했던 물건들이 같은 박자로 떨고 있어요.",
+                "The watch is safe. Everything you protected is trembling toward the moon-mended umbrella.",
+                "시계는 무사합니다. 당신이 보호한 물건들이 모두 달빛으로 기운 우산을 향해 떨고 있어요.",
                 SeniorClerkMood.Concerned,
                 IncidentVisualCue.Frost,
                 "mossy-watch",
                 "mossy-watch",
                 2,
                 Reactions(
-                    "The corrected order releases the frozen seal without harming the held curios.",
-                    "바로잡은 순서가 보류 물건을 다치게 하지 않고 얼어붙은 인장을 풉니다.",
-                    "Your calm care opens Repair before the cold can tighten.",
-                    "침착한 손길이 추위가 조이기 전에 수리실 순서를 엽니다.",
-                    "From Hold, the watch answers; every sealed curio trembles in time.",
-                    "보류된 시계가 답하자 봉인된 물건들이 같은 박자로 떨립니다."),
+                    "The corrected order frees the frozen seal. The watch leaves Hold without losing a minute.",
+                    "바로잡은 순서가 얼어붙은 인장을 풉니다. 시계는 1분도 잃지 않고 보류에서 나옵니다.",
+                    "Your calm care opens Repair, then returns the watch to a living Vault seal.",
+                    "침착한 손길이 수리실을 열고, 살아난 봉인고 인장에 시계를 돌려보냅니다.",
+                    "The watch bursts out of Hold with one clear chime. Every protected curio turns toward the umbrella.",
+                    "시계가 보류에서 맑은 종소리와 함께 깨어납니다. 보호한 물건들이 모두 우산을 향합니다."),
                 Rules(
                     R(ArtifactTraits.Temporal, Destination.Vault),
                     R(ArtifactTraits.Frosted, Destination.Storage),
                     R(ArtifactTraits.Fragile, Destination.Repair)),
                 Entries(
-                    E("unmelting-ice", true), E("mossy-watch"), E("moon-umbrella"), E("clockwork-moth", true),
-                    E("sleeping-teacup"), E("patient-compass", true), E("rain-jar"), E("thimble-storm", true),
-                    E("tide-locket", true), E("porcelain-tooth"), E("rusty-comet"), E("lantern-snail")));
+                    E("unmelting-ice", true), E("mossy-watch", true), E("moon-umbrella"), E("clockwork-moth", true),
+                    E("sleeping-teacup"), E("porcelain-tooth"), E("patient-compass", true), E("lantern-snail"),
+                    E("thimble-storm", true), E("rain-jar"), E("tide-locket", true), E("rusty-comet")));
         }
 
         private static IncidentStageDefinition StageFive()
         {
             return Stage(
                 "ice-05-thaw",
-                "No new rule tonight. Read the priority, protect the order, and let the ice answer.",
-                "오늘 새 규칙은 없습니다. 우선순위를 읽고, 순서를 보호하고, 얼음이 답하게 하세요.",
+                "One last shift. No new rule: protect what cannot be filed, trust time over frost, and listen for rain.",
+                "마지막 교대입니다. 새 규칙은 없어요. 지금 처리할 수 없는 것은 보호하고, 서리보다 시간을 믿고, 빗소리를 따라가세요.",
                 SeniorClerkMood.Neutral,
                 IncidentVisualCue.Frost,
-                "The ice melts without water. Rain begins inside the sealed umbrella parcel.",
-                "얼음은 물 없이 녹았습니다. 봉인된 우산 소포 안에서 빗소리가 납니다.",
+                "The ice collapses into warm light—without water. Rain answers from inside the sealed umbrella.",
+                "얼음이 물 한 방울 없이 따뜻한 빛으로 무너집니다. 봉인된 우산 안에서 비가 대답합니다.",
                 SeniorClerkMood.Relieved,
                 IncidentVisualCue.Rain,
                 "moon-umbrella",
                 "moon-umbrella",
                 3,
                 Reactions(
-                    "The corrected order lets the last frost recede. The umbrella stays safely sealed.",
-                    "바로잡은 순서에 마지막 서리가 물러납니다. 우산은 무사히 봉인됩니다.",
-                    "Your calm care leaves no water on the desk and no strain in the seals.",
-                    "침착한 손길 뒤 책상에는 물도, 인장의 긴장도 남지 않습니다.",
-                    "Rain answers from inside the sealed umbrella while the office turns warm.",
-                    "봉인된 우산 안에서 비가 답하고 보관소가 따뜻해집니다."),
+                    "The corrected order draws the last frost out of the room. The umbrella stays sealed, but something rains inside.",
+                    "바로잡은 순서가 방 안의 마지막 서리를 걷어냅니다. 우산은 봉인됐지만, 그 안에서 무언가 비를 내립니다.",
+                    "Your calm care leaves the desk dry. A single raindrop rings from inside the sealed umbrella.",
+                    "침착한 손길 뒤 책상은 마른 채로 남습니다. 봉인된 우산 안에서 빗방울 하나가 울립니다.",
+                    "The ice collapses into warm light. Rain drums inside the umbrella, and the whole office answers.",
+                    "얼음이 따뜻한 빛으로 무너집니다. 우산 안에서 비가 북을 울리고 보관소 전체가 답합니다."),
                 Rules(
                     R(ArtifactTraits.Temporal, Destination.Vault),
                     R(ArtifactTraits.Frosted, Destination.Storage),
                     R(ArtifactTraits.Fragile, Destination.Repair)),
                 Entries(
                     E("paper-fish"), E("moon-umbrella"), E("clockwork-moth", true), E("unmelting-ice", true),
-                    E("patient-compass", true), E("thimble-storm", true), E("mossy-watch"), E("mirror-seed"),
-                    E("ink-snowglobe"), E("rain-jar"), E("tide-locket", true), E("rusty-comet")));
+                    E("patient-compass"), E("mossy-watch"), E("thimble-storm"), E("mirror-seed"),
+                    E("ink-snowglobe"), E("rain-jar", true), E("tide-locket", true), E("rusty-comet")));
         }
 
         private static IncidentStageDefinition Stage(

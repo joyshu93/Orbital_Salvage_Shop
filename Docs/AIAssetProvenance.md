@@ -1,6 +1,6 @@
 # AI asset provenance and release policy
 
-Last reviewed: 2026-08-28 (KST)
+Last reviewed: 2026-09-03 (KST)
 
 This document is the release evidence ledger for AI-assisted work in **Curio Clerk: Night Shift**. It is an internal risk-control record, not legal advice. Update it whenever an AI tool creates or edits source code, art, audio, text, video, localization, or store material.
 
@@ -226,6 +226,37 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Human direction | The developer approved the five authored shift matrix and caretaker tone, then requested stronger, larger dialogue, judgment, and reactions without breaking the warm occult atmosphere. On 2026-09-01, the first shift was revised to state the fantasy, immediate threat, three-seal/Hold job, and next-night hook more clearly. On 2026-09-03, the developer approved moving the ice reveal later in stage two, repeating visible frost-versus-time priority judgments in stage three, combining that judgment with a protective Hold crisis in stage four, and ending with a balanced Hold/priority/narrative mastery shift without adding a new system. |
 | Human edits | The opening, closing, and quality reactions remain prototype drafts. Korean naturalness, English clarity, tone, line wrapping, and contextual fit require developer bilingual review in Unity. |
 | Third-party elements | None identified. No external prose, named style, franchise text, quotation, or third-party reference material was used. |
+| Store submission decision | Ordinary in-game narrative text; no separate AI-media declaration currently identified. Recheck the selected store's current requirements at submission time. |
+| Release status | **Prototype copy — developer bilingual and in-context review required before RC.** |
+
+### DESIGN-NARRATIVE-002 — multi-incident board and Remembering Rain vertical-slice design
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Docs/superpowers/specs/2026-09-03-multi-incident-remembering-rain-design.md` |
+| Asset type and intended use | Internal product and technical specification for a reusable multi-incident progression model, the portrait incident-board menu, and the first playable shift of the second incident; not an in-game or store asset |
+| Tool | OpenAI Codex authored the specification from the developer-approved design dialogue |
+| Creation date | 2026-09-03 KST |
+| Reference inputs | Existing Curio Clerk product constraints, the approved narrative occupational puzzle specification, the Three-Seal Docket rules, current repository architecture, artifact catalog fiction, and developer playtest feedback; no third-party prose, image, audio, or style reference supplied |
+| Human direction | The developer selected the current-incident hero layout, required a genuine second incident instead of a placeholder, approved the `Remembering Rain / 기억하는 비` mystery, chose an unresolved `next shift in preparation` boundary, requested stronger visual-novel presentation, and required reusable use of appropriate Unity systems. |
+| Human edits | The developer approved the design section by section and retains authority over implementation, bilingual wording, pacing, and release. No claim is made that Codex output alone constitutes final shipped creative authorship. |
+| Third-party elements | None. The document contains project-authored prose and references only repository concepts and Unity APIs already governed by the project's existing notices. |
+| Intended uses | Internal implementation planning, save-migration review, UI review, and future incident expansion. |
+| Store submission decision | Not submitted to a store and not included in the player build. Promotional reuse requires a separate provenance and store-media decision. |
+| Release status | **Approved as internal design documentation; implementation and final creative assets require separate review.** |
+
+### TEXT-NARRATIVE-005 — Remembering Rain first-shift prototype copy
+
+| Field | Record |
+| --- | --- |
+| Repository files | Initial approved draft in `Docs/superpowers/specs/2026-09-03-multi-incident-remembering-rain-design.md`; future runtime source under `Assets/Scripts/Runtime/Content/Incidents` after implementation approval |
+| Asset type and intended use | English/Korean incident title, opening dialogue, first clue, completion hook, and menu status copy for the first playable shift of the second incident prototype |
+| Tool | OpenAI Codex drafted the bilingual narrative copy from the developer-approved mystery and gameplay constraints |
+| Creation date | 2026-09-03 KST |
+| Reference inputs | The approved Curio Clerk caretaker fantasy, existing artifact names and traits, Three-Seal Docket terminology, first-incident ending hook, and developer direction for bold visual-novel presentation; no third-party prose supplied or copied |
+| Human direction | The developer approved `Remembering Rain / 기억하는 비`, the indoor rain that repeats owners' memories, the senior clerk connection, the Wet-over-Fragile priority judgment, and the unresolved first-clue ending. |
+| Human edits | The text remains a prototype draft. Korean naturalness, English clarity, tone, line wrapping, and contextual fit require developer bilingual review in Unity before RC. |
+| Third-party elements | None identified. No external prose, quotation, named style, franchise text, likeness, or third-party reference material was used. |
 | Store submission decision | Ordinary in-game narrative text; no separate AI-media declaration currently identified. Recheck the selected store's current requirements at submission time. |
 | Release status | **Prototype copy — developer bilingual and in-context review required before RC.** |
 

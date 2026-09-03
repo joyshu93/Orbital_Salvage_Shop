@@ -75,16 +75,20 @@ namespace CurioClerk.Tests.EditMode
         {
             var session = CreateSession("VRS");
 
+            Assert.That(session.CanHold, Is.True);
             Assert.That(session.CurrentArtifact.Id, Is.EqualTo("artifact-0"));
             Assert.That(session.PeekNextArtifact(0).Id, Is.EqualTo("artifact-1"));
             Assert.That(session.PeekNextArtifact(1).Id, Is.EqualTo("artifact-2"));
             Assert.That(session.Hold(), Is.True);
+            Assert.That(session.CanHold, Is.False,
+                "The presentation must be able to disable Hold until a successful filing rearms it.");
             Assert.That(session.CurrentArtifact.Id, Is.EqualTo("artifact-1"));
             Assert.That(session.HeldArtifact.Id, Is.EqualTo("artifact-0"));
             Assert.That(session.PeekNextArtifact(0).Id, Is.EqualTo("artifact-2"));
             Assert.That(session.Hold(), Is.False);
 
             session.Sort(Destination.Repair);
+            Assert.That(session.CanHold, Is.True);
             Assert.That(session.CurrentArtifact.Id, Is.EqualTo("artifact-2"));
             Assert.That(session.PeekNextArtifact(0).Id, Is.EqualTo("artifact-0"));
             session.Sort(Destination.Storage);

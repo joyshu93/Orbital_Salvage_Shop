@@ -111,6 +111,7 @@ namespace CurioClerk.Presentation
         private Image _sortFeedbackPanel;
         private TMP_Text _statusText;
         private TMP_Text _hudText;
+        private GameObject _shiftInputLockPanel;
         private DocketProgressView _docketProgress;
         private Image _docketSigilCrack;
         private Image _incidentWarmthOverlay;
@@ -339,7 +340,8 @@ namespace CurioClerk.Presentation
                 Ink,
                 TextAlignmentOptions.TopLeft,
                 new Vector2(0.06f, 0.08f),
-                new Vector2(0.94f, 0.70f));
+                new Vector2(0.94f, 0.70f),
+                true);
             var continueButton = CreateButton(
                 page,
                 "NarrativeContinueButton",
@@ -844,7 +846,7 @@ namespace CurioClerk.Presentation
             _currentSymbol = CreateText(card, "ArtifactSymbol", string.Empty, 92, Wine, TextAlignmentOptions.Center, new Vector2(0.05f, 0.30f), new Vector2(0.44f, 0.86f), true);
             var copyMinimumX = _isIncidentShift ? 0.51f : 0.47f;
             _currentName = CreateText(card, "ArtifactName", string.Empty, 42, Ink, TextAlignmentOptions.Left, new Vector2(copyMinimumX, 0.72f), new Vector2(0.95f, 0.94f), true, TextRole.Display);
-            _currentDescription = CreateText(card, "ArtifactDescription", string.Empty, 25, Ink, TextAlignmentOptions.TopLeft, new Vector2(copyMinimumX, 0.30f), new Vector2(0.94f, 0.71f));
+            _currentDescription = CreateText(card, "ArtifactDescription", string.Empty, 27, Ink, TextAlignmentOptions.TopLeft, new Vector2(copyMinimumX, 0.30f), new Vector2(0.94f, 0.71f), true);
             _currentTraits = CreateText(card, "ArtifactTraits", string.Empty, 24, Wine, TextAlignmentOptions.Center, new Vector2(0.08f, 0.06f), new Vector2(0.92f, 0.20f), true);
             var curioResponseSurface = CreatePanel(
                 card,
@@ -983,6 +985,26 @@ namespace CurioClerk.Presentation
                     vault.GetComponent<RectTransform>()
                 },
                 index => ChooseDestination((Destination)index));
+            var inputLockPanel = CreatePanel(
+                page,
+                "ShiftInputLockPanel",
+                new Color(Plum.r, Plum.g, Plum.b, 0.94f),
+                new Vector2(0.045f, destinationBottom),
+                new Vector2(0.955f, holdMaximum.y));
+            AddSurfaceChrome(inputLockPanel, Amber, 3f, 0.42f);
+            CreateText(
+                inputLockPanel,
+                "ShiftInputLockText",
+                _localizer.Get("processing"),
+                30,
+                Paper,
+                TextAlignmentOptions.Center,
+                Vector2.zero,
+                Vector2.one,
+                true,
+                TextRole.Display);
+            _shiftInputLockPanel = inputLockPanel.gameObject;
+            _shiftInputLockPanel.SetActive(false);
             RefreshShiftView();
             RefreshTutorialGuidance();
         }
@@ -1259,6 +1281,7 @@ namespace CurioClerk.Presentation
         {
             _inputLocked = locked;
             _artifactDragHandler?.SetInputEnabled(!locked);
+            _shiftInputLockPanel?.SetActive(locked);
             if (_holdButton == null)
             {
                 return;
@@ -1281,7 +1304,7 @@ namespace CurioClerk.Presentation
                 return;
             }
 
-            _holdButton.interactable = true;
+            _holdButton.interactable = _session?.CanHold == true;
             for (var index = 0; index < _destinationButtons.Length; index++)
             {
                 _destinationButtons[index].interactable =
@@ -1850,6 +1873,7 @@ namespace CurioClerk.Presentation
                 _destinationButtons[index].interactable =
                     !_inputLocked && _session.CanSort((Destination)index);
             }
+            _holdButton.interactable = !_inputLocked && _session.CanHold;
 
             if (refreshDecisionMessage)
             {
@@ -2079,11 +2103,12 @@ namespace CurioClerk.Presentation
                 dialoguePanel,
                 "IncidentOutroBody",
                 string.Empty,
-                31,
+                34,
                 Ink,
                 TextAlignmentOptions.TopLeft,
                 new Vector2(0.29f, 0.08f),
-                new Vector2(0.96f, 0.70f));
+                new Vector2(0.96f, 0.70f),
+                true);
             var continueButton = CreateButton(
                 page,
                 "IncidentOutroContinueButton",

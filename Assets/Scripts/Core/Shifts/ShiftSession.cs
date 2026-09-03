@@ -69,6 +69,11 @@ namespace CurioClerk.Core.Shifts
         public bool ShouldSuggestHold => CurrentResolution != null &&
                                          CurrentDocket.IsStamped(CurrentResolution.Destination);
 
+        public bool CanHold => State == ShiftState.Active &&
+                               CurrentArtifact != null &&
+                               _canHold &&
+                               (HeldArtifact != null || _nextIndex < _queue.Count);
+
         public bool CanSort(Destination destination)
             => State == ShiftState.Active && !CurrentDocket.IsStamped(destination);
 
@@ -95,7 +100,7 @@ namespace CurioClerk.Core.Shifts
 
         public bool Hold()
         {
-            if (State != ShiftState.Active || !_canHold || CurrentArtifact == null)
+            if (!CanHold)
             {
                 return false;
             }

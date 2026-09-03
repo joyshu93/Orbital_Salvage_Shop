@@ -160,7 +160,7 @@ namespace CurioClerk.Tests.EditMode
                 "incident_next_teaser", "free_shift", "senior_clerk", "narrative_continue",
                 "retry_stage", "next_stage", "quality_stable", "quality_precise", "quality_resonant",
                 "quality_stable_body", "quality_precise_body", "quality_resonant_body", "trait_frosted",
-                "calm_streak", "incident_hold_protect", "incident_failed_body"
+                "calm_streak", "incident_hold_protect", "incident_failed_body", "processing"
             };
             var english = Localizer.Entries("en").ToDictionary(entry => entry.Key, entry => entry.Value);
             var korean = Localizer.Entries("ko").ToDictionary(entry => entry.Key, entry => entry.Value);

@@ -1042,6 +1042,56 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator KoreanStoryAndArtifactCopy_UseReadableBodyTypography()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetIncidentProgress(app, 0, false);
+            SetLocale(app, "ko");
+            app.ShowMenu();
+
+            ClickButton("IncidentButton");
+            yield return null;
+
+            var narrativeBody = FindText("NarrativeBody");
+            Assert.That(narrativeBody.fontSize, Is.GreaterThanOrEqualTo(40f));
+            Assert.That(narrativeBody.fontStyle & FontStyles.Bold, Is.EqualTo(FontStyles.Bold),
+                "Korean story copy must remain legible over a handheld portrait presentation.");
+
+            yield return AdvanceNarrativeToShift(app);
+            var artifactDescription = FindText("ArtifactDescription");
+            Assert.That(artifactDescription.fontSize, Is.GreaterThanOrEqualTo(27f));
+            Assert.That(artifactDescription.fontStyle & FontStyles.Bold, Is.EqualTo(FontStyles.Bold),
+                "The curio's story clue must read as primary decision information, not fine print.");
+        }
+
+        [UnityTest]
+        public IEnumerator HoldTransition_ShowsLocalizedInputLockAndThenReflectsActualHoldAvailability()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetLocale(app, "ko");
+            app.StartNewShift(4242);
+
+            app.HoldCurrent();
+
+            Assert.That(GameObject.Find("ShiftInputLockPanel"), Is.Not.Null,
+                "A visible veil must explain why the one-hand controls temporarily ignore input.");
+            Assert.That(ObjectText("ShiftInputLockText"), Is.EqualTo("처리 중…"));
+            Assert.That(GameObject.Find("HoldButton").GetComponent<UnityEngine.UI.Button>().interactable,
+                Is.False);
+            Assert.That(GameObject.Find("RepairButton").GetComponent<UnityEngine.UI.Button>().interactable,
+                Is.False);
+
+            yield return WaitForFilingTransition(app);
+
+            Assert.That(GameObject.Find("ShiftInputLockPanel"), Is.Null);
+            Assert.That(GameObject.Find("HoldButton").GetComponent<UnityEngine.UI.Button>().interactable,
+                Is.False,
+                "Hold must look unavailable when the session will reject a second Hold.");
+        }
+
+        [UnityTest]
         public IEnumerator DuplicateDesk_DisablesThatDeskAndSuggestsHold()
         {
             var feedback = new RecordingPlayerFeedbackService();

@@ -65,6 +65,8 @@ namespace CurioClerk.Presentation
         private readonly ShiftPlanGenerator _shiftPlanGenerator = new ShiftPlanGenerator();
         private readonly RuleEngine _ruleEngine = new RuleEngine();
         private readonly ProgressionService _progression = new ProgressionService();
+        private readonly IncidentProgressResolver _incidentProgressResolver = new IncidentProgressResolver();
+        private readonly IncidentBoardPresenter _incidentBoardPresenter = new IncidentBoardPresenter();
         private readonly HashSet<string> _seenThisShift = new HashSet<string>(StringComparer.Ordinal);
         private IReadOnlyList<ArtifactContent> _artifactContent;
         private Dictionary<string, ArtifactContent> _artifactById;
@@ -80,6 +82,8 @@ namespace CurioClerk.Presentation
         private IClock _clock;
         private IShiftSeedProvider _seedProvider;
         private Localizer _localizer;
+        private IReadOnlyList<IncidentDefinition> _incidents;
+        private IncidentProgressSnapshot _incidentProgress;
         private IncidentDefinition _activeIncident;
         private IncidentRunner _incidentRunner;
         private IncidentStageDefinition _incidentStage;
@@ -146,6 +150,7 @@ namespace CurioClerk.Presentation
         private Image _incidentEndingWarmth;
         private RectTransform _incidentEndingIce;
         private RectTransform _incidentEndingUmbrella;
+        private bool _pendingIncidentBoardReveal;
 
         public AppScreen ActiveScreen { get; private set; }
 
@@ -160,8 +165,8 @@ namespace CurioClerk.Presentation
             _saveStore = new JsonFileSaveStore(Path.Combine(Application.persistentDataPath, "curio-clerk-save.json"));
             _save = _saveStore.LoadOrDefault();
             _localizer = new Localizer(_save.locale);
-            _activeIncident = ContentCatalog.CreateIncidents().Single();
-            RestoreIncidentProgress();
+            _incidents = ContentCatalog.CreateIncidents();
+            RefreshIncidentProgress();
             _adService = Infrastructure.ServiceFactory.CreateAdService();
             _privacy = Infrastructure.ServiceFactory.CreatePrivacyService();
             _feedbackService = Infrastructure.ServiceFactory.CreatePlayerFeedbackService(gameObject);
@@ -200,49 +205,46 @@ namespace CurioClerk.Presentation
         public void ShowMenu()
         {
             _isIncidentReplay = false;
-            RestoreIncidentProgress();
+            RefreshIncidentProgress();
             ActiveScreen = AppScreen.Menu;
             var page = CreatePage("MainMenuScreen");
             CreateText(page, "Eyebrow", _localizer.Get("subtitle"), 30, Amber, TextAlignmentOptions.Center, new Vector2(0.12f, 0.90f), new Vector2(0.88f, 0.95f), true);
             CreateText(page, "Title", _localizer.Get("title"), 58, Paper, TextAlignmentOptions.Center, new Vector2(0.08f, 0.80f), new Vector2(0.92f, 0.90f), true, TextRole.Display);
-
-            var casePanel = CreatePanel(page, "IncidentCasePanel", new Color(Wine.r, Wine.g, Wine.b, 0.91f), new Vector2(0.08f, 0.53f), new Vector2(0.92f, 0.78f));
-            AddSurfaceChrome(casePanel, Amber, 3f, 0.30f);
-            CreateText(
-                casePanel,
-                "IncidentState",
-                IncidentStateLabel(),
-                28,
-                Amber,
-                TextAlignmentOptions.Center,
-                new Vector2(0.06f, 0.70f),
-                new Vector2(0.94f, 0.94f),
-                true);
-            CreateText(
-                casePanel,
-                "IncidentTitle",
-                _activeIncident.Title.ForLocale(_localizer.Locale),
-                52,
-                Paper,
-                TextAlignmentOptions.Center,
-                new Vector2(0.06f, 0.18f),
-                new Vector2(0.94f, 0.72f),
-                true,
-                TextRole.Display);
-
-            var incidentComplete = _incidentRunner.IsComplete;
-            UnityEngine.Events.UnityAction incidentAction = incidentComplete ? ReplayIncident : StartIncident;
-            var incidentButton = CreateButton(
-                page,
-                "IncidentButton",
-                IncidentButtonLabel(),
-                new Vector2(0.09f, 0.38f),
-                new Vector2(0.91f, 0.50f),
-                incidentComplete ? Sage : Amber,
-                incidentComplete ? Paper : Ink,
-                incidentAction,
-                34);
-            CreateButton(page, "FreeShiftButton", _localizer.Get("free_shift"), new Vector2(0.18f, 0.25f), new Vector2(0.82f, 0.34f), Wine, Paper, OnStartPressed, 27);
+            var boardState = _incidentBoardPresenter.Build(_incidents, _incidentProgress, _localizer);
+            var board = page.gameObject.AddComponent<IncidentBoardView>();
+            var current = CreateIncidentCard(page, "CurrentIncidentCard", new Vector2(0.08f, 0.48f), new Vector2(0.92f, 0.78f), false);
+            var resolved = new List<IncidentCardView>();
+            for (var index = 0; index < boardState.Resolved.Count; index++)
+            {
+                var id = boardState.Resolved[index].IncidentId;
+                resolved.Add(CreateIncidentCard(
+                    page,
+                    "ResolvedIncidentCard_" + id,
+                    new Vector2(0.08f, 0.38f - index * 0.075f),
+                    new Vector2(0.92f, 0.455f - index * 0.075f),
+                    true));
+            }
+            board.Configure(current, resolved);
+            board.Bind(
+                boardState,
+                VisualAssetLibrary.IncidentProfile,
+                VisualAssetLibrary.Artifact,
+                StartIncident,
+                id => new UnityEngine.Events.UnityAction(() => ReplayIncident(id)));
+            var currentGroup = current.GetComponent<CanvasGroup>();
+            var resolvedGroup = resolved.Count > 0 ? resolved[0].GetComponent<CanvasGroup>() : null;
+            if (resolvedGroup != null && boardState.Current != null)
+            {
+                var veil = CreatePanel(page, "IncidentBoardRainVeil", new Color(0.31f, 0.48f, 0.63f, 0.20f), Vector2.zero, Vector2.one)
+                    .gameObject.AddComponent<CanvasGroup>();
+                veil.blocksRaycasts = false;
+                var transition = page.gameObject.AddComponent<IncidentBoardTransitionView>();
+                transition.Configure(current.GetComponent<RectTransform>(), currentGroup, resolved[0].GetComponent<RectTransform>(), resolvedGroup, veil);
+                transition.Play(_pendingIncidentBoardReveal, VisualAssetLibrary.IncidentProfile(boardState.Current.IncidentId));
+            }
+            _pendingIncidentBoardReveal = false;
+            CreateButton(page, "CollectionButton", _localizer.Get("collection"), new Vector2(0.08f, 0.27f), new Vector2(0.46f, 0.35f), Wine, Paper, ShowCollection, 24);
+            CreateButton(page, "FreeShiftButton", _localizer.Get("free_shift"), new Vector2(0.54f, 0.27f), new Vector2(0.92f, 0.35f), Wine, Paper, OnStartPressed, 24);
             CreateButton(page, "SettingsButton", _localizer.Get("settings"), new Vector2(0.28f, 0.13f), new Vector2(0.72f, 0.21f), Paper, Ink, ShowSettings, 25);
 
             var equipped = ContentCatalog.CreateCosmetics()
@@ -261,8 +263,8 @@ namespace CurioClerk.Presentation
         public void StartIncident()
         {
             _isIncidentReplay = false;
-            RestoreIncidentProgress();
-            if (_incidentRunner.IsComplete)
+            RefreshIncidentProgress();
+            if (_incidentRunner == null || _incidentRunner.IsContentExhausted)
             {
                 ShowMenu();
                 return;
@@ -271,20 +273,21 @@ namespace CurioClerk.Presentation
             ShowIncidentIntro();
         }
 
-        public void ReplayIncident()
+        public void ReplayIncident(string incidentId)
         {
-            RestoreIncidentProgress();
-            if (!_incidentRunner.IsComplete)
+            if (string.IsNullOrWhiteSpace(incidentId))
             {
-                StartIncident();
                 return;
             }
-
+            var replay = _incidents.FirstOrDefault(value => value.Id == incidentId);
+            if (replay == null) return;
             _isIncidentReplay = true;
+            _activeIncident = replay;
             _incidentRunner = new IncidentRunner(
                 _activeIncident.Id,
                 _activeIncident.Stages.Select(stage => stage.Id).ToArray(),
-                0);
+                0,
+                _activeIncident.CompletesWhenAllStagesCompleted);
             ShowIncidentIntro();
         }
 
@@ -292,9 +295,9 @@ namespace CurioClerk.Presentation
         {
             if (!_isIncidentReplay)
             {
-                RestoreIncidentProgress();
+                RefreshIncidentProgress();
             }
-            if (_incidentRunner.IsComplete)
+            if (_incidentRunner == null || _incidentRunner.IsContentExhausted)
             {
                 ShowMenu();
                 return;
@@ -363,7 +366,7 @@ namespace CurioClerk.Presentation
 
         public void BeginIncidentStage()
         {
-            if (_incidentStage == null || _incidentRunner == null || _incidentRunner.IsComplete)
+            if (_incidentStage == null || _incidentRunner == null || _incidentRunner.IsContentExhausted)
             {
                 return;
             }
@@ -391,36 +394,23 @@ namespace CurioClerk.Presentation
             BuildShiftScreen();
         }
 
-        private void RestoreIncidentProgress()
+        private void RefreshIncidentProgress()
         {
-            if (_activeIncident == null || _save == null)
+            if (_incidents == null || _save == null)
             {
                 return;
             }
-
-            _incidentRunner = _progression.RestoreIncident(
-                _save,
-                _activeIncident.Id,
-                _activeIncident.Stages.Select(stage => stage.Id).ToArray());
-        }
-
-        private string IncidentStateLabel()
-        {
-            return _incidentRunner.IsComplete
-                ? _localizer.Get("incident_complete")
-                : _localizer.Get("incident_stage", _incidentRunner.CurrentStageIndex + 1);
-        }
-
-        private string IncidentButtonLabel()
-        {
-            if (_incidentRunner.IsComplete)
-            {
-                return _localizer.Get("incident_replay");
-            }
-
-            return _incidentRunner.CurrentStageIndex == 0
-                ? _localizer.Get("incident_begin")
-                : _localizer.Get("incident_continue", _incidentRunner.CurrentStageIndex + 1);
+            var definitions = _incidents.Select(value => value.CreateProgressDefinition()).ToArray();
+            _incidentProgress = _incidentProgressResolver.Resolve(_save, definitions);
+            var current = _incidentProgress.Current;
+            _activeIncident = current == null ? null : _incidents.Single(value => value.Id == current.Definition.Id);
+            _incidentRunner = current == null
+                ? null
+                : new IncidentRunner(
+                    _activeIncident.Id,
+                    _activeIncident.Stages.Select(stage => stage.Id).ToArray(),
+                    current.NextStageIndex,
+                    _activeIncident.CompletesWhenAllStagesCompleted);
         }
 
         public void ShowTutorial()
@@ -1171,6 +1161,8 @@ namespace CurioClerk.Presentation
             {
                 _inputLocked = false;
                 var completedIncident = _isIncidentShift &&
+                                        _activeIncident != null &&
+                                        _activeIncident.CompletesWhenAllStagesCompleted &&
                                         _incidentRunner.CurrentStageIndex + 1 >= _activeIncident.Stages.Count;
                 _feedbackService.Play(
                     completedIncident ? PlayerFeedbackCue.IncidentComplete : PlayerFeedbackCue.ShiftComplete);
@@ -1965,6 +1957,12 @@ namespace CurioClerk.Presentation
             _incidentResultQuality = quality;
             _incidentCompletionWasFinal = completion.IncidentCompleted;
             _incidentResultApplied = true;
+            if (!_isIncidentReplay &&
+                completion.IncidentCompleted &&
+                string.Equals(completion.IncidentId, "unmelting-ice", StringComparison.Ordinal))
+            {
+                _pendingIncidentBoardReveal = true;
+            }
             if (!_isIncidentReplay)
             {
                 Save();
@@ -2136,9 +2134,12 @@ namespace CurioClerk.Presentation
             }
 
             outroContinueButton.gameObject.SetActive(false);
-            var label = _incidentCompletionWasFinal
-                ? _localizer.Get("incident_next_teaser")
-                : _localizer.Get("next_stage");
+            var returnToBoard = _incidentRunner != null && _incidentRunner.IsContentExhausted;
+            var label = returnToBoard
+                ? _localizer.Get("incident_return_board")
+                : _incidentCompletionWasFinal
+                    ? _localizer.Get("incident_next_teaser")
+                    : _localizer.Get("next_stage");
             CreateButton(
                 page,
                 "NextStageButton",
@@ -2148,7 +2149,7 @@ namespace CurioClerk.Presentation
                 Amber,
                 Ink,
                 ContinueIncident,
-                _incidentCompletionWasFinal ? 25 : 30);
+                returnToBoard || _incidentCompletionWasFinal ? 25 : 30);
         }
 
         private void RetryIncidentStage()
@@ -2165,7 +2166,7 @@ namespace CurioClerk.Presentation
                 return;
             }
 
-            if (_incidentCompletionWasFinal)
+            if (_incidentCompletionWasFinal || (_incidentRunner != null && _incidentRunner.IsContentExhausted))
             {
                 ShowMenu();
                 return;
@@ -2728,6 +2729,80 @@ namespace CurioClerk.Presentation
             image.color = color;
             image.raycastTarget = color.a > 0.01f;
             return rect;
+        }
+
+        private IncidentCardView CreateIncidentCard(
+            Transform parent,
+            string name,
+            Vector2 min,
+            Vector2 max,
+            bool compact)
+        {
+            var card = CreatePanel(parent, name, new Color(Wine.r, Wine.g, Wine.b, 0.91f), min, max);
+            AddSurfaceChrome(card, Amber, compact ? 1.5f : 3f, compact ? 0.18f : 0.30f);
+            card.gameObject.AddComponent<CanvasGroup>();
+            var status = CreateText(
+                card,
+                "IncidentState",
+                string.Empty,
+                compact ? 17 : 28,
+                Amber,
+                TextAlignmentOptions.Center,
+                new Vector2(0.06f, compact ? 0.58f : 0.78f),
+                new Vector2(0.94f, 0.94f),
+                true);
+            var artwork = CreateArtworkImage(
+                card,
+                "IncidentArtwork",
+                compact ? new Vector2(0.04f, 0.10f) : new Vector2(0.06f, 0.25f),
+                compact ? new Vector2(0.22f, 0.56f) : new Vector2(0.34f, 0.74f));
+            artwork.preserveAspect = true;
+            var title = CreateText(
+                card,
+                "IncidentTitle",
+                string.Empty,
+                compact ? 25 : 46,
+                Paper,
+                compact ? TextAlignmentOptions.Left : TextAlignmentOptions.Center,
+                compact ? new Vector2(0.25f, 0.20f) : new Vector2(0.08f, 0.43f),
+                compact ? new Vector2(0.66f, 0.58f) : new Vector2(0.92f, 0.78f),
+                true,
+                TextRole.Display);
+            var clue = CreateText(
+                card,
+                "IncidentClue",
+                string.Empty,
+                compact ? 14 : 20,
+                Paper,
+                TextAlignmentOptions.Center,
+                compact ? new Vector2(0.25f, 0.08f) : new Vector2(0.08f, 0.25f),
+                compact ? new Vector2(0.66f, 0.22f) : new Vector2(0.92f, 0.42f));
+            var actionName = compact ? "ReplayIncident_" + name.Substring("ResolvedIncidentCard_".Length) : "IncidentButton";
+            var button = CreateButton(
+                card,
+                actionName,
+                string.Empty,
+                compact ? new Vector2(0.68f, 0.14f) : new Vector2(0.14f, 0.05f),
+                compact ? new Vector2(0.96f, 0.82f) : new Vector2(0.86f, 0.20f),
+                compact ? Sage : Amber,
+                compact ? Paper : Ink,
+                () => { },
+                compact ? 17 : 28);
+            var waiting = CreateText(
+                card,
+                "IncidentWaitingState",
+                string.Empty,
+                22,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.10f, 0.05f),
+                new Vector2(0.90f, 0.20f),
+                true);
+            waiting.gameObject.SetActive(false);
+            var view = card.gameObject.AddComponent<IncidentCardView>();
+            view.Configure(card.GetComponent<Image>(), artwork, status, title, clue, button, button.GetComponentInChildren<TMP_Text>());
+            view.ConfigureWaitingState(waiting);
+            return view;
         }
 
         private static TMP_Text CreateText(Transform parent, string name, string value, float size, Color color, TextAlignmentOptions alignment, Vector2 min, Vector2 max, bool bold = false, TextRole role = TextRole.Interface)

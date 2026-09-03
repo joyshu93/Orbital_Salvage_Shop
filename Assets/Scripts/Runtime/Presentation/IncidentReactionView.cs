@@ -178,6 +178,13 @@ namespace CurioClerk.Presentation
                 return;
             }
 
+            if (cue == IncidentVisualCue.Rain)
+            {
+                _warmthOverlay.enabled = true;
+                _warmthOverlay.color = new Color(0.31f, 0.48f, 0.63f, presence * 0.28f);
+                return;
+            }
+
             if (cue == IncidentVisualCue.AmberWarmth || cue == IncidentVisualCue.InkSeal)
             {
                 _warmthOverlay.enabled = true;

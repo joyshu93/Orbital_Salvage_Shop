@@ -6,8 +6,18 @@ namespace CurioClerk.Core.Incidents
     public sealed class IncidentRunner
     {
         private readonly IReadOnlyList<string> _stageIds;
+        private readonly bool _completesWhenAllStagesCompleted;
 
         public IncidentRunner(string incidentId, IReadOnlyList<string> stageIds, int startingStageIndex)
+            : this(incidentId, stageIds, startingStageIndex, completesWhenAllStagesCompleted: true)
+        {
+        }
+
+        public IncidentRunner(
+            string incidentId,
+            IReadOnlyList<string> stageIds,
+            int startingStageIndex,
+            bool completesWhenAllStagesCompleted)
         {
             if (string.IsNullOrWhiteSpace(incidentId))
             {
@@ -44,6 +54,7 @@ namespace CurioClerk.Core.Incidents
 
             IncidentId = incidentId;
             _stageIds = copiedStageIds.AsReadOnly();
+            _completesWhenAllStagesCompleted = completesWhenAllStagesCompleted;
             CurrentStageIndex = startingStageIndex;
         }
 
@@ -51,13 +62,15 @@ namespace CurioClerk.Core.Incidents
 
         public int CurrentStageIndex { get; private set; }
 
-        public string CurrentStageId => IsComplete ? null : _stageIds[CurrentStageIndex];
+        public string CurrentStageId => IsContentExhausted ? null : _stageIds[CurrentStageIndex];
 
-        public bool IsComplete => CurrentStageIndex >= _stageIds.Count;
+        public bool IsContentExhausted => CurrentStageIndex >= _stageIds.Count;
+
+        public bool IsComplete => IsContentExhausted;
 
         public IncidentStageCompletion CompleteCurrentStage(IncidentQuality quality)
         {
-            if (IsComplete)
+            if (IsContentExhausted)
             {
                 throw new InvalidOperationException("The incident is already complete.");
             }
@@ -68,13 +81,14 @@ namespace CurioClerk.Core.Incidents
             }
 
             var completedIndex = CurrentStageIndex;
+            var exhausted = completedIndex + 1 == _stageIds.Count;
             var completion = new IncidentStageCompletion(
                 IncidentId,
                 _stageIds[completedIndex],
                 completedIndex,
                 quality,
                 completedIndex + 1,
-                completedIndex + 1 == _stageIds.Count);
+                exhausted && _completesWhenAllStagesCompleted);
             CurrentStageIndex++;
             return completion;
         }

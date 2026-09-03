@@ -700,6 +700,7 @@ namespace CurioClerk.Editor
             EnsureFolder(ContentRoot + "/Rules");
             EnsureFolder(ContentRoot + "/Difficulties");
             EnsureFolder(ContentRoot + "/Cosmetics");
+            EnsureFolder(ContentRoot + "/IncidentPresentation");
             EnsureFolder("Assets/Resources/Fonts");
             EnsureFolder(LocalizationRoot);
             EnsureFolder(RenderingRoot);
@@ -732,6 +733,14 @@ namespace CurioClerk.Editor
             foreach (var content in ContentCatalog.CreateCosmetics())
             {
                 var asset = LoadOrCreate<CosmeticDefinition>($"{ContentRoot}/Cosmetics/{content.Id}.asset");
+                asset.Configure(content);
+                EditorUtility.SetDirty(asset);
+            }
+
+            foreach (var content in ContentCatalog.CreateIncidentPresentationStyles())
+            {
+                var asset = LoadOrCreate<IncidentPresentationProfile>(
+                    $"{ContentRoot}/IncidentPresentation/{content.IncidentId}.asset");
                 asset.Configure(content);
                 EditorUtility.SetDirty(asset);
             }

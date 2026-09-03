@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CurioClerk.Content;
 using CurioClerk.Content.Incidents;
 using UnityEngine;
 
@@ -12,6 +13,8 @@ namespace CurioClerk.Presentation
             new Dictionary<string, Sprite>(StringComparer.Ordinal);
         private static readonly Dictionary<string, Sprite> CosmeticSprites =
             new Dictionary<string, Sprite>(StringComparer.Ordinal);
+        private static readonly Dictionary<string, IncidentPresentationProfile> IncidentProfiles =
+            new Dictionary<string, IncidentPresentationProfile>(StringComparer.Ordinal);
         private static Sprite s_DeskBackground;
         private static Sprite s_RepairIcon;
         private static Sprite s_StorageIcon;
@@ -87,6 +90,23 @@ namespace CurioClerk.Presentation
 
         internal static Sprite FrostOverlay =>
             LoadSprite(ref s_FrostOverlay, "Art/Effects/frost-overlay");
+
+        internal static IncidentPresentationProfile IncidentProfile(string incidentId)
+        {
+            if (string.IsNullOrWhiteSpace(incidentId))
+            {
+                return null;
+            }
+
+            if (!IncidentProfiles.TryGetValue(incidentId, out var profile))
+            {
+                profile = Resources.Load<IncidentPresentationProfile>(
+                    "Content/IncidentPresentation/" + incidentId);
+                IncidentProfiles.Add(incidentId, profile);
+            }
+
+            return profile;
+        }
 
         internal static Sprite RepairIcon => s_RepairIcon ?? (s_RepairIcon = CreateIcon("repair", DrawRepair));
 

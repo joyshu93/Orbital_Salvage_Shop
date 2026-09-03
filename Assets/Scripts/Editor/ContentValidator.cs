@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using CurioClerk.Content;
 using CurioClerk.Content.Incidents;
@@ -16,6 +17,7 @@ namespace CurioClerk.Editor
     public sealed class ContentValidator : IPreprocessBuildWithReport
     {
         private const string ContentRoot = "Assets/Resources/Content";
+        private const string IncidentPresentationRoot = ContentRoot + "/IncidentPresentation";
         private static readonly string[] NarrativeArtPaths =
         {
             "Assets/Resources/Art/Characters/senior-clerk-neutral.png",
@@ -47,7 +49,7 @@ namespace CurioClerk.Editor
             }
 
             Debug.Log("Curio Clerk validation passed: 24 artifacts, 10 rules, 2 rule packs, " +
-                      "3 docket templates, 1 incident, 5 incident stages, 5 difficulties, 6 cosmetics, 2 scenes.");
+                      "3 docket templates, 2 incidents, 6 incident stages, 5 difficulties, 6 cosmetics, 2 scenes.");
         }
 
         private static void ValidateCatalog(ICollection<string> errors)
@@ -154,9 +156,9 @@ namespace CurioClerk.Editor
             ICollection<string> errors)
         {
             var incidents = ContentCatalog.CreateIncidents();
-            if (incidents.Count != 1)
+            if (incidents.Count != 2)
             {
-                errors.Add($"Expected 1 incident, found {incidents.Count}.");
+                errors.Add($"Expected 2 incidents, found {incidents.Count}.");
             }
 
             AddDuplicateErrors(incidents.Select(incident => incident.Id), "incident", errors);
@@ -169,9 +171,9 @@ namespace CurioClerk.Editor
                     errors.Add($"Incident '{incident.Id}' has missing bilingual title text.");
                 }
 
-                if (incident.Stages.Count != 5)
+                if (!artifactById.ContainsKey(incident.LeadArtifactId))
                 {
-                    errors.Add($"Incident '{incident.Id}' must contain five stages.");
+                    errors.Add($"Incident '{incident.Id}' has an invalid lead artifact ID.");
                 }
 
                 foreach (var stage in incident.Stages)
@@ -246,7 +248,100 @@ namespace CurioClerk.Editor
             }
 
             AddDuplicateErrors(stageIds, "incident stage", errors);
+            if (stageIds.Count != 6)
+            {
+                errors.Add($"Expected 6 incident stages, found {stageIds.Count}.");
+            }
+
+            ValidateIncidentPresentation(incidents, errors);
         }
+
+        private static void ValidateIncidentPresentation(
+            IReadOnlyList<IncidentDefinition> incidents,
+            ICollection<string> errors)
+        {
+            var styles = ContentCatalog.CreateIncidentPresentationStyles();
+            if (styles.Count != 2)
+            {
+                errors.Add($"Expected 2 incident presentation styles, found {styles.Count}.");
+            }
+
+            var validStyles = new List<IncidentPresentationStyleContent>();
+            foreach (var style in styles)
+            {
+                if (style == null || string.IsNullOrWhiteSpace(style.IncidentId))
+                {
+                    errors.Add("Incident presentation styles require an incident ID.");
+                    continue;
+                }
+
+                if (!TryParseStyleColor(style.AccentHex, out _))
+                {
+                    errors.Add($"Incident presentation style '{style.IncidentId}' has an invalid accent color.");
+                }
+
+                if (!TryParseStyleColor(style.SurfaceHex, out _))
+                {
+                    errors.Add($"Incident presentation style '{style.IncidentId}' has an invalid surface color.");
+                }
+
+                validStyles.Add(style);
+            }
+
+            AddDuplicateErrors(validStyles.Select(style => style.IncidentId), "incident presentation style", errors);
+            foreach (var incident in incidents)
+            {
+                if (validStyles.Count(style => style.IncidentId == incident.Id) != 1)
+                {
+                    errors.Add($"Incident '{incident.Id}' must have exactly one presentation style.");
+                }
+            }
+
+            var profiles = AssetDatabase.FindAssets("t:IncidentPresentationProfile", new[] { IncidentPresentationRoot })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Select(path => new
+                {
+                    Path = path,
+                    Profile = AssetDatabase.LoadAssetAtPath<IncidentPresentationProfile>(path)
+                })
+                .ToArray();
+            if (profiles.Length != 2)
+            {
+                errors.Add($"Expected 2 IncidentPresentationProfile assets in {IncidentPresentationRoot}, found {profiles.Length}.");
+            }
+
+            var profileIds = new List<string>();
+            foreach (var profileAsset in profiles)
+            {
+                var profile = profileAsset.Profile;
+                var fileName = Path.GetFileNameWithoutExtension(profileAsset.Path);
+                if (profile == null || string.IsNullOrWhiteSpace(profile.IncidentId))
+                {
+                    errors.Add($"Incident presentation profile '{profileAsset.Path}' is missing an incident ID.");
+                    continue;
+                }
+
+                if (!string.Equals(profile.IncidentId, fileName, StringComparison.Ordinal))
+                {
+                    errors.Add($"Incident presentation profile '{profileAsset.Path}' must match its file name.");
+                }
+
+                profileIds.Add(profile.IncidentId);
+            }
+
+            AddDuplicateErrors(profileIds, "incident presentation profile", errors);
+            foreach (var incident in incidents)
+            {
+                if (profileIds.Count(profileId => profileId == incident.Id) != 1)
+                {
+                    errors.Add($"Incident '{incident.Id}' must have exactly one generated presentation profile.");
+                }
+            }
+        }
+
+        private static bool TryParseStyleColor(string hex, out Color color)
+            => !string.IsNullOrWhiteSpace(hex) &&
+               ColorUtility.TryParseHtmlString("#" + hex, out color);
 
         private static void ValidateNarrativeBeats(
             IncidentStageDefinition stage,

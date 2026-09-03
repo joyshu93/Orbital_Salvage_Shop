@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using CurioClerk.Content;
 using CurioClerk.Content.Incidents;
@@ -162,6 +163,143 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(app.SaveData.incidentStageRecords, Has.Count.EqualTo(1));
             Assert.That(app.SaveData.incidentStageRecords[0].bestQuality,
                 Is.EqualTo((int)IncidentQuality.Resonant));
+        }
+
+        [UnityTest]
+        public IEnumerator Menu_FirstResolved_ShowsRememberingRainAsCurrentAndIceAsReplayRecord()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetIncidentProgress(app, 5, true);
+            SetLocale(app, "ko");
+
+            app.ShowMenu();
+
+            Assert.That(GameObject.Find("CurrentIncidentCard"), Is.Not.Null);
+            Assert.That(ObjectText("IncidentState"), Is.EqualTo("첫 조사 시작"));
+            Assert.That(ObjectText("IncidentTitle"), Is.EqualTo("기억하는 비"));
+            Assert.That(GameObject.Find("IncidentArtwork"), Is.Not.Null);
+            Assert.That(GameObject.Find("IncidentButton"), Is.Not.Null);
+            Assert.That(GameObject.Find("IncidentWaitingState"), Is.Null);
+            Assert.That(GameObject.Find("ResolvedIncidentCard_unmelting-ice"), Is.Not.Null);
+            Assert.That(GameObject.Find("ReplayIncident_unmelting-ice"), Is.Not.Null);
+            Assert.That(GameObject.Find("CollectionButton"), Is.Not.Null);
+            Assert.That(GameObject.Find("FreeShiftButton"), Is.Not.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator Menu_RememberingRainWaiting_ShowsClueWithoutFakeActionButton()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetSaveString(app, "activeIncidentId", "remembering-rain");
+            SetSaveInt(app, "activeIncidentStage", 1);
+            SaveStringList(app, "completedIncidentIds").Add("unmelting-ice");
+            app.SaveData.incidentStageRecords.Add(new IncidentStageRecord
+            {
+                stageId = "rain-01-voices",
+                bestQuality = (int)IncidentQuality.Precise
+            });
+            SetLocale(app, "ko");
+
+            app.ShowMenu();
+
+            Assert.That(GameObject.Find("CurrentIncidentCard"), Is.Not.Null);
+            Assert.That(ObjectText("IncidentState"), Is.EqualTo("다음 교대 준비 중"));
+            Assert.That(ObjectText("IncidentTitle"), Is.EqualTo("기억하는 비"));
+            Assert.That(ObjectText("IncidentClue"), Is.EqualTo("빗속의 목소리는 선임 관리인을 알고 있다."));
+            Assert.That(GameObject.Find("IncidentArtwork"), Is.Not.Null);
+            Assert.That(GameObject.Find("IncidentButton"), Is.Null,
+                "Waiting for authored content must be an explanatory state, not a disabled-looking action.");
+            Assert.That(GameObject.Find("IncidentWaitingState"), Is.Not.Null);
+            Assert.That(GameObject.Find("ResolvedIncidentCard_unmelting-ice"), Is.Not.Null);
+            Assert.That(GameObject.Find("ReplayIncident_unmelting-ice"), Is.Not.Null);
+            Assert.That(GameObject.Find("CollectionButton"), Is.Not.Null);
+            Assert.That(GameObject.Find("FreeShiftButton"), Is.Not.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator RememberingRain_FirstShiftUsesApprovedKoreanOpeningAndQueue()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetIncidentProgress(app, 5, true);
+            SetLocale(app, "ko");
+            app.ShowMenu();
+
+            ClickButton("IncidentButton");
+            yield return null;
+
+            Assert.That(ObjectText("NarrativeBody"),
+                Is.EqualTo("자정부터 봉인된 우산 안에서 비가 내리고 있어요. 절대 열지 마세요."));
+            yield return AdvanceNarrativeToShift(app);
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("moon-umbrella"));
+        }
+
+        [UnityTest]
+        public IEnumerator RememberingRain_CompletionPersistsStageButDoesNotResolveIncident()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetIncidentProgress(app, 5, true);
+            SetLocale(app, "ko");
+            app.ShowMenu();
+            ClickButton("IncidentButton");
+            yield return AdvanceNarrativeToShift(app);
+            yield return CompleteActiveShift(app);
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.IncidentResults));
+            Assert.That(app.SaveData.activeIncidentId, Is.EqualTo("remembering-rain"));
+            Assert.That(app.SaveData.activeIncidentStage, Is.EqualTo(1));
+            Assert.That(app.SaveData.incidentStageRecords.Select(record => record.stageId), Does.Contain("rain-01-voices"));
+            Assert.That(app.SaveData.completedIncidentIds, Does.Not.Contain("remembering-rain"));
+            Assert.That(ObjectText("IncidentOutroBody"),
+                Is.EqualTo("비가 멎습니다. 봉인 안쪽에 빗방울 하나만 남았습니다."));
+        }
+
+        [UnityTest]
+        public IEnumerator ResolvedIceReplay_DoesNotMoveRememberingRainProgress()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetSaveString(app, "activeIncidentId", "remembering-rain");
+            SetSaveInt(app, "activeIncidentStage", 1);
+            SaveStringList(app, "completedIncidentIds").Add("unmelting-ice");
+            app.SaveData.incidentStageRecords.Add(new IncidentStageRecord
+            {
+                stageId = "rain-01-voices",
+                bestQuality = (int)IncidentQuality.Precise
+            });
+            app.ShowMenu();
+
+            ClickButton("ReplayIncident_unmelting-ice");
+            yield return AdvanceNarrativeToShift(app);
+            yield return CompleteActiveShift(app);
+
+            Assert.That(app.SaveData.activeIncidentId, Is.EqualTo("remembering-rain"));
+            Assert.That(app.SaveData.activeIncidentStage, Is.EqualTo(1));
+            Assert.That(app.SaveData.completedIncidentIds, Does.Not.Contain("remembering-rain"));
+            Assert.That(app.SaveData.incidentStageRecords.Select(record => record.stageId),
+                Is.EqualTo(new[] { "rain-01-voices" }));
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentBoardTransition_DisableAppliesStaticFinalState()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetIncidentProgress(app, 5, true);
+            app.ShowMenu();
+
+            app.gameObject.SetActive(false);
+            yield return null;
+            app.gameObject.SetActive(true);
+            yield return null;
+            app.ShowMenu();
+
+            Assert.That(GameObject.Find("CurrentIncidentCard"), Is.Not.Null);
+            Assert.That(GameObject.Find("ResolvedIncidentCard_unmelting-ice"), Is.Not.Null);
+            Assert.That(GameObject.Find("IncidentButton"), Is.Not.Null);
         }
 
         [UnityTest]

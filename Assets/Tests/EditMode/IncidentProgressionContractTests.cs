@@ -107,6 +107,21 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(runner.CurrentStageId, Is.Null);
         }
 
+        [Test]
+        public void Runner_ExhaustsAvailableContentWithoutResolvingAnOpenIncident()
+        {
+            var runner = new IncidentRunner(
+                "remembering-rain",
+                new[] { "rain-01-voices" },
+                0,
+                completesWhenAllStagesCompleted: false);
+
+            var completion = runner.CompleteCurrentStage(IncidentQuality.Precise);
+
+            Assert.That(completion.IncidentCompleted, Is.False);
+            Assert.That(runner.IsContentExhausted, Is.True);
+        }
+
         private static ShiftResult CompletedResult(int mistakes)
             => new ShiftResult(ShiftState.Completed, score: 100, coins: 5, correctSorts: 3, mistakes: mistakes);
     }

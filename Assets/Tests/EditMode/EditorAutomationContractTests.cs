@@ -5,6 +5,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.TestTools;
 
 namespace CurioClerk.Tests.EditMode
 {
@@ -257,6 +258,28 @@ namespace CurioClerk.Tests.EditMode
         }
 
         [Test]
+        public void ProjectBuilder_GeneratesDeterministicIncidentPresentationProfiles()
+        {
+            var profileType = FindType("CurioClerk.Content.IncidentPresentationProfile");
+            Assert.That(profileType, Is.Not.Null);
+
+            AssertProfile("Assets/Resources/Content/IncidentPresentation/unmelting-ice.asset", "unmelting-ice");
+            AssertProfile("Assets/Resources/Content/IncidentPresentation/remembering-rain.asset", "remembering-rain");
+        }
+
+        [Test]
+        public void ContentValidator_SuccessSummaryCountsTwoIncidentsAndSixStages()
+        {
+            LogAssert.Expect(LogType.Log,
+                "Curio Clerk validation passed: 24 artifacts, 10 rules, 2 rule packs, " +
+                "3 docket templates, 2 incidents, 6 incident stages, 5 difficulties, 6 cosmetics, 2 scenes.");
+
+            var validator = FindType("CurioClerk.Editor.ContentValidator");
+            Assert.That(validator, Is.Not.Null);
+            validator.GetMethod("ValidateOrThrow", BindingFlags.Public | BindingFlags.Static).Invoke(null, null);
+        }
+
+        [Test]
         public void ReleaseConfiguration_PinsGalaxyStoreVersionAndAndroidContract()
         {
             var type = FindType("CurioClerk.Editor.ReleaseConfiguration");
@@ -283,6 +306,17 @@ namespace CurioClerk.Tests.EditMode
             }
 
             return null;
+        }
+
+        private static void AssertProfile(string path, string incidentId)
+        {
+            var profileType = FindType("CurioClerk.Content.IncidentPresentationProfile");
+            var profile = AssetDatabase.LoadAssetAtPath(path, profileType);
+
+            Assert.That(profile, Is.Not.Null, path);
+            Assert.That(profileType.GetProperty("IncidentId").GetValue(profile), Is.EqualTo(incidentId));
+            Assert.That(profileType.GetProperty("AccentColor").GetValue(profile), Is.Not.Null);
+            Assert.That(profileType.GetProperty("SurfaceColor").GetValue(profile), Is.Not.Null);
         }
 
         private static void ValidateServiceIds(string appId, string rewardedId)

@@ -95,7 +95,7 @@ namespace CurioClerk.Tests.EditMode
         [Test]
         public void FirstIncident_HasTheExactAuthoredQueuePatternAndHoldMatrix()
         {
-            var incident = ContentCatalog.CreateIncidents().Single();
+            var incident = ContentCatalog.CreateIncidents().Single(incident => incident.Id == "unmelting-ice");
             var artifacts = ContentCatalog.CreateArtifacts().ToDictionary(item => item.Id, StringComparer.Ordinal);
             var ruleEngine = new RuleEngine();
             var analyzer = new DocketSequenceAnalyzer();
@@ -131,9 +131,66 @@ namespace CurioClerk.Tests.EditMode
         }
 
         [Test]
+        public void SecondIncident_HasApprovedRulesQueueCopyAndTwoRequiredHolds()
+        {
+            var incident = ContentCatalog.CreateIncidents().Single(value => value.Id == "remembering-rain");
+            var stage = incident.Stages.Single();
+            var artifacts = ContentCatalog.CreateArtifacts().ToDictionary(item => item.Id, StringComparer.Ordinal);
+            var ruleEngine = new RuleEngine();
+            var analyzer = new DocketSequenceAnalyzer();
+            var plan = stage.CreateShiftPlan(artifacts);
+            var destinations = plan.Queue.Select(item => ruleEngine.Resolve(item, plan.Rules)).ToArray();
+
+            Assert.That(incident.Title.English, Is.EqualTo("The Remembering Rain"));
+            Assert.That(incident.Title.Korean, Is.EqualTo("기억하는 비"));
+            Assert.That(incident.LeadArtifactId, Is.EqualTo("moon-umbrella"));
+            Assert.That(incident.BoardVisualCue, Is.EqualTo(IncidentVisualCue.Rain));
+            Assert.That(stage.Id, Is.EqualTo("rain-01-voices"));
+            Assert.That(stage.ResonanceHoldArtifactId, Is.EqualTo("paper-fish"));
+            Assert.That(stage.MinimumRequiredHolds, Is.EqualTo(2));
+            Assert.That(stage.Rules.Select(rule => rule.Id), Is.EqualTo(new[]
+            {
+                "incident-wet-vault", "incident-fragile-repair", "incident-alive-storage", "incident-fallback-storage"
+            }));
+            Assert.That(stage.Queue.Select(item => item.ArtifactId), Is.EqualTo(new[]
+            {
+                "moon-umbrella", "paper-fish", "sleeping-teacup", "clockwork-moth",
+                "backward-candle", "patient-compass", "rain-jar", "porcelain-tooth",
+                "humming-scarf", "yesterday-ticket", "murmur-box", "ink-snowglobe"
+            }));
+            Assert.That(Pattern(destinations), Is.EqualTo("VVRSRSVRSRSV"));
+            Assert.That(destinations.Count(value => value == Destination.Repair), Is.EqualTo(4));
+            Assert.That(destinations.Count(value => value == Destination.Storage), Is.EqualTo(4));
+            Assert.That(destinations.Count(value => value == Destination.Vault), Is.EqualTo(4));
+            Assert.That(analyzer.MinimumHolds(destinations), Is.EqualTo(2));
+            Assert.That(incident.CompletesWhenAllStagesCompleted, Is.False);
+            Assert.That(incident.AwaitingContentClue.English,
+                Is.EqualTo("The voice inside the rain knows the senior clerk."));
+            Assert.That(incident.AwaitingContentClue.Korean,
+                Is.EqualTo("빗속의 목소리는 선임 관리인을 알고 있다."));
+            Assert.That(stage.IntroBeats.Select(beat => beat.Copy.Korean), Is.EqualTo(new[]
+            {
+                "자정부터 봉인된 우산 안에서 비가 내리고 있어요. 절대 열지 마세요.",
+                "빗방울마다 누군가의 기억을 되풀이합니다. 그중 하나가 제 이름을 부르고 있어요.",
+                "비에 젖은 것은 봉인하고, 깨지기 쉬운 것은 수리하세요. 살아 있는 것은 쉬게 하세요. 규칙은 위에서부터 적용합니다."
+            }));
+            Assert.That(stage.OutroBeats.Select(beat => beat.Copy.Korean), Is.EqualTo(new[]
+            {
+                "비가 멎습니다. 봉인 안쪽에 빗방울 하나만 남았습니다.",
+                "빗방울이 속삭입니다. “돌아오겠다고 약속했잖아.” 선임 관리인은 대답하지 않습니다."
+            }));
+            Assert.That(stage.Reactions.Stable.English,
+                Is.EqualTo("The last drop shivers, but does not fall."));
+            Assert.That(stage.Reactions.Precise.Korean,
+                Is.EqualTo("비가 하나의 선명한 기억으로 모인다."));
+            Assert.That(stage.Reactions.Resonant.English,
+                Is.EqualTo("The umbrella closes by itself, as if it recognizes your hands."));
+        }
+
+        [Test]
         public void FirstIncident_HasExactBilingualOpeningsClosingsAndBoundedQualityReactions()
         {
-            var incident = ContentCatalog.CreateIncidents().Single();
+            var incident = ContentCatalog.CreateIncidents().Single(incident => incident.Id == "unmelting-ice");
             AssertBilingual(incident.Title, "incident title");
 
             for (var index = 1; index < ExpectedStages.Length; index++)
@@ -169,7 +226,7 @@ namespace CurioClerk.Tests.EditMode
         [Test]
         public void StageThree_RepeatsFourFrostedTemporalPriorityJudgmentsAcrossTheShift()
         {
-            var stage = ContentCatalog.CreateIncidents().Single().Stages[2];
+            var stage = ContentCatalog.CreateIncidents().Single(incident => incident.Id == "unmelting-ice").Stages[2];
             var artifacts = ContentCatalog.CreateArtifacts().ToDictionary(item => item.Id, StringComparer.Ordinal);
             var plan = stage.CreateShiftPlan(artifacts);
             var engine = new RuleEngine();
@@ -190,7 +247,7 @@ namespace CurioClerk.Tests.EditMode
         [Test]
         public void FirstIncident_FirstShiftExplainsTheFantasyTheThreatAndTheClerksJobBeforeLeavingAStoryHook()
         {
-            var stage = ContentCatalog.CreateIncidents().Single().Stages[0];
+            var stage = ContentCatalog.CreateIncidents().Single(incident => incident.Id == "unmelting-ice").Stages[0];
 
             Assert.That(stage.IntroBeats, Has.Count.EqualTo(3));
             Assert.That(stage.IntroBeats.Select(beat => beat.Copy.English), Is.EqualTo(new[]
@@ -256,7 +313,7 @@ namespace CurioClerk.Tests.EditMode
                 .Select(item => item.Id)
                 .ToHashSet(StringComparer.Ordinal);
 
-            foreach (var stage in ContentCatalog.CreateIncidents().Single().Stages)
+            foreach (var stage in ContentCatalog.CreateIncidents().Single(incident => incident.Id == "unmelting-ice").Stages)
             {
                 var queueIds = stage.Queue.Select(entry => entry.ArtifactId).ToHashSet(StringComparer.Ordinal);
                 Assert.That(artifactIds.Contains(stage.LeadArtifactId), Is.True, stage.Id);
@@ -268,7 +325,7 @@ namespace CurioClerk.Tests.EditMode
                 }
             }
 
-            Assert.That(ContentCatalog.CreateIncidents().Single().Stages.Select(stage => stage.ResonanceHoldArtifactId),
+            Assert.That(ContentCatalog.CreateIncidents().Single(incident => incident.Id == "unmelting-ice").Stages.Select(stage => stage.ResonanceHoldArtifactId),
                 Is.EqualTo(new[] { null, null, null, "mossy-watch", "moon-umbrella" }));
         }
 
@@ -276,7 +333,7 @@ namespace CurioClerk.Tests.EditMode
         public void CreateShiftPlan_AddsStageTraitsWithoutMutatingBaseArtifacts()
         {
             var artifacts = ContentCatalog.CreateArtifacts().ToDictionary(item => item.Id, StringComparer.Ordinal);
-            var stage = ContentCatalog.CreateIncidents().Single().Stages[1];
+            var stage = ContentCatalog.CreateIncidents().Single(incident => incident.Id == "unmelting-ice").Stages[1];
 
             var plan = stage.CreateShiftPlan(artifacts);
 
@@ -334,7 +391,14 @@ namespace CurioClerk.Tests.EditMode
                 "copy-stage", intros, outros, Reactions(), "unmelting-ice", null,
                 queue, rules, 1);
             var stages = new[] { stage };
-            var incident = new IncidentDefinition("copy-incident", new LocalizedCopy("Title", "제목"), stages);
+            var incident = new IncidentDefinition(
+                "copy-incident",
+                new LocalizedCopy("Title", "제목"),
+                "unmelting-ice",
+                IncidentVisualCue.Frost,
+                completesWhenAllStagesCompleted: true,
+                awaitingContentClue: null,
+                stages: stages);
 
             queue[0] = new IncidentArtifactEntry("changed", ArtifactTraits.Frosted);
             rules[0] = rules[1];
@@ -347,6 +411,9 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(stage.IntroBeats[0].Copy.English, Is.EqualTo("intro"));
             Assert.That(stage.OutroBeats[0].Copy.English, Is.EqualTo("outro"));
             Assert.That(incident.Stages[0], Is.SameAs(stage));
+            Assert.That(incident.LeadArtifactId, Is.EqualTo("unmelting-ice"));
+            Assert.That(incident.BoardVisualCue, Is.EqualTo(IncidentVisualCue.Frost));
+            Assert.That(incident.CompletesWhenAllStagesCompleted, Is.True);
         }
 
         private static void AssertRuleOrder(IncidentStageDefinition stage)

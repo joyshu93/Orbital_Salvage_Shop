@@ -218,6 +218,34 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator IncidentReaction_RainCueUsesCoolAtmosphereAndCompletesOnce()
+        {
+            var feedback = new RecordingFeedbackService();
+            var view = CreateReactionView(feedback, out _, out _, out _, out var atmosphere);
+            var completionCount = 0;
+
+            view.PlayKeyReaction(
+                "빗방울이 장부 가장자리에서 조용히 떤다.",
+                IncidentVisualCue.Rain,
+                () => completionCount++);
+            yield return new WaitForSecondsRealtime(0.24f);
+
+            Assert.That(atmosphere.enabled, Is.True);
+            Assert.That(atmosphere.color.r, Is.EqualTo(0.31f).Within(0.01f));
+            Assert.That(atmosphere.color.g, Is.EqualTo(0.48f).Within(0.01f));
+            Assert.That(atmosphere.color.b, Is.EqualTo(0.63f).Within(0.01f));
+            Assert.That(atmosphere.color.a, Is.GreaterThan(0.02f));
+            Assert.That(feedback.Cues, Is.EqualTo(new[] { PlayerFeedbackCue.KeyReaction }));
+
+            yield return new WaitForSecondsRealtime(1.25f);
+            Assert.That(completionCount, Is.EqualTo(1));
+
+            yield return new WaitForSecondsRealtime(0.25f);
+            Assert.That(completionCount, Is.EqualTo(1));
+            Assert.That(atmosphere.enabled, Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator IncidentReaction_IncidentCompleteWarmsScreenAndInvokesFeedbackOnce()
         {
             var feedback = new RecordingFeedbackService();

@@ -110,10 +110,10 @@ namespace CurioClerk.Tests.EditMode
             var save = new PlayerSaveData();
             var service = new ProgressionService();
 
-            service.ApplyIncidentStage(save, Completion("ice-01-crack", IncidentQuality.Precise, 1, false));
-            service.ApplyIncidentStage(save, Completion("ice-01-crack", IncidentQuality.Stable, 1, false));
+            service.ApplyIncidentStage(save, Completion("rain-06-afterword", IncidentQuality.Precise, 6, false));
+            service.ApplyIncidentStage(save, Completion("rain-06-afterword", IncidentQuality.Stable, 6, false));
 
-            Assert.That(save.activeIncidentStage, Is.EqualTo(1));
+            Assert.That(save.activeIncidentStage, Is.EqualTo(6));
             Assert.That(save.incidentStageRecords.Single().bestQuality, Is.EqualTo((int)IncidentQuality.Precise));
         }
 
@@ -187,7 +187,11 @@ namespace CurioClerk.Tests.EditMode
         {
             var stageIds = incidentCompleted
                 ? new[] { stageId, "next-stage", "later-stage", "fourth-stage", "fifth-stage" }
-                : new[] { stageId, "next-stage", "later-stage", "fourth-stage", "fifth-stage", "sixth-stage" };
+                : new[]
+                {
+                    stageId, "next-stage", "later-stage", "fourth-stage", "fifth-stage", "sixth-stage",
+                    "seventh-stage"
+                };
             var runner = new IncidentRunner(
                 "unmelting-ice",
                 stageIds,

@@ -3,9 +3,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using CurioClerk.Content;
+using CurioClerk.Content.Incidents;
+using CurioClerk.Core.Incidents;
+using CurioClerk.Core.Progression;
 using CurioClerk.Core.Rules;
 using CurioClerk.Core.Shifts;
 using CurioClerk.Localization;
+using CurioClerk.Presentation;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -165,6 +169,30 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(styles.Select(style => style.AccentHex), Is.EqualTo(new[] { "D6A85F", "8094B8" }));
             Assert.That(styles.Select(style => style.SurfaceHex), Is.EqualTo(new[] { "6E334F", "343B57" }));
             Assert.That(styles.Select(style => style.TransitionStrength), Is.EqualTo(new[] { 0.85f, 1.00f }));
+        }
+
+        [Test]
+        public void IncidentBoard_AvailableCardsUseProgressStatusWithoutInventingAClue()
+        {
+            var incidents = ContentCatalog.CreateIncidents();
+            var resolver = new IncidentProgressResolver();
+            var presenter = new IncidentBoardPresenter();
+            var localizer = new Localizer("en");
+            var definitions = incidents.Select(incident => incident.CreateProgressDefinition()).ToArray();
+            var save = new PlayerSaveData();
+
+            var first = presenter.Build(incidents, resolver.Resolve(save, definitions), localizer).Current;
+
+            Assert.That(first.Status, Is.EqualTo("Begin First Investigation"));
+            Assert.That(first.Clue, Is.Empty);
+            Assert.That(first.ActionLabel, Is.EqualTo("Begin First Investigation"));
+
+            save.activeIncidentStage = 2;
+            var continued = presenter.Build(incidents, resolver.Resolve(save, definitions), localizer).Current;
+
+            Assert.That(continued.Status, Is.EqualTo("Investigation in progress"));
+            Assert.That(continued.Clue, Is.Empty);
+            Assert.That(continued.ActionLabel, Is.EqualTo("Continue Investigation · 3/5"));
         }
 
         [Test]

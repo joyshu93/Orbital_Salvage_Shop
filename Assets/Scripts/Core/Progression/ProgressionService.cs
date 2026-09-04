@@ -8,8 +8,6 @@ namespace CurioClerk.Core.Progression
 {
     public sealed class ProgressionService
     {
-        private const string DefaultIncidentId = "unmelting-ice";
-
         public void ApplyShift(PlayerSaveData save, ShiftResult result, IEnumerable<string> discoveredArtifactIds)
         {
             if (save == null)
@@ -125,27 +123,6 @@ namespace CurioClerk.Core.Progression
 
             save.lastDailyCompletedDate = normalizedDate;
             save.dailyBestScore = safeScore;
-        }
-
-        public IncidentRunner RestoreIncident(PlayerSaveData save, string incidentId, IReadOnlyList<string> stageIds)
-        {
-            if (save == null)
-            {
-                throw new ArgumentNullException(nameof(save));
-            }
-
-            var hasKnownIncidentState = string.Equals(incidentId, DefaultIncidentId, StringComparison.Ordinal)
-                && string.Equals(save.activeIncidentId, DefaultIncidentId, StringComparison.Ordinal);
-            save.Sanitize();
-            if (!hasKnownIncidentState)
-            {
-                save.activeIncidentId = DefaultIncidentId;
-                save.activeIncidentStage = 0;
-            }
-
-            var completedBoundary = Math.Min(5, stageIds == null ? 0 : stageIds.Count);
-            save.activeIncidentStage = Math.Min(save.activeIncidentStage, completedBoundary);
-            return new IncidentRunner(DefaultIncidentId, stageIds, save.activeIncidentStage);
         }
 
         public void ApplyIncidentStage(PlayerSaveData save, IncidentStageCompletion completion)

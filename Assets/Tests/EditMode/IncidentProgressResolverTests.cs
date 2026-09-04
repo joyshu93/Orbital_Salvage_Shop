@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using CurioClerk.Core.Incidents;
 using CurioClerk.Core.Progression;
+using CurioClerk.Presentation;
 using NUnit.Framework;
 
 namespace CurioClerk.Tests.EditMode
@@ -43,6 +44,48 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(snapshot.Current.Lifecycle, Is.EqualTo(IncidentLifecycle.AwaitingContent));
             Assert.That(snapshot.Current.NextStageIndex, Is.EqualTo(1));
             Assert.That(save.completedIncidentIds, Does.Not.Contain("remembering-rain"));
+        }
+
+        [Test]
+        public void Resolve_OpenEndedIncidentIgnoresInvalidCompletionMarkerAndKeepsSuccessorLocked()
+        {
+            var save = SaveWithStage("rain-01-voices");
+            save.completedIncidentIds.Add("remembering-rain");
+            var definitions = new[]
+            {
+                Definitions()[0],
+                Definitions()[1],
+                new IncidentProgressDefinition(
+                    "archive-whispers",
+                    new[] { "archive-01-door" },
+                    completesWhenAllStagesCompleted: true)
+            };
+
+            var snapshot = new IncidentProgressResolver().Resolve(save, definitions);
+
+            Assert.That(snapshot.Find("remembering-rain").Lifecycle,
+                Is.EqualTo(IncidentLifecycle.AwaitingContent));
+            Assert.That(snapshot.Current.Definition.Id, Is.EqualTo("remembering-rain"));
+            Assert.That(snapshot.Find("archive-whispers").Lifecycle, Is.EqualTo(IncidentLifecycle.Locked));
+        }
+
+        [Test]
+        public void IncidentBoardReveal_DetectsSuccessorAfterAnyConclusiveIncident()
+        {
+            var definitions = new[]
+            {
+                new IncidentProgressDefinition("first", new[] { "first-01" }, true),
+                new IncidentProgressDefinition("second", new[] { "second-01" }, true),
+                new IncidentProgressDefinition("third", new[] { "third-01" }, true)
+            };
+            var save = new PlayerSaveData { activeIncidentId = "second", activeIncidentStage = 1 };
+            save.completedIncidentIds.Add("first");
+            save.completedIncidentIds.Add("second");
+
+            var snapshot = new IncidentProgressResolver().Resolve(save, definitions);
+
+            Assert.That(IncidentBoardPresenter.ShouldRevealSuccessor(snapshot, "second"), Is.True);
+            Assert.That(IncidentBoardPresenter.ShouldRevealSuccessor(snapshot, "third"), Is.False);
         }
 
         [Test]

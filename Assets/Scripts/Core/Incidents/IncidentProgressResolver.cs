@@ -44,7 +44,8 @@ namespace CurioClerk.Core.Incidents
                     ? Math.Min(save.activeIncidentStage, definition.StageIds.Count)
                     : 0;
                 var nextStageIndex = Math.Max(recordedPrefix, legacyIndex);
-                var explicitlyResolved = completedIncidentIds.Contains(definition.Id);
+                var explicitlyResolved = definition.CompletesWhenAllStagesCompleted &&
+                                         completedIncidentIds.Contains(definition.Id);
                 var resolved = explicitlyResolved ||
                                (definition.CompletesWhenAllStagesCompleted &&
                                 nextStageIndex == definition.StageIds.Count);

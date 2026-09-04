@@ -60,6 +60,16 @@ namespace CurioClerk.Presentation
 
     public sealed class IncidentBoardPresenter
     {
+        public static bool ShouldRevealSuccessor(
+            IncidentProgressSnapshot progress,
+            string completedIncidentId)
+        {
+            if (progress == null) throw new ArgumentNullException(nameof(progress));
+            if (string.IsNullOrWhiteSpace(completedIncidentId)) return false;
+            return progress.Current != null &&
+                   !string.Equals(progress.Current.Definition.Id, completedIncidentId, StringComparison.Ordinal);
+        }
+
         public IncidentBoardState Build(
             IReadOnlyList<IncidentDefinition> incidents,
             IncidentProgressSnapshot progress,
@@ -97,11 +107,16 @@ namespace CurioClerk.Presentation
             switch (entry.Lifecycle)
             {
                 case IncidentLifecycle.Available:
+                    var isFirstInvestigation = entry.NextStageIndex == 0;
                     return new IncidentCardState(
                         incident.Id, title, incident.LeadArtifactId,
-                        entry.NextStageIndex == 0 ? localizer.Get("incident_first_investigation") : localizer.Get("incident_stage", stageNumber, stageCount),
-                        localizer.Get("incident_first_clue"),
-                        entry.NextStageIndex == 0 ? localizer.Get("incident_first_investigation") : localizer.Get("incident_continue", stageNumber, stageCount),
+                        isFirstInvestigation
+                            ? localizer.Get("incident_first_investigation")
+                            : localizer.Get("incident_in_progress"),
+                        string.Empty,
+                        isFirstInvestigation
+                            ? localizer.Get("incident_first_investigation")
+                            : localizer.Get("incident_continue", stageNumber, stageCount),
                         IncidentCardAction.Start, entry.Lifecycle);
                 case IncidentLifecycle.AwaitingContent:
                     return new IncidentCardState(

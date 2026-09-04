@@ -130,59 +130,6 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(save.activeIncidentStage, Is.EqualTo(5));
         }
 
-        [Test]
-        public void RestoreIncident_UnknownSaveProgressStartsTheUnmeltingIceAtStageZero()
-        {
-            var save = new PlayerSaveData
-            {
-                activeIncidentId = "another-incident",
-                activeIncidentStage = 4
-            };
-
-            var restored = new ProgressionService().RestoreIncident(
-                save,
-                "unmelting-ice",
-                new[] { "ice-01-crack", "ice-02-glow", "ice-03-echo", "ice-04-frozen-seal", "ice-05-farewell" });
-
-            Assert.That(restored.IncidentId, Is.EqualTo("unmelting-ice"));
-            Assert.That(restored.CurrentStageIndex, Is.Zero);
-        }
-
-        [Test]
-        public void RestoreIncident_BlankSavedIncidentStartsAtStageZero()
-        {
-            var save = new PlayerSaveData
-            {
-                activeIncidentId = string.Empty,
-                activeIncidentStage = 4
-            };
-
-            var restored = new ProgressionService().RestoreIncident(
-                save,
-                "unmelting-ice",
-                new[] { "ice-01-crack", "ice-02-glow", "ice-03-echo", "ice-04-frozen-seal", "ice-05-farewell" });
-
-            Assert.That(restored.CurrentStageIndex, Is.Zero);
-        }
-
-        [Test]
-        public void RestoreIncident_ClampsPastFinalStageToCompletedBoundary()
-        {
-            var save = new PlayerSaveData
-            {
-                activeIncidentId = "unmelting-ice",
-                activeIncidentStage = 99
-            };
-
-            var restored = new ProgressionService().RestoreIncident(
-                save,
-                "unmelting-ice",
-                new[] { "ice-01-crack", "ice-02-glow", "ice-03-echo", "ice-04-frozen-seal", "ice-05-farewell" });
-
-            Assert.That(restored.CurrentStageIndex, Is.EqualTo(5));
-            Assert.That(restored.IsComplete, Is.True);
-        }
-
         private static IncidentStageCompletion Completion(string stageId, IncidentQuality quality, int nextStageIndex, bool incidentCompleted)
         {
             var stageIds = incidentCompleted

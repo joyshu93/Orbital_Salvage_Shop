@@ -116,7 +116,7 @@ namespace CurioClerk.Tests.PlayMode
             app.ShowMenu();
             Assert.That(ObjectText("IncidentTitle"), Is.EqualTo("녹지 않는 얼음"));
             Assert.That(ObjectText("IncidentButton"), Is.EqualTo("조사 계속 · 3/5"));
-            Assert.That(ObjectText("IncidentState"), Is.EqualTo("조사 3/5"));
+            Assert.That(ObjectText("IncidentState"), Is.EqualTo("조사 진행 중"));
 
             SetIncidentProgress(app, 5, true);
             app.ShowMenu();

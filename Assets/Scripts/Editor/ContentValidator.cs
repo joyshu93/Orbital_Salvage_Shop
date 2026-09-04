@@ -171,6 +171,11 @@ namespace CurioClerk.Editor
                     errors.Add($"Incident '{incident.Id}' has missing bilingual title text.");
                 }
 
+                if (!incident.CompletesWhenAllStagesCompleted && !HasBilingualCopy(incident.AwaitingContentClue))
+                {
+                    errors.Add($"Incident '{incident.Id}' has missing bilingual awaiting-content clue text.");
+                }
+
                 if (!artifactById.ContainsKey(incident.LeadArtifactId))
                 {
                     errors.Add($"Incident '{incident.Id}' has an invalid lead artifact ID.");

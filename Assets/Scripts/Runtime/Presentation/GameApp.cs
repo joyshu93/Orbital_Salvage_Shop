@@ -400,8 +400,7 @@ namespace CurioClerk.Presentation
             {
                 return;
             }
-            var definitions = _incidents.Select(value => value.CreateProgressDefinition()).ToArray();
-            _incidentProgress = _incidentProgressResolver.Resolve(_save, definitions);
+            _incidentProgress = ResolveIncidentProgress();
             var current = _incidentProgress.Current;
             _activeIncident = current == null ? null : _incidents.Single(value => value.Id == current.Definition.Id);
             _incidentRunner = current == null
@@ -411,6 +410,12 @@ namespace CurioClerk.Presentation
                     _activeIncident.Stages.Select(stage => stage.Id).ToArray(),
                     current.NextStageIndex,
                     _activeIncident.CompletesWhenAllStagesCompleted);
+        }
+
+        private IncidentProgressSnapshot ResolveIncidentProgress()
+        {
+            var definitions = _incidents.Select(value => value.CreateProgressDefinition()).ToArray();
+            return _incidentProgressResolver.Resolve(_save, definitions);
         }
 
         public void ShowTutorial()
@@ -1950,16 +1955,16 @@ namespace CurioClerk.Presentation
             if (!_isIncidentReplay)
             {
                 _progression.ApplyIncidentStage(_save, completion);
+                if (completion.IncidentCompleted)
+                {
+                    _pendingIncidentBoardReveal = IncidentBoardPresenter.ShouldRevealSuccessor(
+                        ResolveIncidentProgress(),
+                        completion.IncidentId);
+                }
             }
             _incidentResultQuality = quality;
             _incidentCompletionWasFinal = completion.IncidentCompleted;
             _incidentResultApplied = true;
-            if (!_isIncidentReplay &&
-                completion.IncidentCompleted &&
-                string.Equals(completion.IncidentId, "unmelting-ice", StringComparison.Ordinal))
-            {
-                _pendingIncidentBoardReveal = true;
-            }
             if (!_isIncidentReplay)
             {
                 Save();

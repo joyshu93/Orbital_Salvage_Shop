@@ -422,6 +422,23 @@ namespace CurioClerk.Tests.EditMode
             Assert.Throws<InvalidOperationException>(() => stage.CreateShiftPlan(ArtifactDictionary()));
         }
 
+        [TestCase("", "단서")]
+        [TestCase("Clue", "")]
+        public void OpenIncident_RequiresBilingualAwaitingContentClue(string english, string korean)
+        {
+            var stage = MinimalStage(QueueIds().Select(id =>
+                new IncidentArtifactEntry(id, ArtifactTraits.None)));
+
+            Assert.Throws<ArgumentException>(() => new IncidentDefinition(
+                "open-incident",
+                new LocalizedCopy("Title", "제목"),
+                "unmelting-ice",
+                IncidentVisualCue.Rain,
+                completesWhenAllStagesCompleted: false,
+                awaitingContentClue: new LocalizedCopy(english, korean),
+                stages: new[] { stage }));
+        }
+
         [Test]
         public void IncidentContent_CopiesAuthoredCollectionsAtConstructionBoundaries()
         {

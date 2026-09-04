@@ -247,10 +247,13 @@ namespace CurioClerk.Content.Incidents
                 throw new ArgumentException("An incident lead artifact ID is required.", nameof(leadArtifactId));
             }
 
-            if (!completesWhenAllStagesCompleted && awaitingContentClue == null)
+            if (!completesWhenAllStagesCompleted &&
+                (awaitingContentClue == null ||
+                 string.IsNullOrWhiteSpace(awaitingContentClue.English) ||
+                 string.IsNullOrWhiteSpace(awaitingContentClue.Korean)))
             {
                 throw new ArgumentException(
-                    "Open incidents require an awaiting-content clue.",
+                    "Open incidents require a bilingual awaiting-content clue.",
                     nameof(awaitingContentClue));
             }
 

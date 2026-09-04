@@ -49,6 +49,7 @@ namespace CurioClerk.Tests.PlayMode
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
             yield return null;
+            SetIncidentProgress(app, 0, false);
             SetEnglishLocale(app);
             app.ShowMenu();
 

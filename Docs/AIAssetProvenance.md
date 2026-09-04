@@ -261,6 +261,22 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Store submission decision | Internal documentation only and not included in the player build. Any direct reuse as store copy or promotional media requires a separate review and provenance decision. |
 | Release status | **Internal review draft — developer story and continuity approval required before it becomes campaign canon.** |
 
+### DESIGN-NARRATIVE-004 — Remembering Rain full-incident implementation plan
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Docs/superpowers/plans/2026-09-04-remembering-rain-full-incident.md` |
+| Asset type and intended use | Internal implementation plan that converts the approved campaign blueprint into the five-stage Remembering Rain incident, reusable three-docket narrative interludes, and a read-only third-incident teaser; not an in-game or store asset |
+| Tool | OpenAI Codex authored the technical and narrative implementation plan from the approved master story blueprint and the existing Unity architecture |
+| Creation date | 2026-09-04 KST |
+| Reference inputs | Existing repository code and tests, the approved full-campaign story master blueprint, implemented first-shift Remembering Rain content, Three-Seal Docket mechanics, and repository-owned artifact fiction only; no third-party prose, image, audio, game, film, or style reference supplied |
+| Human direction | The developer approved the campaign-scale story direction, asked Codex to make remaining detailed decisions without repeated questions, required exciting and fair reversals, and requested reusable use of Unity systems without unnecessary feature growth. |
+| Human edits | The plan fixes implementation boundaries, test checkpoints, rule matrices, and draft bilingual beats. Runtime wording and pacing remain subject to developer review in Unity before release. |
+| Third-party elements | None. The plan uses project-owned mechanics, artifact names, story concepts, and original prose. |
+| Intended uses | TDD implementation, code review, continuity checks, manual playtest instructions, and future incident reuse. |
+| Store submission decision | Internal documentation only and not included in the player build. Any direct reuse as store copy or promotional material requires separate review. |
+| Release status | **Approved planning scope only — runtime implementation and bilingual in-context review remain pending.** |
+
 ### TEXT-NARRATIVE-005 — Remembering Rain first-shift prototype copy
 
 | Field | Record |

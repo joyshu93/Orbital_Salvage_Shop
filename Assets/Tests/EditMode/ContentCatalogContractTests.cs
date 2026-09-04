@@ -159,7 +159,7 @@ namespace CurioClerk.Tests.EditMode
         {
             var styles = ContentCatalog.CreateIncidentPresentationStyles();
 
-            Assert.That(styles, Has.Count.EqualTo(2));
+            Assert.That(styles.Count, Is.EqualTo(2));
             Assert.That(styles.Select(style => style.IncidentId),
                 Is.EqualTo(new[] { "unmelting-ice", "remembering-rain" }));
             Assert.That(styles.Select(style => style.AccentHex), Is.EqualTo(new[] { "D6A85F", "8094B8" }));

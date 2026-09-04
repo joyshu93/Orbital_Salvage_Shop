@@ -59,7 +59,7 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(GameObject.Find("SettingsButton"), Is.Not.Null);
             Assert.That(GameObject.Find("StartShiftButton"), Is.Null);
             Assert.That(GameObject.Find("DailyShiftButton"), Is.Null);
-            Assert.That(GameObject.Find("CollectionButton"), Is.Null);
+            Assert.That(GameObject.Find("CollectionButton"), Is.Not.Null);
             Assert.That(GameObject.Find("Progress"), Is.Null);
             Assert.That(GameObject.Find("RewardedAdButton"), Is.Null);
             Assert.That(Session(app), Is.Null, "No shift may start before the player chooses an entry point.");
@@ -108,19 +108,20 @@ namespace CurioClerk.Tests.PlayMode
             SetLocale(app, "en");
             app.ShowMenu();
             Assert.That(ObjectText("IncidentTitle"), Is.EqualTo("The Unmelting Ice"));
-            Assert.That(ObjectText("IncidentButton"), Is.EqualTo("Begin Incident"));
+            Assert.That(ObjectText("IncidentButton"), Is.EqualTo("Begin First Investigation"));
 
             SetIncidentProgress(app, 2, false);
             SetLocale(app, "ko");
             app.ShowMenu();
             Assert.That(ObjectText("IncidentTitle"), Is.EqualTo("녹지 않는 얼음"));
-            Assert.That(ObjectText("IncidentButton"), Is.EqualTo("사건 계속 · 3/5"));
-            Assert.That(ObjectText("IncidentState"), Is.EqualTo("사건 3/5"));
+            Assert.That(ObjectText("IncidentButton"), Is.EqualTo("조사 계속 · 3/5"));
+            Assert.That(ObjectText("IncidentState"), Is.EqualTo("조사 3/5"));
 
             SetIncidentProgress(app, 5, true);
             app.ShowMenu();
-            Assert.That(ObjectText("IncidentButton"), Is.EqualTo("사건 다시보기"));
-            Assert.That(GameObject.Find("IncidentButton").GetComponent<UnityEngine.UI.Button>().interactable, Is.True);
+            Assert.That(ObjectText("IncidentButton"), Is.EqualTo("첫 조사 시작"));
+            Assert.That(ObjectText("ReplayIncident_unmelting-ice"), Is.EqualTo("사건 다시보기"));
+            Assert.That(GameObject.Find("ReplayIncident_unmelting-ice").GetComponent<UnityEngine.UI.Button>().interactable, Is.True);
         }
 
         [UnityTest]
@@ -141,7 +142,7 @@ namespace CurioClerk.Tests.PlayMode
                 .GetField("_saveStore", BindingFlags.Instance | BindingFlags.NonPublic)
                 .SetValue(app, saveStore);
 
-            ClickButton("IncidentButton");
+            ClickButton("ReplayIncident_unmelting-ice");
             yield return null;
 
             Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Narrative));
@@ -1146,12 +1147,12 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(warmth.color.a, Is.GreaterThan(startingWarmth));
 
             ClickButton("IncidentOutroContinueButton");
-            Assert.That(ObjectText("NextStageButton"),
-                Is.EqualTo("다음 사건 · 실내에서 비를 맞은 우산"));
+            Assert.That(ObjectText("NextStageButton"), Is.EqualTo("사건 보드로 돌아가기"));
             ClickButton("NextStageButton");
             yield return null;
             Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Menu));
-            Assert.That(ObjectText("IncidentState"), Is.EqualTo("첫 사건 해결"));
+            Assert.That(ObjectText("IncidentState"), Is.EqualTo("첫 조사 시작"));
+            Assert.That(ObjectText("IncidentTitle"), Is.EqualTo("기억하는 비"));
         }
 
         [UnityTest]

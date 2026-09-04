@@ -464,11 +464,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 3903012401557504
-    m_Localized: "Continue Incident \xB7 {0}/5"
+    m_Localized: "Continue Investigation \xB7 {0}/{1}"
     m_Metadata:
       m_Items: []
   - m_Id: 3903012401557505
-    m_Localized: Incident {0}/5
+    m_Localized: Investigation {0}/{1}
     m_Metadata:
       m_Items: []
   - m_Id: 3903012401557506
@@ -546,6 +546,34 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4737229821816832
     m_Localized: "PROCESSING\u2026"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5327270201765888
+    m_Localized: Begin First Investigation
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5327270243708928
+    m_Localized: Investigation in progress
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5327270243708929
+    m_Localized: FIRST CLUE
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5327270243708930
+    m_Localized: Next shift in preparation
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5327270243708931
+    m_Localized: CASE RESOLVED
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5327270243708932
+    m_Localized: Replay Case
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5327270243708933
+    m_Localized: Return to Incident Board
     m_Metadata:
       m_Items: []
   references:

@@ -997,6 +997,93 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator RememberingRain_DocketInterludesBlockInputAdvanceOnceAndSkipFinalDocket()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            yield return BeginRememberingRainShift(app, 0, "ko");
+
+            yield return CompleteCurrentDocketUntilInterlude(app, 1);
+
+            Assert.That(ObjectText("IncidentDocketInterludeSpeaker"), Is.EqualTo("빗속의 목소리"));
+            Assert.That(ObjectText("IncidentDocketInterludeBody"), Is.EqualTo("그 이름 말고. 그 전의 이름."));
+            var cue = GameObject.Find("IncidentDocketInterludeCueSurface").GetComponent<UnityEngine.UI.Image>();
+            Assert.That(cue.enabled, Is.True);
+            Assert.That(cue.color.b, Is.GreaterThan(cue.color.r));
+            Assert.That(InputLocked(app), Is.True);
+            Assert.That(GameObject.Find("RepairButton").GetComponent<UnityEngine.UI.Button>().interactable, Is.False);
+            Assert.That(GameObject.Find("StorageButton").GetComponent<UnityEngine.UI.Button>().interactable, Is.False);
+            Assert.That(GameObject.Find("VaultButton").GetComponent<UnityEngine.UI.Button>().interactable, Is.False);
+            Assert.That(GameObject.Find("HoldButton").GetComponent<UnityEngine.UI.Button>().interactable, Is.False);
+
+            ClickButton("IncidentDocketInterludeContinueButton");
+            yield return null;
+
+            Assert.That(GameObject.Find("IncidentDocketInterlude"), Is.Null);
+            Assert.That(InputLocked(app), Is.False);
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("backward-candle"));
+            Assert.That(ObjectText("NextPreview0"), Does.Contain("참을성 많은 나침반"));
+
+            yield return CompleteCurrentDocketUntilInterlude(app, 2);
+            Assert.That(ObjectText("IncidentDocketInterludeSpeaker"), Is.EqualTo("선임 관리인"));
+            Assert.That(ObjectText("IncidentDocketInterludeBody"),
+                Is.EqualTo("비가 오래전에 지운 접수표의 이름들을 읊고 있어요."));
+            ClickButton("IncidentDocketInterludeContinueButton");
+            yield return null;
+
+            yield return CompleteCurrentDocketUntilInterlude(app, 3);
+            Assert.That(ObjectText("IncidentDocketInterludeBody"),
+                Is.EqualTo("열쇠는 간직했구나. 약속도 간직했니?"));
+            ClickButton("IncidentDocketInterludeContinueButton");
+            yield return null;
+
+            yield return CompleteActiveShift(app);
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.IncidentResults));
+            Assert.That(GameObject.Find("IncidentDocketInterlude"), Is.Null,
+                "The fourth and final docket must go directly to incident results.");
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentDocketInterlude_DisabledViewFlushesOwnedContinuationExactlyOnce()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            yield return BeginRememberingRainShift(app, 0, "en");
+            yield return CompleteCurrentDocketUntilInterlude(app, 1);
+
+            var view = GameObject.Find("IncidentDocketInterlude").GetComponent<NarrativeSequenceView>();
+            view.enabled = false;
+            typeof(GameApp)
+                .GetMethod("OnApplicationPause", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(app, new object[] { true });
+
+            Assert.That(PendingTransition(app), Is.Null);
+            Assert.That(InputLocked(app), Is.False);
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("backward-candle"));
+
+            typeof(GameApp)
+                .GetMethod("OnApplicationPause", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(app, new object[] { true });
+            Assert.That(CurrentArtifactId(app), Is.EqualTo("backward-candle"),
+                "A second flush must not advance the shift again.");
+        }
+
+        [UnityTest]
+        public IEnumerator FreeAndTutorialShifts_DoNotCreateIncidentDocketInterlude()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+
+            app.StartNewShift(4242);
+            Assert.That(GameObject.Find("IncidentDocketInterlude"), Is.Null);
+
+            BeginTutorial(app);
+            yield return null;
+            Assert.That(GameObject.Find("IncidentDocketInterlude"), Is.Null);
+        }
+
+        [UnityTest]
         public IEnumerator IncidentSuccess_PersistsQualityOncePlaysOutroAndStartsTheNextAuthoredStage()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
@@ -2665,6 +2752,21 @@ namespace CurioClerk.Tests.PlayMode
             yield return AdvanceNarrativeToShift(app);
         }
 
+        private static IEnumerator BeginRememberingRainShift(GameApp app, int stageIndex, string locale)
+        {
+            SetSaveString(app, "activeIncidentId", "remembering-rain");
+            SetSaveInt(app, "activeIncidentStage", stageIndex);
+            app.SaveData.incidentStageRecords.Clear();
+            var completedIds = SaveStringList(app, "completedIncidentIds");
+            completedIds.Clear();
+            completedIds.Add("unmelting-ice");
+            SetLocale(app, locale);
+            app.ShowMenu();
+            ClickButton("IncidentButton");
+            yield return null;
+            yield return AdvanceNarrativeToShift(app);
+        }
+
         private static IEnumerator AdvanceNarrativeToShift(GameApp app)
         {
             for (var safety = 0; safety < 8 && app.ActiveScreen == AppScreen.Narrative; safety++)
@@ -2802,6 +2904,59 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(SessionCorrectSorts(app), Is.EqualTo(targetCorrectSorts));
         }
 
+        private static IEnumerator CompleteCurrentDocketUntilInterlude(GameApp app, int expectedDocket)
+        {
+            for (var safety = 0; safety < 16 && SessionInt(app, "CompletedDockets") < expectedDocket; safety++)
+            {
+                var completedBefore = SessionInt(app, "CompletedDockets");
+                var expected = ExpectedDestination(app);
+                var button = GameObject.Find(DestinationButtonName(expected))
+                    .GetComponent<UnityEngine.UI.Button>();
+                if (button.interactable)
+                {
+                    typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { expected });
+                }
+                else
+                {
+                    app.HoldCurrent();
+                }
+
+                if (SessionInt(app, "CompletedDockets") == completedBefore)
+                {
+                    var transitionDeadline = Time.realtimeSinceStartup + 6f;
+                    while (InputLocked(app) &&
+                           GameObject.Find("IncidentDocketInterlude") == null &&
+                           Time.realtimeSinceStartup < transitionDeadline)
+                    {
+                        yield return null;
+                    }
+
+                    Assert.That(
+                        !InputLocked(app) || GameObject.Find("IncidentDocketInterlude") != null,
+                        Is.True,
+                        "A filing transition must either release input or hand ownership to the interlude.");
+                }
+            }
+
+            var remainingDestination = ExpectedDestination(app);
+            var remainingButton = GameObject.Find(DestinationButtonName(remainingDestination))
+                .GetComponent<UnityEngine.UI.Button>();
+            Assert.That(
+                SessionInt(app, "CompletedDockets"),
+                Is.EqualTo(expectedDocket),
+                $"Current={CurrentArtifactId(app)}, expected={remainingDestination}, " +
+                $"button={remainingButton.interactable}, canHold={((ShiftSession)Session(app)).CanHold}, " +
+                $"inputLocked={InputLocked(app)}");
+            var deadline = Time.realtimeSinceStartup + 2.5f;
+            while (GameObject.Find("IncidentDocketInterlude") == null && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+
+            Assert.That(GameObject.Find("IncidentDocketInterlude"), Is.Not.Null,
+                $"Docket {expectedDocket} must show its authored incident interlude.");
+        }
+
         private static IEnumerator WaitForFilingTransition(GameApp app)
         {
             var inputLocked = typeof(GameApp)
@@ -2812,6 +2967,11 @@ namespace CurioClerk.Tests.PlayMode
             var deadline = Time.realtimeSinceStartup + timeoutSeconds;
             while ((bool)inputLocked.GetValue(app) && Time.realtimeSinceStartup < deadline)
             {
+                if (GameObject.Find("IncidentDocketInterlude") != null)
+                {
+                    ClickButton("IncidentDocketInterludeContinueButton");
+                }
+
                 yield return null;
             }
 
@@ -2822,6 +2982,11 @@ namespace CurioClerk.Tests.PlayMode
         private static object PendingTransition(GameApp app)
             => typeof(GameApp)
                 .GetField("_pendingTransition", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app);
+
+        private static bool InputLocked(GameApp app)
+            => (bool)typeof(GameApp)
+                .GetField("_inputLocked", BindingFlags.Instance | BindingFlags.NonPublic)
                 .GetValue(app);
 
         private static void StartDailyShift(GameApp app)

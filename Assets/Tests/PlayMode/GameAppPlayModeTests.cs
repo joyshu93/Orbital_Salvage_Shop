@@ -190,7 +190,7 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator Menu_RememberingRainWaiting_ShowsClueWithoutFakeActionButton()
+        public IEnumerator Menu_RememberingRainSecondShift_ShowsContinuableFiveStageProgress()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
             yield return null;
@@ -207,13 +207,11 @@ namespace CurioClerk.Tests.PlayMode
             app.ShowMenu();
 
             Assert.That(GameObject.Find("CurrentIncidentCard"), Is.Not.Null);
-            Assert.That(ObjectText("IncidentState"), Is.EqualTo("다음 교대 준비 중"));
+            Assert.That(ObjectText("IncidentState"), Is.EqualTo("조사 진행 중"));
             Assert.That(ObjectText("IncidentTitle"), Is.EqualTo("기억하는 비"));
-            Assert.That(ObjectText("IncidentClue"), Is.EqualTo("빗속의 목소리는 선임 관리인을 알고 있다."));
             Assert.That(GameObject.Find("IncidentArtwork"), Is.Not.Null);
-            Assert.That(GameObject.Find("IncidentButton"), Is.Null,
-                "Waiting for authored content must be an explanatory state, not a disabled-looking action.");
-            Assert.That(GameObject.Find("IncidentWaitingState"), Is.Not.Null);
+            Assert.That(ObjectText("IncidentButton"), Is.EqualTo("조사 계속 · 2/5"));
+            Assert.That(GameObject.Find("IncidentWaitingState"), Is.Null);
             Assert.That(GameObject.Find("ResolvedIncidentCard_unmelting-ice"), Is.Not.Null);
             Assert.That(GameObject.Find("ReplayIncident_unmelting-ice"), Is.Not.Null);
             Assert.That(GameObject.Find("CollectionButton"), Is.Not.Null);
@@ -287,7 +285,7 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator RememberingRain_CompletionPersistsStageButDoesNotResolveIncident()
+        public IEnumerator RememberingRain_FirstShiftCompletionPersistsAndStartsSecondShift()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
             yield return null;
@@ -310,14 +308,13 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(ObjectText("IncidentOutroBody"),
                 Is.EqualTo("빗방울이 속삭입니다. “돌아오겠다고 약속했잖아.” 선임 관리인은 대답하지 않습니다."));
             ClickButton("IncidentOutroContinueButton");
-            Assert.That(ObjectText("NextStageButton"), Is.EqualTo("사건 보드로 돌아가기"));
+            Assert.That(ObjectText("NextStageButton"), Is.EqualTo("다음 교대"));
             ClickButton("NextStageButton");
             yield return null;
 
-            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Menu));
-            Assert.That(ObjectText("IncidentClue"), Is.EqualTo("빗속의 목소리는 선임 관리인을 알고 있다."));
-            Assert.That(ObjectText("IncidentWaitingState"), Is.EqualTo("다음 교대 준비 중"));
-            Assert.That(GameObject.Find("IncidentButton"), Is.Null);
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Narrative));
+            Assert.That(ObjectText("NarrativeBody"), Is.EqualTo(
+                "비가 장부의 지금 이름을 모두 씻어 냈어요. 그 아래에서 오래된 이름들이 떠오릅니다."));
         }
 
         [UnityTest]

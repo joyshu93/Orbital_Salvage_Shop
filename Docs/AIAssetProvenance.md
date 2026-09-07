@@ -292,6 +292,21 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Store submission decision | Ordinary in-game narrative text; no separate AI-media declaration currently identified. Recheck the selected store's current requirements at submission time. |
 | Release status | **Prototype copy — developer bilingual and in-context review required before RC.** |
 
+### TEXT-NARRATIVE-006 — Remembering Rain five-stage prototype script
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Assets/Scripts/Runtime/Content/Incidents/SecondIncidentCatalog.cs`; generated runtime presentation derived from this source after catalog generation |
+| Asset type and intended use | English/Korean five-stage incident dialogue, three-docket interludes, judgment reactions, completion hook, and read-only next-incident clue for the complete Remembering Rain prototype |
+| Tool | OpenAI Codex drafted the bilingual narrative copy from the developer-approved campaign blueprint and implementation plan |
+| Creation date | 2026-09-07 KST |
+| Reference inputs | The approved Curio Clerk story master blueprint and Remembering Rain implementation plan, existing repository artifact fiction and mechanics, and the previously approved first-shift draft only; no third-party prose, quotation, image, audio, game, film, or style reference was supplied or copied |
+| Human direction | The developer approved direct implementation of all five shifts, their connected three-docket reveals, the fixed judgment matrices, and the third-incident teaser, and authorized AI-driven Unity validation and Korean play acceptance. |
+| Human edits | All English and Korean prose remains prototype copy. Naturalness, clarity, emotional pacing, line wrapping, and in-context presentation require review in the running Korean build before RC. |
+| Third-party elements | None identified. No external prose, quotation, named style, franchise text, likeness, or third-party reference material was used. |
+| Store submission decision | Ordinary in-game narrative text; no separate AI-media declaration currently identified. Recheck the selected store's current requirements at submission time. |
+| Release status | **Prototype copy — developer bilingual and in-context review required before RC.** |
+
 ### FONT-UI-001 — Gowun Batang display typography
 
 | Field | Record |

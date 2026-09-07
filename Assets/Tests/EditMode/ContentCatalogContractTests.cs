@@ -136,11 +136,14 @@ namespace CurioClerk.Tests.EditMode
         }
 
         [Test]
-        public void IncidentCatalog_ExposesTwoOrderedIncidentsWithSixTotalStages()
+        public void IncidentCatalog_ExposesThreeOrderedIncidentsWithTenTotalStages()
         {
             var incidents = ContentCatalog.CreateIncidents();
 
-            Assert.That(incidents.Count, Is.EqualTo(2));
+            Assert.That(incidents.Select(incident => incident.Id), Is.EqualTo(new[]
+            {
+                "unmelting-ice", "remembering-rain", "one-minute-ahead"
+            }));
             Assert.That(incidents[0].Id, Is.EqualTo("unmelting-ice"));
             Assert.That(incidents[0].Stages.Select(stage => stage.Id), Is.EqualTo(new[]
             {
@@ -151,8 +154,16 @@ namespace CurioClerk.Tests.EditMode
                 "ice-05-thaw"
             }));
             Assert.That(incidents[1].Id, Is.EqualTo("remembering-rain"));
-            Assert.That(incidents[1].Stages.Select(stage => stage.Id), Is.EqualTo(new[] { "rain-01-voices" }));
-            Assert.That(incidents.Sum(incident => incident.Stages.Count), Is.EqualTo(6));
+            Assert.That(incidents[1].Stages.Select(stage => stage.Id), Is.EqualTo(new[]
+            {
+                "rain-01-voices",
+                "rain-02-names-under-water",
+                "rain-03-unsent-letter",
+                "rain-04-dry-order",
+                "rain-05-testimony"
+            }));
+            Assert.That(incidents[2].Stages, Is.Empty);
+            Assert.That(incidents.Sum(incident => incident.Stages.Count), Is.EqualTo(10));
             Assert.That(ContentCatalog.CreateArtifacts().All(artifact =>
                 (artifact.Traits & CurioClerk.Core.Artifacts.ArtifactTraits.Frosted) == 0), Is.True,
                 "Frosted is an incident-stage modifier and must not mutate base catalog traits.");
@@ -163,12 +174,12 @@ namespace CurioClerk.Tests.EditMode
         {
             var styles = ContentCatalog.CreateIncidentPresentationStyles();
 
-            Assert.That(styles.Count, Is.EqualTo(2));
+            Assert.That(styles.Count, Is.EqualTo(3));
             Assert.That(styles.Select(style => style.IncidentId),
-                Is.EqualTo(new[] { "unmelting-ice", "remembering-rain" }));
-            Assert.That(styles.Select(style => style.AccentHex), Is.EqualTo(new[] { "D6A85F", "8094B8" }));
-            Assert.That(styles.Select(style => style.SurfaceHex), Is.EqualTo(new[] { "6E334F", "343B57" }));
-            Assert.That(styles.Select(style => style.TransitionStrength), Is.EqualTo(new[] { 0.85f, 1.00f }));
+                Is.EqualTo(new[] { "unmelting-ice", "remembering-rain", "one-minute-ahead" }));
+            Assert.That(styles.Select(style => style.AccentHex), Is.EqualTo(new[] { "D6A85F", "8094B8", "D6A85F" }));
+            Assert.That(styles.Select(style => style.SurfaceHex), Is.EqualTo(new[] { "6E334F", "343B57", "4A2D36" }));
+            Assert.That(styles.Select(style => style.TransitionStrength), Is.EqualTo(new[] { 0.85f, 1.00f, 0.92f }));
         }
 
         [Test]

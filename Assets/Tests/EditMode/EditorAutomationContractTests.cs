@@ -278,11 +278,11 @@ namespace CurioClerk.Tests.EditMode
         }
 
         [Test]
-        public void ContentValidator_SuccessSummaryCountsTwoIncidentsAndSixStages()
+        public void ContentValidator_SuccessSummaryCountsThreeIncidentsAndTenStages()
         {
             LogAssert.Expect(LogType.Log,
                 "Curio Clerk validation passed: 24 artifacts, 10 rules, 2 rule packs, " +
-                "3 docket templates, 2 incidents, 6 incident stages, 5 difficulties, 6 cosmetics, 2 scenes.");
+                "3 docket templates, 3 incidents, 10 incident stages, 5 difficulties, 6 cosmetics, 2 scenes.");
 
             var validator = FindType("CurioClerk.Editor.ContentValidator");
             Assert.That(validator, Is.Not.Null);

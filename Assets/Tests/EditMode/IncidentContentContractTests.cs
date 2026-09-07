@@ -440,6 +440,86 @@ namespace CurioClerk.Tests.EditMode
         }
 
         [Test]
+        public void NarrativeBeat_PreservesOptionalBilingualSpeakerAndLegacyConstructorLeavesItNull()
+        {
+            var speaker = new LocalizedCopy("Voice in the Rain", "빗속의 목소리");
+            var named = new NarrativeBeat(
+                speaker,
+                new LocalizedCopy("Listen.", "들어."),
+                SeniorClerkMood.Alert,
+                IncidentVisualCue.Rain);
+            var legacy = Beat("Legacy", "기존");
+
+            Assert.That(named.Speaker, Is.SameAs(speaker));
+            Assert.That(named.Speaker.ForLocale("ko"), Is.EqualTo("빗속의 목소리"));
+            Assert.That(legacy.Speaker, Is.Null);
+        }
+
+        [TestCase(0)]
+        [TestCase(4)]
+        public void IncidentDocketBeat_RejectsDocketNumbersOutsideAuthoredInterludes(int docketNumber)
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new IncidentDocketBeat(docketNumber, Beat("Beat", "막간")));
+        }
+
+        [Test]
+        public void IncidentDocketBeat_RejectsNullNarrative()
+        {
+            Assert.Throws<ArgumentNullException>(() => new IncidentDocketBeat(1, null));
+        }
+
+        [Test]
+        public void IncidentStageDefinition_CopiesAndFindsAuthoredDocketBeats()
+        {
+            var first = new IncidentDocketBeat(1, Beat("First", "첫째"));
+            var third = new IncidentDocketBeat(3, Beat("Third", "셋째"));
+            var authored = new[] { first, third };
+            var stage = new IncidentStageDefinition(
+                "docket-beat-stage",
+                new[] { Beat("Intro", "도입") },
+                new[] { Beat("Outro", "마무리") },
+                Reactions(),
+                "unmelting-ice",
+                null,
+                QueueIds().Select(id => new IncidentArtifactEntry(id, ArtifactTraits.None)).ToArray(),
+                DefaultRules(),
+                1,
+                authored);
+
+            authored[0] = new IncidentDocketBeat(2, Beat("Changed", "변경"));
+
+            Assert.That(stage.DocketBeats, Is.EqualTo(new[] { first, third }));
+            Assert.That(stage.FindDocketBeat(1), Is.SameAs(first));
+            Assert.That(stage.FindDocketBeat(2), Is.Null);
+            Assert.That(stage.FindDocketBeat(3), Is.SameAs(third));
+            Assert.That(stage.FindDocketBeat(0), Is.Null);
+            Assert.That(stage.FindDocketBeat(4), Is.Null);
+        }
+
+        [Test]
+        public void IncidentStageDefinition_RejectsDuplicateDocketBeatNumbers()
+        {
+            var duplicate = new[]
+            {
+                new IncidentDocketBeat(2, Beat("First", "첫째")),
+                new IncidentDocketBeat(2, Beat("Second", "둘째"))
+            };
+
+            Assert.Throws<ArgumentException>(() => new IncidentStageDefinition(
+                "duplicate-docket-beat-stage",
+                new[] { Beat("Intro", "도입") },
+                new[] { Beat("Outro", "마무리") },
+                Reactions(),
+                "unmelting-ice",
+                null,
+                QueueIds().Select(id => new IncidentArtifactEntry(id, ArtifactTraits.None)).ToArray(),
+                DefaultRules(),
+                1,
+                duplicate));
+        }
+
+        [Test]
         public void IncidentContent_CopiesAuthoredCollectionsAtConstructionBoundaries()
         {
             var queue = QueueIds().Select(id => new IncidentArtifactEntry(id, ArtifactTraits.None)).ToArray();

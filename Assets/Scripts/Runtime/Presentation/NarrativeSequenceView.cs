@@ -101,7 +101,9 @@ namespace CurioClerk.Presentation
         private void RefreshBeat()
         {
             var beat = _beats[_beatIndex];
-            _speaker.text = new Localizer(_locale).Get("senior_clerk");
+            _speaker.text = beat.Speaker == null
+                ? new Localizer(_locale).Get("senior_clerk")
+                : beat.Speaker.ForLocale(_locale);
             _body.text = beat.Copy.ForLocale(_locale);
 
             var portrait = _portraitResolver?.Invoke(beat.Mood);

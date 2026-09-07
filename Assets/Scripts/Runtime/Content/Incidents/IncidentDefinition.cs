@@ -43,17 +43,47 @@ namespace CurioClerk.Content.Incidents
     public sealed class NarrativeBeat
     {
         public NarrativeBeat(LocalizedCopy copy, SeniorClerkMood mood, IncidentVisualCue visualCue)
+            : this(null, copy, mood, visualCue)
         {
+        }
+
+        public NarrativeBeat(
+            LocalizedCopy speaker,
+            LocalizedCopy copy,
+            SeniorClerkMood mood,
+            IncidentVisualCue visualCue)
+        {
+            Speaker = speaker;
             Copy = copy;
             Mood = mood;
             VisualCue = visualCue;
         }
+
+        public LocalizedCopy Speaker { get; }
 
         public LocalizedCopy Copy { get; }
 
         public SeniorClerkMood Mood { get; }
 
         public IncidentVisualCue VisualCue { get; }
+    }
+
+    public sealed class IncidentDocketBeat
+    {
+        public IncidentDocketBeat(int completedDocketNumber, NarrativeBeat narrative)
+        {
+            if (completedDocketNumber < 1 || completedDocketNumber > 3)
+            {
+                throw new ArgumentOutOfRangeException(nameof(completedDocketNumber));
+            }
+
+            CompletedDocketNumber = completedDocketNumber;
+            Narrative = narrative ?? throw new ArgumentNullException(nameof(narrative));
+        }
+
+        public int CompletedDocketNumber { get; }
+
+        public NarrativeBeat Narrative { get; }
     }
 
     public sealed class ArtifactReaction
@@ -116,7 +146,8 @@ namespace CurioClerk.Content.Incidents
             string resonanceHoldArtifactId,
             IReadOnlyList<IncidentArtifactEntry> queue,
             IReadOnlyList<SortingRule> rules,
-            int minimumRequiredHolds)
+            int minimumRequiredHolds,
+            IReadOnlyList<IncidentDocketBeat> docketBeats = null)
         {
             if (string.IsNullOrWhiteSpace(id))
             {
@@ -144,6 +175,7 @@ namespace CurioClerk.Content.Incidents
             Queue = Copy(queue, nameof(queue));
             Rules = Copy(rules, nameof(rules));
             MinimumRequiredHolds = minimumRequiredHolds;
+            DocketBeats = CopyDocketBeats(docketBeats);
         }
 
         public string Id { get; }
@@ -163,6 +195,22 @@ namespace CurioClerk.Content.Incidents
         public IReadOnlyList<SortingRule> Rules { get; }
 
         public int MinimumRequiredHolds { get; }
+
+        public IReadOnlyList<IncidentDocketBeat> DocketBeats { get; }
+
+        public IncidentDocketBeat FindDocketBeat(int completedDocketNumber)
+        {
+            for (var index = 0; index < DocketBeats.Count; index++)
+            {
+                var beat = DocketBeats[index];
+                if (beat.CompletedDocketNumber == completedDocketNumber)
+                {
+                    return beat;
+                }
+            }
+
+            return null;
+        }
 
         public ShiftPlan CreateShiftPlan(IReadOnlyDictionary<string, ArtifactContent> artifacts)
         {
@@ -215,6 +263,35 @@ namespace CurioClerk.Content.Incidents
             {
                 copy[index] = source[index] ??
                     throw new ArgumentException("Incident content collections cannot contain null entries.", parameterName);
+            }
+
+            return Array.AsReadOnly(copy);
+        }
+
+        private static IReadOnlyList<IncidentDocketBeat> CopyDocketBeats(
+            IReadOnlyList<IncidentDocketBeat> source)
+        {
+            if (source == null)
+            {
+                return Array.AsReadOnly(Array.Empty<IncidentDocketBeat>());
+            }
+
+            var copy = new IncidentDocketBeat[source.Count];
+            var completedDockets = new HashSet<int>();
+            for (var index = 0; index < source.Count; index++)
+            {
+                var beat = source[index] ??
+                    throw new ArgumentException(
+                        "Incident docket beat collections cannot contain null entries.",
+                        nameof(source));
+                if (!completedDockets.Add(beat.CompletedDocketNumber))
+                {
+                    throw new ArgumentException(
+                        "Incident docket beat numbers must be unique.",
+                        nameof(source));
+                }
+
+                copy[index] = beat;
             }
 
             return Array.AsReadOnly(copy);

@@ -101,6 +101,30 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator NarrativeView_ShowsLocalizedNamedSpeakerAndCompletesExactlyOnce()
+        {
+            var view = CreateView(out var speaker, out var body, out _, out _, out var button);
+            var completionCount = 0;
+            var beat = new NarrativeBeat(
+                new LocalizedCopy("Voice in the Rain", "빗속의 목소리"),
+                new LocalizedCopy("Which Tuesday?", "어느 화요일이지?"),
+                SeniorClerkMood.Alert,
+                IncidentVisualCue.Rain);
+
+            view.Play(new[] { beat }, "ko", _ => null, () => completionCount++);
+            yield return null;
+
+            Assert.That(speaker.text, Is.EqualTo("빗속의 목소리"));
+            Assert.That(body.text, Is.EqualTo("어느 화요일이지?"));
+
+            button.onClick.Invoke();
+            button.onClick.Invoke();
+            yield return null;
+
+            Assert.That(completionCount, Is.EqualTo(1));
+        }
+
+        [UnityTest]
         public IEnumerator NarrativeView_CompletesExactlyOnceAfterFinalBeat()
         {
             var view = CreateView(out _, out _, out _, out _, out var button);

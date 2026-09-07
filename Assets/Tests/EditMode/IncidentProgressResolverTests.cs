@@ -105,6 +105,64 @@ namespace CurioClerk.Tests.EditMode
         }
 
         [Test]
+        public void Resolve_ZeroStageOpenIncidentStaysLockedUntilPredecessorResolves()
+        {
+            var definitions = new[]
+            {
+                new IncidentProgressDefinition("first", new[] { "first-01" }, true),
+                new IncidentProgressDefinition("preview", System.Array.Empty<string>(), false)
+            };
+
+            var locked = new IncidentProgressResolver().Resolve(new PlayerSaveData(), definitions);
+
+            Assert.That(locked.Find("preview").Lifecycle, Is.EqualTo(IncidentLifecycle.Locked));
+            Assert.That(locked.Find("preview").NextStageIndex, Is.Zero);
+
+            var unlockedSave = new PlayerSaveData();
+            unlockedSave.completedIncidentIds.Add("first");
+            var unlocked = new IncidentProgressResolver().Resolve(unlockedSave, definitions);
+
+            Assert.That(unlocked.Current.Definition.Id, Is.EqualTo("preview"));
+            Assert.That(unlocked.Current.Lifecycle, Is.EqualTo(IncidentLifecycle.AwaitingContent));
+            Assert.That(unlocked.Current.NextStageIndex, Is.Zero);
+        }
+
+        [Test]
+        public void Resolve_AppendingFirstStagePromotesZeroStagePreviewWithoutSaveMigration()
+        {
+            var save = new PlayerSaveData();
+            save.completedIncidentIds.Add("first");
+            var resolver = new IncidentProgressResolver();
+            var preview = new[]
+            {
+                new IncidentProgressDefinition("first", new[] { "first-01" }, true),
+                new IncidentProgressDefinition("preview", System.Array.Empty<string>(), false)
+            };
+
+            var waiting = resolver.Resolve(save, preview);
+            Assert.That(waiting.Current.Lifecycle, Is.EqualTo(IncidentLifecycle.AwaitingContent));
+
+            var playable = resolver.Resolve(save, new[]
+            {
+                preview[0],
+                new IncidentProgressDefinition("preview", new[] { "preview-01" }, false)
+            });
+
+            Assert.That(playable.Current.Definition.Id, Is.EqualTo("preview"));
+            Assert.That(playable.Current.Lifecycle, Is.EqualTo(IncidentLifecycle.Available));
+            Assert.That(playable.Current.NextStageIndex, Is.Zero);
+        }
+
+        [Test]
+        public void IncidentProgressDefinition_RejectsConclusiveZeroStageIncident()
+        {
+            Assert.Throws<System.ArgumentException>(() => new IncidentProgressDefinition(
+                "invalid",
+                System.Array.Empty<string>(),
+                completesWhenAllStagesCompleted: true));
+        }
+
+        [Test]
         public void Resolve_LaterIncidentCompletionDoesNotCarryForwardEarlierIncidentStageIndex()
         {
             var save = new PlayerSaveData();

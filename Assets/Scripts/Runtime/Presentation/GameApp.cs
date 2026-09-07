@@ -403,7 +403,7 @@ namespace CurioClerk.Presentation
             _incidentProgress = ResolveIncidentProgress();
             var current = _incidentProgress.Current;
             _activeIncident = current == null ? null : _incidents.Single(value => value.Id == current.Definition.Id);
-            _incidentRunner = current == null
+            _incidentRunner = current == null || current.Lifecycle != IncidentLifecycle.Available
                 ? null
                 : new IncidentRunner(
                     _activeIncident.Id,

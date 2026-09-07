@@ -221,6 +221,54 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator Menu_UnlockedZeroStageIncidentShowsStableReadOnlyPreviewWithoutRunner()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            var existing = ContentCatalog.CreateIncidents();
+            var resolvedSecond = new IncidentDefinition(
+                existing[1].Id,
+                existing[1].Title,
+                existing[1].LeadArtifactId,
+                existing[1].BoardVisualCue,
+                completesWhenAllStagesCompleted: true,
+                awaitingContentClue: null,
+                stages: existing[1].Stages);
+            var preview = new IncidentDefinition(
+                "preview-incident",
+                new LocalizedCopy("Preview Incident", "예고 사건"),
+                "backward-candle",
+                IncidentVisualCue.AmberWarmth,
+                completesWhenAllStagesCompleted: false,
+                awaitingContentClue: new LocalizedCopy("The clock is waiting.", "시계가 기다리고 있다."),
+                stages: Array.Empty<IncidentStageDefinition>());
+            typeof(GameApp).GetField("_incidents", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(app, new[] { existing[0], resolvedSecond, preview });
+            app.SaveData.completedIncidentIds.Clear();
+            app.SaveData.completedIncidentIds.Add(existing[0].Id);
+            app.SaveData.completedIncidentIds.Add(existing[1].Id);
+            SetLocale(app, "ko");
+
+            app.ShowMenu();
+
+            Assert.That(ObjectText("IncidentTitle"), Is.EqualTo("예고 사건"));
+            Assert.That(ObjectText("IncidentClue"), Is.EqualTo("시계가 기다리고 있다."));
+            Assert.That(GameObject.Find("IncidentButton"), Is.Null);
+            Assert.That(GameObject.Find("IncidentWaitingState"), Is.Not.Null);
+            Assert.That(typeof(GameApp).GetField("_incidentRunner", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app), Is.Null);
+
+            Assert.DoesNotThrow(app.StartIncident);
+            app.ShowMenu();
+            yield return null;
+
+            Assert.That(ObjectText("IncidentTitle"), Is.EqualTo("예고 사건"));
+            Assert.That(GameObject.Find("IncidentButton"), Is.Null);
+            Assert.That(typeof(GameApp).GetField("_incidentRunner", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app), Is.Null);
+        }
+
+        [UnityTest]
         public IEnumerator RememberingRain_FirstShiftUsesApprovedKoreanOpeningAndQueue()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());

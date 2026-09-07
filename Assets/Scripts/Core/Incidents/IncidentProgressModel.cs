@@ -23,9 +23,16 @@ namespace CurioClerk.Core.Incidents
                 throw new ArgumentException("Incident IDs cannot be blank.", nameof(id));
             }
 
-            if (stageIds == null || stageIds.Count == 0)
+            if (stageIds == null)
             {
-                throw new ArgumentException("An incident requires at least one stage.", nameof(stageIds));
+                throw new ArgumentNullException(nameof(stageIds));
+            }
+
+            if (completesWhenAllStagesCompleted && stageIds.Count == 0)
+            {
+                throw new ArgumentException(
+                    "A conclusive incident requires at least one stage.",
+                    nameof(stageIds));
             }
 
             var copiedStageIds = new List<string>(stageIds.Count);

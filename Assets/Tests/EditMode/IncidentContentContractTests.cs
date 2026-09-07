@@ -440,6 +440,33 @@ namespace CurioClerk.Tests.EditMode
         }
 
         [Test]
+        public void IncidentDefinition_AllowsBilingualZeroStagePreviewButRejectsConclusiveZeroStageIncident()
+        {
+            var title = new LocalizedCopy("Preview", "예고");
+            var clue = new LocalizedCopy("Awaiting clue.", "단서를 기다린다.");
+
+            var preview = new IncidentDefinition(
+                "preview",
+                title,
+                "backward-candle",
+                IncidentVisualCue.AmberWarmth,
+                completesWhenAllStagesCompleted: false,
+                awaitingContentClue: clue,
+                stages: Array.Empty<IncidentStageDefinition>());
+
+            Assert.That(preview.Stages, Is.Empty);
+            Assert.That(preview.AwaitingContentClue, Is.SameAs(clue));
+            Assert.Throws<ArgumentException>(() => new IncidentDefinition(
+                "invalid",
+                title,
+                "backward-candle",
+                IncidentVisualCue.AmberWarmth,
+                completesWhenAllStagesCompleted: true,
+                awaitingContentClue: null,
+                stages: Array.Empty<IncidentStageDefinition>()));
+        }
+
+        [Test]
         public void NarrativeBeat_PreservesOptionalBilingualSpeakerAndLegacyConstructorLeavesItNull()
         {
             var speaker = new LocalizedCopy("Voice in the Rain", "빗속의 목소리");

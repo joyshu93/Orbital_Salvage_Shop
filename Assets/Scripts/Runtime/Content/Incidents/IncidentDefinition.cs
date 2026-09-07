@@ -334,9 +334,16 @@ namespace CurioClerk.Content.Incidents
                     nameof(awaitingContentClue));
             }
 
-            if (stages == null || stages.Count == 0)
+            if (stages == null)
             {
-                throw new ArgumentException("An incident requires at least one stage.", nameof(stages));
+                throw new ArgumentNullException(nameof(stages));
+            }
+
+            if (completesWhenAllStagesCompleted && stages.Count == 0)
+            {
+                throw new ArgumentException(
+                    "A conclusive incident requires at least one stage.",
+                    nameof(stages));
             }
 
             var copiedStages = new IncidentStageDefinition[stages.Count];

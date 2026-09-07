@@ -392,6 +392,127 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator RememberingRain_KoreanAcceptanceRouteConnectsAllFiveShifts()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetRememberingRainProgress(app, 0, false);
+            SetLocale(app, "ko");
+            app.ShowMenu();
+
+            Assert.That(ObjectText("IncidentTitle"), Is.EqualTo("기억하는 비"));
+            ClickButton("IncidentButton");
+            yield return null;
+
+            var protectedArtifacts = new[]
+            {
+                "paper-fish",
+                "rain-jar",
+                "paper-fish",
+                "moon-umbrella",
+                "paper-fish"
+            };
+            var stageHooks = new[]
+            {
+                "오래전에 지운",
+                "화요일",
+                "야간 보관소",
+                "발신",
+                "나는 네 선임보다 먼저 일한 관리인이야"
+            };
+            var fullStory = new List<string>();
+
+            for (var stageIndex = 0; stageIndex < protectedArtifacts.Length; stageIndex++)
+            {
+                var stageStory = new List<string>();
+                for (var safety = 0; safety < 8 && app.ActiveScreen == AppScreen.Narrative; safety++)
+                {
+                    stageStory.Add(ObjectText("NarrativeBody"));
+                    AssertTextIsReadable("NarrativeBody");
+                    AssertButtonIsVisible("NarrativeContinueButton");
+                    ClickButton("NarrativeContinueButton");
+                    yield return null;
+                }
+
+                Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Shift),
+                    $"Rain stage {stageIndex + 1} must begin after its authored Korean intro.");
+
+                var heldProtectedArtifact = false;
+                var interludeCount = 0;
+                for (var safety = 0; safety < 80 && SessionState(app) == "Active"; safety++)
+                {
+                    if (!heldProtectedArtifact &&
+                        CurrentArtifactId(app) == protectedArtifacts[stageIndex] &&
+                        ((ShiftSession)Session(app)).CanHold)
+                    {
+                        app.HoldCurrent();
+                        heldProtectedArtifact = true;
+                    }
+                    else
+                    {
+                        var expected = ExpectedDestination(app);
+                        var destinationButton = GameObject.Find(DestinationButtonName(expected))
+                            .GetComponent<UnityEngine.UI.Button>();
+                        if (destinationButton.interactable)
+                        {
+                            typeof(GameApp).GetMethod("ChooseDestination").Invoke(app, new[] { expected });
+                        }
+                        else
+                        {
+                            Assert.That(((ShiftSession)Session(app)).CanHold, Is.True,
+                                "A sealed destination must be resolved by swapping through Hold.");
+                            app.HoldCurrent();
+                        }
+                    }
+
+                    yield return WaitForAcceptanceTransition(
+                        app,
+                        stageIndex,
+                        stageStory,
+                        count => interludeCount += count);
+                }
+
+                Assert.That(heldProtectedArtifact, Is.True,
+                    $"Rain stage {stageIndex + 1} must deliberately protect {protectedArtifacts[stageIndex]} in Hold.");
+                Assert.That(interludeCount, Is.EqualTo(3),
+                    $"Rain stage {stageIndex + 1} must present exactly three one-tap docket interludes.");
+                Assert.That(SessionState(app), Is.EqualTo("Completed"));
+                Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.IncidentResults));
+
+                while (GameObject.Find("NextStageButton") == null)
+                {
+                    stageStory.Add(ObjectText("IncidentOutroBody"));
+                    AssertTextIsReadable("IncidentOutroBody");
+                    AssertButtonIsVisible("IncidentOutroContinueButton");
+                    ClickButton("IncidentOutroContinueButton");
+                    yield return null;
+                }
+
+                Assert.That(string.Join("\n", stageStory), Does.Contain(stageHooks[stageIndex]),
+                    $"Rain stage {stageIndex + 1} must communicate its fixed recall hook in Korean.");
+                fullStory.AddRange(stageStory);
+                AssertButtonIsVisible("NextStageButton");
+                ClickButton("NextStageButton");
+                yield return null;
+            }
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Menu));
+            Assert.That(ObjectText("IncidentTitle"), Is.EqualTo("1분 앞선 저녁"));
+            Assert.That(ObjectText("IncidentClue"), Is.EqualTo("이끼가 2시 17분을 향해 자라고 있다."));
+            AssertTextIsReadable("IncidentTitle");
+            AssertTextIsReadable("IncidentClue");
+            Assert.That(GameObject.Find("IncidentButton"), Is.Null,
+                "The successor teaser must remain read-only.");
+
+            var completeStory = string.Join("\n", fullStory);
+            Assert.That(completeStory, Does.Contain("나는 네 선임보다 먼저 일한 관리인이야"));
+            Assert.That(completeStory, Does.Contain("다음에 올 사람을 위해 진실을 남겼어"));
+            Assert.That(completeStory, Does.Contain("바로 이 작업대입니다"));
+            yield return new WaitForSecondsRealtime(2f);
+            yield return CaptureAcceptanceFrame("rain-06-successor-teaser.png");
+        }
+
+        [UnityTest]
         public IEnumerator RememberingRain_ReplayDoesNotDuplicateCompletionRewardsOrRecords()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
@@ -2953,6 +3074,104 @@ namespace CurioClerk.Tests.PlayMode
 
             Assert.That(GameObject.Find("NextStageButton"), Is.Not.Null,
                 "The incident outro must reveal its next action within the authored beat bound.");
+        }
+
+        private static IEnumerator WaitForAcceptanceTransition(
+            GameApp app,
+            int stageIndex,
+            ICollection<string> stageStory,
+            Action<int> recordInterlude)
+        {
+            var deadline = Time.realtimeSinceStartup + 6f;
+            while (InputLocked(app) &&
+                   GameObject.Find("IncidentDocketInterlude") == null &&
+                   Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+
+            var interlude = GameObject.Find("IncidentDocketInterlude");
+            if (interlude == null)
+            {
+                Assert.That(InputLocked(app), Is.False,
+                    "A filing transition must release input when it does not open an interlude.");
+                yield break;
+            }
+
+            recordInterlude(1);
+            stageStory.Add(ObjectText("IncidentDocketInterludeBody"));
+            Assert.That(ObjectText("IncidentDocketInterludeSpeaker"), Is.Not.Empty);
+            AssertTextIsReadable("IncidentDocketInterludeSpeaker");
+            AssertTextIsReadable("IncidentDocketInterludeBody");
+            AssertButtonIsVisible("IncidentDocketInterludeContinueButton");
+            Assert.That(InputLocked(app), Is.True);
+            Assert.That(GameObject.Find("RepairButton").GetComponent<UnityEngine.UI.Button>().interactable, Is.False);
+            Assert.That(GameObject.Find("StorageButton").GetComponent<UnityEngine.UI.Button>().interactable, Is.False);
+            Assert.That(GameObject.Find("VaultButton").GetComponent<UnityEngine.UI.Button>().interactable, Is.False);
+            Assert.That(GameObject.Find("HoldButton").GetComponent<UnityEngine.UI.Button>().interactable, Is.False);
+
+            var docketNumber = SessionInt(app, "CompletedDockets");
+            if (docketNumber == 1)
+            {
+                yield return CaptureAcceptanceFrame($"rain-{stageIndex + 1:00}-interlude.png");
+            }
+
+            ClickButton("IncidentDocketInterludeContinueButton");
+            yield return null;
+            Assert.That(GameObject.Find("IncidentDocketInterlude"), Is.Null);
+            Assert.That(InputLocked(app), Is.False,
+                "One Continue tap must close the interlude and return control to the desk.");
+        }
+
+        private static void AssertTextIsReadable(string objectName)
+        {
+            var text = GameObject.Find(objectName)?.GetComponent<TMP_Text>();
+            Assert.That(text, Is.Not.Null, objectName + " must expose TMP text.");
+            text.ForceMeshUpdate();
+            Assert.That(text.isTextOverflowing, Is.False,
+                objectName + " must not truncate or overflow its Korean copy.");
+        }
+
+        private static void AssertButtonIsVisible(string objectName)
+        {
+            var button = GameObject.Find(objectName)?.GetComponent<UnityEngine.UI.Button>();
+            Assert.That(button, Is.Not.Null, objectName + " must remain visible and tappable.");
+            Assert.That(button.gameObject.activeInHierarchy, Is.True);
+            Assert.That(button.GetComponent<RectTransform>().rect.height, Is.GreaterThanOrEqualTo(44f),
+                objectName + " must preserve a practical touch target beneath the portrait layout.");
+        }
+
+        private static IEnumerator CaptureAcceptanceFrame(string fileName)
+        {
+            if (!string.Equals(
+                    Environment.GetEnvironmentVariable("CURIO_CAPTURE_ACCEPTANCE"),
+                    "1",
+                    StringComparison.Ordinal))
+            {
+                yield break;
+            }
+
+            var directory = System.IO.Path.GetFullPath(
+                System.IO.Path.Combine(Application.dataPath, "..", "Logs", "Acceptance", "RememberingRain"));
+            System.IO.Directory.CreateDirectory(directory);
+            var path = System.IO.Path.Combine(directory, fileName);
+            if (System.IO.File.Exists(path))
+            {
+                System.IO.File.Delete(path);
+            }
+
+            var screenCaptureType = Type.GetType(
+                "UnityEngine.ScreenCapture, UnityEngine.ScreenCaptureModule",
+                throwOnError: true);
+            screenCaptureType.GetMethod("CaptureScreenshot", new[] { typeof(string) })
+                .Invoke(null, new object[] { path });
+            var deadline = Time.realtimeSinceStartup + 3f;
+            while (!System.IO.File.Exists(path) && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+
+            Assert.That(System.IO.File.Exists(path), Is.True, "Acceptance screenshot was not written: " + path);
         }
 
         private static void BeginTutorial(GameApp app)

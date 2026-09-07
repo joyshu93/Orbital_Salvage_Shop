@@ -196,7 +196,10 @@ namespace CurioClerk.Tests.PlayMode
             yield return null;
             SetSaveString(app, "activeIncidentId", "remembering-rain");
             SetSaveInt(app, "activeIncidentStage", 1);
-            SaveStringList(app, "completedIncidentIds").Add("unmelting-ice");
+            var completedIds = SaveStringList(app, "completedIncidentIds");
+            completedIds.Clear();
+            completedIds.Add("unmelting-ice");
+            app.SaveData.incidentStageRecords.Clear();
             app.SaveData.incidentStageRecords.Add(new IncidentStageRecord
             {
                 stageId = "rain-01-voices",
@@ -318,13 +321,143 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator RememberingRain_FourthShiftResultContinuesAtFifthShift()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetRememberingRainProgress(app, 3, false);
+            SetLocale(app, "ko");
+            app.ShowMenu();
+            ClickButton("IncidentButton");
+            yield return AdvanceNarrativeToShift(app);
+            yield return CompleteActiveShift(app);
+
+            Assert.That(app.SaveData.activeIncidentStage, Is.EqualTo(4));
+            Assert.That(app.SaveData.incidentStageRecords.Select(record => record.stageId),
+                Does.Contain("rain-04-dry-order"));
+            yield return AdvanceIncidentOutroToNextAction();
+            Assert.That(ObjectText("NextStageButton"), Is.EqualTo("다음 교대"));
+
+            ClickButton("NextStageButton");
+            yield return null;
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Narrative));
+            Assert.That(ObjectText("NarrativeBody"), Is.EqualTo(
+                "편지 조각과 비가 마지막 밤 하나를 되풀이하고 있어요. 이번에는 순서대로 듣겠습니다."));
+        }
+
+        [UnityTest]
+        public IEnumerator RememberingRain_FinalShiftResolvesOnceAndRevealsReadOnlySuccessor()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetRememberingRainProgress(app, 4, false);
+            SetLocale(app, "ko");
+            app.ShowMenu();
+            ClickButton("IncidentButton");
+            yield return AdvanceNarrativeToShift(app);
+            var saveStore = new RecordingSaveStore();
+            typeof(GameApp).GetField("_saveStore", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(app, saveStore);
+
+            yield return CompleteActiveShift(app);
+
+            Assert.That(app.SaveData.activeIncidentStage, Is.EqualTo(5));
+            Assert.That(app.SaveData.completedIncidentIds.Count(id => id == "remembering-rain"), Is.EqualTo(1));
+            Assert.That(app.SaveData.incidentStageRecords.Count(record => record.stageId == "rain-05-testimony"),
+                Is.EqualTo(1));
+            Assert.That((bool)typeof(GameApp)
+                .GetField("_pendingIncidentBoardReveal", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(app), Is.True);
+            Assert.That(saveStore.SaveCalls, Is.EqualTo(1));
+
+            InvokePrivate(app, "ShowIncidentResults");
+            Assert.That(saveStore.SaveCalls, Is.EqualTo(1));
+            Assert.That(app.SaveData.completedIncidentIds.Count(id => id == "remembering-rain"), Is.EqualTo(1));
+            Assert.That(app.SaveData.incidentStageRecords.Count(record => record.stageId == "rain-05-testimony"),
+                Is.EqualTo(1));
+
+            yield return AdvanceIncidentOutroToNextAction();
+            ClickButton("NextStageButton");
+            yield return null;
+
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Menu));
+            Assert.That(ObjectText("IncidentTitle"), Is.EqualTo("1분 앞선 저녁"));
+            Assert.That(ObjectText("IncidentState"), Is.EqualTo("다음 교대 준비 중"));
+            Assert.That(ObjectText("IncidentClue"), Is.EqualTo("이끼가 2시 17분을 향해 자라고 있다."));
+            Assert.That(GameObject.Find("IncidentButton"), Is.Null);
+            Assert.That(GameObject.Find("IncidentWaitingState"), Is.Not.Null);
+            Assert.That(GameObject.Find("ReplayIncident_remembering-rain"), Is.Not.Null);
+            Assert.That(GameObject.Find("ResolvedIncidentCard_remembering-rain"), Is.Not.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator RememberingRain_ReplayDoesNotDuplicateCompletionRewardsOrRecords()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetRememberingRainProgress(app, 5, true);
+            SetLocale(app, "en");
+            app.ShowMenu();
+            var recordsBefore = app.SaveData.incidentStageRecords.Count;
+            var completedBefore = app.SaveData.completedIncidentIds.Count;
+            var coinsBefore = app.SaveData.coins;
+            var saveStore = new RecordingSaveStore();
+            typeof(GameApp).GetField("_saveStore", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(app, saveStore);
+
+            ClickButton("ReplayIncident_remembering-rain");
+            yield return AdvanceNarrativeToShift(app);
+            yield return CompleteActiveShift(app);
+
+            Assert.That(saveStore.SaveCalls, Is.Zero);
+            Assert.That(app.SaveData.incidentStageRecords.Count, Is.EqualTo(recordsBefore));
+            Assert.That(app.SaveData.completedIncidentIds.Count, Is.EqualTo(completedBefore));
+            Assert.That(app.SaveData.coins, Is.EqualTo(coinsBefore));
+            Assert.That(app.SaveData.activeIncidentStage, Is.EqualTo(5));
+        }
+
+        [UnityTest]
+        public IEnumerator RememberingRain_OldAndMidCaseSavesResumeAndLanguageSwitchPreservesState()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetRememberingRainProgress(app, 1, false);
+            SetLocale(app, "ko");
+            app.ShowMenu();
+            Assert.That(ObjectText("IncidentButton"), Is.EqualTo("조사 계속 · 2/5"));
+            ClickButton("IncidentButton");
+            yield return null;
+            Assert.That(ObjectText("NarrativeBody"), Is.EqualTo(
+                "비가 장부의 지금 이름을 모두 씻어 냈어요. 그 아래에서 오래된 이름들이 떠오릅니다."));
+
+            SetRememberingRainProgress(app, 3, false);
+            SetLocale(app, "ko");
+            app.ShowMenu();
+            Assert.That(ObjectText("IncidentButton"), Is.EqualTo("조사 계속 · 4/5"));
+            Assert.That(app.SaveData.activeIncidentStage, Is.EqualTo(3));
+
+            SetLocale(app, "en");
+            app.ShowMenu();
+            Assert.That(ObjectText("IncidentTitle"), Is.EqualTo("The Remembering Rain"));
+            Assert.That(ObjectText("IncidentButton"), Is.EqualTo("Continue Investigation · 4/5"));
+            Assert.That(app.SaveData.activeIncidentStage, Is.EqualTo(3));
+            ClickButton("IncidentButton");
+            yield return null;
+            Assert.That(ObjectText("NarrativeBody"), Does.Contain("perfectly dry order"));
+        }
+
+        [UnityTest]
         public IEnumerator ResolvedIceReplay_DoesNotMoveRememberingRainProgress()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
             yield return null;
             SetSaveString(app, "activeIncidentId", "remembering-rain");
             SetSaveInt(app, "activeIncidentStage", 1);
-            SaveStringList(app, "completedIncidentIds").Add("unmelting-ice");
+            var completedIds = SaveStringList(app, "completedIncidentIds");
+            completedIds.Clear();
+            completedIds.Add("unmelting-ice");
+            app.SaveData.incidentStageRecords.Clear();
             app.SaveData.incidentStageRecords.Add(new IncidentStageRecord
             {
                 stageId = "rain-01-voices",
@@ -2742,6 +2875,37 @@ namespace CurioClerk.Tests.PlayMode
             }
         }
 
+        private static void SetRememberingRainProgress(GameApp app, int stageIndex, bool completed)
+        {
+            SetSaveString(app, "activeIncidentId", "remembering-rain");
+            SetSaveInt(app, "activeIncidentStage", stageIndex);
+            app.SaveData.incidentStageRecords.Clear();
+            var stageIds = new[]
+            {
+                "rain-01-voices",
+                "rain-02-names-under-water",
+                "rain-03-unsent-letter",
+                "rain-04-dry-order",
+                "rain-05-testimony"
+            };
+            for (var index = 0; index < Math.Min(stageIndex, stageIds.Length); index++)
+            {
+                app.SaveData.incidentStageRecords.Add(new IncidentStageRecord
+                {
+                    stageId = stageIds[index],
+                    bestQuality = (int)IncidentQuality.Precise
+                });
+            }
+
+            var completedIds = SaveStringList(app, "completedIncidentIds");
+            completedIds.Clear();
+            completedIds.Add("unmelting-ice");
+            if (completed)
+            {
+                completedIds.Add("remembering-rain");
+            }
+        }
+
         private static IEnumerator BeginIncidentShift(GameApp app, int stageIndex, string locale)
         {
             SetIncidentProgress(app, stageIndex, false);
@@ -2777,6 +2941,18 @@ namespace CurioClerk.Tests.PlayMode
 
             Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Shift),
                 "Incident narrative must reach the authored shift within the safety bound.");
+        }
+
+        private static IEnumerator AdvanceIncidentOutroToNextAction()
+        {
+            for (var safety = 0; safety < 6 && GameObject.Find("NextStageButton") == null; safety++)
+            {
+                ClickButton("IncidentOutroContinueButton");
+                yield return null;
+            }
+
+            Assert.That(GameObject.Find("NextStageButton"), Is.Not.Null,
+                "The incident outro must reveal its next action within the authored beat bound.");
         }
 
         private static void BeginTutorial(GameApp app)

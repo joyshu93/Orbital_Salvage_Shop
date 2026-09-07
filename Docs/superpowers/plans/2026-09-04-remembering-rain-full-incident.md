@@ -10,7 +10,7 @@
 
 **Approved specification:** `Docs/superpowers/specs/2026-09-04-curio-clerk-story-master-design.md`, especially Incident 2 and Incident 3.
 
-**Global constraints:** Preserve offline play, portrait one-hand controls, 12 artifacts per shift, three 4-item dockets, all three destinations, no forced timer, no new input mode, no new art/audio/package, no hand-edits to generated Resources or scenes, and bilingual English/Korean player copy. Do not launch Unity, Unity Hub, Unity batch mode, or Unity MCP. The human developer runs Unity validation commands. Preserve unrelated dirty files.
+**Global constraints:** Preserve offline play, portrait one-hand controls, 12 artifacts per shift, four 3-item dockets, all three destinations, no forced timer, no new input mode, no new art/audio/package, no hand-edits to generated Resources or scenes, and bilingual English/Korean player copy. The human developer authorizes Codex to run the repository's Unity test/build scripts, control Unity Editor/Hub, run `ProjectBuilder.BuildAll`, and exercise the game for this milestone. Confirm the exact worktree before every Unity action, do not use a community Unity MCP, record validation evidence, and preserve unrelated dirty files.
 
 ## Fixed product boundary
 
@@ -22,7 +22,7 @@ This milestone delivers exactly:
 - completion of Remembering Rain after stage 5;
 - a current but non-playable `One Minute Ahead / 1분 앞선 저녁` teaser;
 - save-compatible resume, replay, and successor reveal behavior;
-- automated contracts and a short human playtest.
+- automated contracts and a short Codex-operated acceptance playtest.
 
 It does not deliver branching dialogue, a codex, a timer, new destinations, new traits, new art, voice acting, a third playable incident, or the rest of the campaign.
 
@@ -215,9 +215,9 @@ _speaker.text = beat.Speaker == null
 
 Do not add a second dialogue component or a speaker enum; bilingual data already models the required extension.
 
-**Step 4: Human checkpoint**
+**Step 4: Unity checkpoint**
 
-Ask the developer to close Unity Editor, then run:
+With Unity Editor closed, run:
 
 ```powershell
 Set-Location -LiteralPath 'C:\Users\D-\Documents\Codex_Project\Orbital_Salvage_Shop\.worktrees\three-seal-dockets'
@@ -356,9 +356,9 @@ Add `ThirdIncidentCatalog.CreatePreview()` with the fixed preview data. In `Cont
 
 Change expected counts to `3 incidents` and `10 incident stages`. Validate each stage has either zero docket beats or exactly three ordered beats, each beat has bilingual speaker and body, and completed docket numbers are 1, 2, 3 with no duplicates. Validate zero-stage incidents are open and have a bilingual awaiting clue.
 
-**Step 5: Human BuildAll and tests**
+**Step 5: BuildAll and tests**
 
-Ask the developer to open only this worktree in Unity and run `Tools > Curio Clerk > Generate Project Assets`. Expected Console summary:
+Open only this worktree in Unity and run `Tools > Curio Clerk > Generate Project Assets`. Expected Console summary:
 
 ```text
 Curio Clerk validation passed: 24 artifacts, 10 rules, 2 rule packs, 3 docket templates, 3 incidents, 10 incident stages, 5 difficulties, 6 cosmetics, 2 scenes.
@@ -463,7 +463,7 @@ _incidentDocketInterludeView.Play(
 
 `CompleteIncidentDocketInterlude()` hides the overlay and calls `ResumeShiftAfterCorrectTransition()`. Add the interlude view to `FlushPendingTransitions()` before the fallback `CompleteOwnedTransition(version)` call. If it is inactive or missing, complete directly. Never save progress or mutate the shift from the view callback.
 
-**Step 4: Human test checkpoint**
+**Step 4: Korean test checkpoint**
 
 After PlayMode tests pass, ask for one Korean stage-1 playtest:
 
@@ -534,7 +534,7 @@ rg -n "TODO|TBD|PLACEHOLDER|coming soon" Assets/Scripts/Runtime/Content/Incident
 
 The literal UI concept is an awaiting clue, not the English phrase `coming soon`; no placeholder copy may ship. Confirm every new player-facing line has English and Korean.
 
-**Step 2: Human full Unity verification**
+**Step 2: Full Unity verification**
 
 With Unity closed:
 
@@ -544,16 +544,16 @@ With Unity closed:
 
 Then open only the worktree, run `Tools > Curio Clerk > Validate Project`, and confirm zero Console errors. Do not build Android for this narrative milestone unless the developer requests a device build.
 
-**Step 3: Human acceptance playtest**
+**Step 3: Codex-operated acceptance playtest**
 
-Play in Korean from Rain stage 1 through stage 5 using a development save or test route. Record:
+Play in Korean from Rain stage 1 through stage 5 using a development save or test route. Use rendered screenshots and explicit UI-state assertions for objective layout/input checks, and record the narrative evaluation separately:
 
 - each interlude is noticed without explanation;
 - each interlude is readable in at most one tap and does not feel like a modal chore;
 - Hold is used deliberately at least once per shift and protects the named story object;
 - the player can state after each stage what new fact was learned;
 - after stage 5 the player understands that the voice is the previous clerk, the order was left for the next clerk, and the coordinates indicate the current desk;
-- the player wants to inspect `1분 앞선 저녁`;
+- the `1분 앞선 저녁` title and clue create a clear inspection hook;
 - no line truncates, no button is hidden by the portrait layout, and no input passes through the overlay.
 
 Acceptance threshold: all seven checks pass, no blocker occurs, and at least four of five stage hooks are recalled without prompting. If comprehension fails, revise copy/pacing before adding more campaign incidents.
@@ -577,5 +577,5 @@ Skip this commit if those files did not change.
 - Scope coverage: no new art, audio, package, destination, trait, or generated scene edit.
 - Localization coverage: every fixed player-facing line is paired in English and Korean.
 - Provenance coverage: the plan is registered before generated text; runtime copy receives a separate entry before implementation.
-- Verification coverage: TDD is required per behavior, Unity execution remains human-run, and manual testing measures comprehension rather than only button function.
+- Verification coverage: TDD is required per behavior, authorized Unity execution is recorded, and the acceptance route measures comprehension rather than only button function.
 - Placeholder scan: no implementation placeholder is authorized; the teaser is a deliberate `AwaitingContent` lifecycle with an authored clue.

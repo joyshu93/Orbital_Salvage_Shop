@@ -6,7 +6,8 @@ namespace CurioClerk.Infrastructure.Ads
     {
         bool IsRewardedReady { get; }
 
-        void ShowRewarded(string placement, Action<bool> completed);
+        void SetRequestPermission(bool allowed);
+
+        void ShowRewarded(string placement, Action<RewardedAdResult> completed);
     }
 }
-

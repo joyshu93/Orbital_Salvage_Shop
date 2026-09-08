@@ -5,6 +5,7 @@
 [Bb]uild/
 [Bb]uilds/
 [Ll]ogs/
+TestResults_*.xml
 [Uu]ser[Ss]ettings/
 [Mm]emoryCaptures/
 [Rr]ecordings/
@@ -43,9 +44,15 @@ Assets/AddressableAssetsData/link.xml.meta
 # Local secrets and service configuration
 Assets/StreamingAssets/google-services-desktop.json
 Assets/google-services.json
+Assets/google-services.json.meta
 GoogleService-Info.plist
+Assets/Resources/ServiceConfiguration.asset
+Assets/Resources/ServiceConfiguration.asset.meta
+Assets/GoogleMobileAds/Resources/GoogleMobileAdsSettings.asset
+Assets/GoogleMobileAds/Resources/GoogleMobileAdsSettings.asset.meta
 .env
 .env.*
+tools/bundletool/*.jar
 
 # Local Codex worktrees
 .worktrees/

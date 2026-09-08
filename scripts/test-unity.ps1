@@ -23,7 +23,8 @@ function Invoke-CurioTests([string]$Platform) {
         '-testResults', "`"$resultPath`"",
         '-logFile', "`"$logPath`""
     )
-    $process = Start-Process -FilePath $UnityPath -ArgumentList $arguments -Wait -PassThru -WindowStyle Hidden
+    $process = Start-Process -FilePath $UnityPath -ArgumentList $arguments -PassThru -WindowStyle Hidden
+    $process.WaitForExit()
     if ($process.ExitCode -ne 0) {
         throw "$Platform Unity process exited with code $($process.ExitCode). See $logPath"
     }

@@ -1,16 +1,20 @@
-# AdMob, UMP, Firebase, and privacy setup
+# AdMob, UMP, and v1 privacy setup
 
-Service credentials are intentionally excluded from Git. The game currently uses consent-aware local/no-op adapters, so unavailable SDKs never block play or base rewards.
+Service credentials are intentionally excluded from Git. Version 1 ships Google Mobile Ads and UMP for optional rewarded ads, but it ships no Firebase App, Analytics, Crashlytics, or other remote gameplay-telemetry transport.
+
+## Store release boundary
+
+Samsung Galaxy Store v1 account, identity, financial verification, signing custody, and listing setup are tracked in `Docs/Store/SamsungSellerSetup.md`. Do not add Seller Portal credentials, verification evidence, signing keys, or public identity placeholders to this repository. Public values belong in `Docs/PrivacyPolicy.md` only after the developer supplies them.
 
 ## AdMob and UMP
 
 1. Register the Android app in AdMob with package `com.joyshu93.curioclerknightshift`.
-2. Install the official Google Mobile Ads Unity plugin. The validated planning baseline is v11.3.0; use one installation method only (OpenUPM or the official `.unitypackage`).
-3. Enter the Android AdMob app ID under `Assets > Google Mobile Ads > Settings`.
+2. The official Google-authored Google Mobile Ads Unity plugin is pinned as `com.google.ads.mobile` 11.3.0 and distributed through the community OpenUPM registry configured in `Packages/manifest.json`; OpenUPM is not a Google-operated registry. Do not also import the official `.unitypackage` or copy plugin files under `Assets`.
+3. After the human package-resolution checkpoint below, open and save `Assets > Google Mobile Ads > Settings` once so the local settings asset exists. Do not commit it or put a live ID in source; the release builder injects the environment-supplied app ID into this ignored asset.
 4. Create one rewarded unit. During development use Google's Android rewarded test unit, never a live unit.
 5. In AdMob Privacy & messaging, create the required UMP messages.
 6. On every launch, call consent `Update`, then `LoadAndShowConsentFormIfRequired`. Initialize/load ads only when `CanRequestAds()` is true. Expose `ShowPrivacyOptionsForm()` from Settings when required.
-7. Implement only the two placements `failed_revive` and `success_double`. One successful placement locks the other for that shift. Failed/closed ads do not remove base rewards.
+7. Implement only the two placements `shift_failed_revive` and `shift_complete_double`. One successful placement locks the other for that shift. Failed/closed ads do not remove base rewards.
 
 Official references:
 
@@ -18,23 +22,67 @@ Official references:
 - https://developers.google.com/admob/unity/privacy
 - https://support.google.com/admob/answer/7313578
 
-## Firebase Analytics and Crashlytics
+## Version 1 no-remote-telemetry boundary
 
-1. Create a Firebase Android app with the same package ID.
-2. Download the current official Unity SDK. Planning baseline: Firebase Unity SDK 13.14.0.
-3. Import `FirebaseAnalytics.unitypackage` and `FirebaseCrashlytics.unitypackage` from `dotnet4`.
-4. Put `google-services.json` in `Assets` locally. It is ignored by Git.
-5. Disable Analytics and Crashlytics collection by default. Enable each only after its in-game consent toggle is on; withdrawal must disable future collection.
-6. Send no artifact description, free-form text, exact local date, advertising identifier, email, or other PII as custom parameters.
-7. Force one test non-fatal/crash in an internal build, verify it in Firebase, then remove the trigger.
-8. Upload the public IL2CPP symbols produced beside the AAB with `firebase crashlytics:symbols:upload --app=<FIREBASE_APP_ID> <SYMBOLS_PATH>`.
+The 2026-08-21 v1 decision excludes Firebase and remote gameplay/crash telemetry from the shipped player:
 
-Official references:
+- `Packages/manifest.json`, the runtime asmdef, runtime source, vendored packages, and Android plugins must contain no Firebase shipping dependency.
+- `ServiceFactory` always supplies the local `ConsentAwareAnalyticsService` and `ConsentAwareCrashReporter`; these retain only their local enabled flag and do not transmit, log, cache, or persist event/report payloads.
+- `AnalyticsEvents` and `GameTelemetry` remain pure allowlist and bucketing logic for local behavior and tests. They do not create a transport.
+- Run `scripts/check-no-remote-telemetry.ps1` for every release candidate. A Firebase package, assembly reference, adapter, tgz, SDK symbol, or manifest entry is a release-blocking failure.
+- Defensive `google-services.json` ignore rules remain so credentials cannot be accidentally committed, but a local file must not be added to a v1 build.
 
-- https://firebase.google.com/docs/unity/setup
-- https://firebase.google.com/docs/crashlytics/unity/get-started
+## Human package-resolution checkpoint
 
-## Required analytics events
+`Packages/packages-lock.json` must be produced by Unity, not edited by hand to impersonate resolution:
+
+1. Open the project in Unity `6000.3.21f1`.
+2. Wait for Package Manager and External Dependency Manager to finish.
+3. Confirm the Console has no compilation or Android dependency-resolution error.
+4. Confirm the resolved graph contains Google Mobile Ads 11.3.0 and EDM4U 1.2.188, with no `com.google.firebase.*` package.
+5. Confirm there is no Asset-package copy under `Assets/Firebase` or `Assets/ExternalDependencyManager`, close Unity, and retain the Unity-generated `Packages/packages-lock.json` change.
+
+## Human-owned release configuration and build
+
+The release build reads six values from the current terminal process. Never put the values in Git, a checked-in script, a screenshot, or a support log:
+
+```powershell
+$env:CURIO_ADMOB_APP_ID = '<live AdMob Android app ID>'
+$env:CURIO_ADMOB_REWARDED_ID = '<live rewarded unit ID>'
+$env:CURIO_ANDROID_KEYSTORE_PATH = '<existing keystore path>'
+$env:CURIO_ANDROID_KEYSTORE_PASS = '<keystore password>'
+$env:CURIO_ANDROID_KEY_ALIAS = '<key alias>'
+$env:CURIO_ANDROID_KEY_PASS = '<key password>'
+```
+
+The build first verifies the pinned Unity project/editor and the editor-local Android SDK, API 36 platform, build tools, ADB, NDK, and OpenJDK without launching Unity. It then independently runs the Release-mode no-remote-telemetry gate, so invoking the Unity menu or batch entry point cannot bypass the wrapper preflight. The gate child process is hidden and receives no AdMob or signing environment values. The build then validates the live ID shapes, rejects Google's sample IDs, writes the rewarded unit only to the ignored `Assets/Resources/ServiceConfiguration.asset`, and writes the app ID only to the ignored Google Mobile Ads settings asset. Signing values are applied in memory immediately before `BuildPipeline.BuildPlayer` and cleared afterward. The committed build manifest contains exactly the approved public release metadata and the AAB SHA-256.
+
+Run the execution-policy-free diagnostic before preparing any service IDs or signing values:
+
+```powershell
+.\scripts\check-android-toolchain.cmd
+```
+
+`READY` means the exact editor installation has the components needed to attempt an Android build. `BLOCKED` lists every missing component without printing an absolute machine path. On a company-managed machine, do not modify the managed Unity installation; point the scripts at a separate personal Unity `6000.3.21f1` installation with `-UnityPath` when one is available.
+
+After Unity has resolved the pinned GMA/EDM4U packages, the human developer downloads the official `bundletool-all-1.18.3.jar` from:
+
+- https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
+
+Keep it at `tools/bundletool/bundletool-all-1.18.3.jar`; the jar is ignored. The official file downloaded on 2026-08-26 has SHA-256 `A099CFA1543F55593BC2ED16A70A7C67FE54B1747BB7301F37FDFD6D91028E29`. The inspection script executes `bundletool version` and requires the actual normalized output to equal `1.18.3`; renaming another jar is insufficient. Then run:
+
+```powershell
+.\scripts\check-no-remote-telemetry.ps1 -Mode Release
+.\scripts\test-unity.cmd
+.\scripts\build-android.cmd
+.\scripts\inspect-aab.ps1 -AabPath .\Builds\Android\CurioClerk.aab -BundletoolPath .\tools\bundletool\bundletool-all-1.18.3.jar
+```
+
+Expected local outputs are the signed AAB, one general IL2CPP symbols zip, `CurioClerk-build.json`, and a sanitized `inspection.txt` under the ignored `Builds/Android` directory. Confirm Git status contains no settings asset, keystore, identifier, password, jar, or build output before release handoff.
+
+## Local coarse event vocabulary
+
+The pure local schema retains these names for deterministic tests and future product analysis design; version 1 does not transmit them:
 
 - `tutorial_started`, `tutorial_completed`
 - `shift_started` with difficulty band only
@@ -42,5 +90,3 @@ Official references:
 - `shift_completed` with band and duration bucket
 - `reward_offer_shown`, `reward_result` with placement and result
 - `cosmetic_unlocked` with cosmetic ID
-
-Do not start paid acquisition until organic D1 is at least 25% and D7 at least 8% in the first meaningful cohort.

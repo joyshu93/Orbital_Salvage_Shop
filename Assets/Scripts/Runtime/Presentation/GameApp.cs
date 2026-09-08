@@ -1,15 +1,18 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using CurioClerk.Content;
+using CurioClerk.Content.Incidents;
 using CurioClerk.Core.Artifacts;
+using CurioClerk.Core.Incidents;
 using CurioClerk.Core.Progression;
 using CurioClerk.Core.Rules;
 using CurioClerk.Core.Shifts;
 using CurioClerk.Infrastructure.Ads;
-using CurioClerk.Infrastructure.Analytics;
-using CurioClerk.Infrastructure.Diagnostics;
+using CurioClerk.Infrastructure.Feedback;
 using CurioClerk.Infrastructure.Privacy;
 using CurioClerk.Infrastructure.Save;
 using CurioClerk.Infrastructure.Time;
@@ -24,7 +27,33 @@ namespace CurioClerk.Presentation
 {
     public sealed class GameApp : MonoBehaviour
     {
+        private enum TutorialStage
+        {
+            None,
+            FirstVault,
+            HoldDuplicateVault,
+            FirstRepair,
+            FirstStorage,
+            SecondStorage,
+            SecondRepair,
+            FinalHeldVault,
+            Complete
+        }
+
+        private enum CollectionTab
+        {
+            Casebook,
+            Cosmetics
+        }
+
+        private enum TextRole
+        {
+            Interface,
+            Display
+        }
+
         private static TMP_FontAsset s_InterfaceFont;
+        private static TMP_FontAsset s_DisplayFont;
         private static readonly Color Plum = Hex("#351B2B");
         private static readonly Color Wine = Hex("#5B2944");
         private static readonly Color Paper = Hex("#F2E5C4");
@@ -33,36 +62,95 @@ namespace CurioClerk.Presentation
         private static readonly Color Sage = Hex("#6F8A6B");
         private static readonly Color DustyRose = Hex("#B56D78");
 
-        private readonly ShiftGenerator _shiftGenerator = new ShiftGenerator();
+        private readonly ShiftPlanGenerator _shiftPlanGenerator = new ShiftPlanGenerator();
+        private readonly RuleEngine _ruleEngine = new RuleEngine();
         private readonly ProgressionService _progression = new ProgressionService();
+        private readonly IncidentProgressResolver _incidentProgressResolver = new IncidentProgressResolver();
+        private readonly IncidentBoardPresenter _incidentBoardPresenter = new IncidentBoardPresenter();
         private readonly HashSet<string> _seenThisShift = new HashSet<string>(StringComparer.Ordinal);
         private IReadOnlyList<ArtifactContent> _artifactContent;
         private Dictionary<string, ArtifactContent> _artifactById;
         private IReadOnlyList<SortingRule> _activeRules;
         private IReadOnlyList<Artifact> _plannedQueue;
+        private ShiftPlan _activePlan;
         private ShiftSession _session;
         private PlayerSaveData _save;
         private ISaveStore _saveStore;
         private IAdService _adService;
-        private IAnalyticsService _analytics;
         private IPrivacyService _privacy;
-        private ICrashReporter _crashReporter;
+        private IPlayerFeedbackService _feedbackService;
+        private IClock _clock;
         private IShiftSeedProvider _seedProvider;
         private Localizer _localizer;
+        private IReadOnlyList<IncidentDefinition> _incidents;
+        private IncidentProgressSnapshot _incidentProgress;
+        private IncidentDefinition _activeIncident;
+        private IncidentRunner _incidentRunner;
+        private IncidentStageDefinition _incidentStage;
+        private IncidentStageRun _incidentStageRun;
         private RectTransform _screenRoot;
         private TMP_Text _currentSymbol;
         private TMP_Text _currentName;
         private TMP_Text _currentDescription;
+        private TMP_Text _curioResolution;
         private TMP_Text _currentTraits;
+        private Image _artifactIllustration;
+        private Image _artifactCardSurface;
+        private Image _curioFarewellSeal;
+        private Image _curioResponseVeil;
+        private Image _curioResponseSeal;
+        private Outline _curioResponseOutline;
+        private CanvasGroup _curioFarewellSealGroup;
         private TMP_Text _heldText;
         private readonly TMP_Text[] _nextTexts = new TMP_Text[2];
+        private Image _heldIllustration;
+        private readonly Image[] _nextIllustrations = new Image[2];
+        private TMP_Text _ruleListText;
+        private TMP_Text _tutorialCoach;
+        private Button _holdButton;
+        private TMP_Text _holdButtonLabel;
+        private readonly Button[] _destinationButtons = new Button[3];
+        private readonly Outline[] _destinationHighlights = new Outline[3];
+        private Outline _holdHighlight;
+        private Image _sortFeedbackPanel;
         private TMP_Text _statusText;
         private TMP_Text _hudText;
-        private int _sortedCount;
+        private GameObject _shiftInputLockPanel;
+        private DocketProgressView _docketProgress;
+        private Image _docketSigilCrack;
+        private Image _incidentWarmthOverlay;
+        private ShiftFeedbackAnimator _feedbackAnimator;
+        private IncidentReactionView _incidentReactionView;
+        private ArtifactDragHandler _artifactDragHandler;
+        private GameObject _tutorialDocketCompleteCard;
         private bool _resultApplied;
         private int _appliedResultCoins;
+        private string _lastCorrectArtifactId;
         private bool _adConsentResolved;
         private bool _canRequestAds;
+        private string _rewardFeedbackKey;
+        private TutorialStage _tutorialStage;
+        private CollectionTab _collectionTab;
+        private string _cosmeticFeedback;
+        private bool _isDailyShift;
+        private string _dailyDateKey = string.Empty;
+        private bool _inputLocked;
+        private bool _isIncidentShift;
+        private int _incidentConsecutiveCorrect;
+        private bool _docketPresentationDamaged;
+        private Action _pendingTransition;
+        private int _pendingTransitionVersion;
+        private bool _flushingTransitions;
+        private bool _incidentResultApplied;
+        private IncidentQuality _incidentResultQuality;
+        private bool _incidentCompletionWasFinal;
+        private bool _isIncidentReplay;
+        private Coroutine _incidentEndingRoutine;
+        private Image _incidentEndingFrost;
+        private Image _incidentEndingWarmth;
+        private RectTransform _incidentEndingIce;
+        private RectTransform _incidentEndingUmbrella;
+        private bool _pendingIncidentBoardReveal;
 
         public AppScreen ActiveScreen { get; private set; }
 
@@ -77,13 +165,15 @@ namespace CurioClerk.Presentation
             _saveStore = new JsonFileSaveStore(Path.Combine(Application.persistentDataPath, "curio-clerk-save.json"));
             _save = _saveStore.LoadOrDefault();
             _localizer = new Localizer(_save.locale);
+            _incidents = ContentCatalog.CreateIncidents();
+            RefreshIncidentProgress();
             _adService = Infrastructure.ServiceFactory.CreateAdService();
-            _analytics = Infrastructure.ServiceFactory.CreateAnalyticsService();
             _privacy = Infrastructure.ServiceFactory.CreatePrivacyService();
-            _crashReporter = Infrastructure.ServiceFactory.CreateCrashReporter();
-            _analytics.SetConsent(_save.analyticsConsent);
-            _crashReporter.SetConsent(_save.crashReportingConsent);
-            _seedProvider = new ShiftSeedProvider(new SystemClock());
+            _feedbackService = Infrastructure.ServiceFactory.CreatePlayerFeedbackService(gameObject);
+            ConfigureFeedback();
+            _clock = new SystemClock();
+            _seedProvider = new ShiftSeedProvider(_clock);
+            EnsureDisplayCamera();
             BuildShell();
             ShowMenu();
             RequestAdConsent();
@@ -93,109 +183,474 @@ namespace CurioClerk.Presentation
         {
             if (paused)
             {
+                FlushPendingTransitions();
                 Save();
             }
         }
 
-        private void OnDestroy() => Save();
+        private void OnDisable()
+        {
+            FlushPendingTransitions();
+            StopIncidentEndingAnimation();
+        }
+
+        private void OnDestroy()
+        {
+            FlushPendingTransitions();
+            StopIncidentEndingAnimation();
+            Save();
+            _feedbackService?.Dispose();
+        }
 
         public void ShowMenu()
         {
+            _isIncidentReplay = false;
+            RefreshIncidentProgress();
             ActiveScreen = AppScreen.Menu;
             var page = CreatePage("MainMenuScreen");
-            CreateText(page, "Eyebrow", _localizer.Get("subtitle"), 34, Amber, TextAlignmentOptions.Center, new Vector2(0.12f, 0.80f), new Vector2(0.88f, 0.87f), true);
-            CreateText(page, "Title", _localizer.Get("title"), 72, Paper, TextAlignmentOptions.Center, new Vector2(0.08f, 0.64f), new Vector2(0.92f, 0.80f), true);
-            CreateText(page, "WelcomeNote", _localizer.Locale == "ko" ? "밤새 들어오는 기묘한 물건을 규칙대로 정리하세요." : "File strange arrivals by lamplight until morning.", 27, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.54f), new Vector2(0.85f, 0.64f));
-            CreateButton(page, "StartShiftButton", _localizer.Get("start"), new Vector2(0.15f, 0.40f), new Vector2(0.85f, 0.49f), Amber, Ink, OnStartPressed);
-            CreateButton(page, "DailyShiftButton", _localizer.Get("daily"), new Vector2(0.15f, 0.30f), new Vector2(0.85f, 0.38f), Paper, Ink, () => StartNewShift(_seedProvider.CreateDailySeed(ContentCatalog.ContentVersion)));
-            CreateButton(page, "CollectionButton", _localizer.Get("collection"), new Vector2(0.15f, 0.20f), new Vector2(0.49f, 0.28f), Wine, Paper, ShowCollection);
-            CreateButton(page, "SettingsButton", _localizer.Get("settings"), new Vector2(0.51f, 0.20f), new Vector2(0.85f, 0.28f), Wine, Paper, ShowSettings);
-            CreateText(page, "Progress", $"{_localizer.Get("coins")}: {_save.coins}   •   {_save.completedShifts}/∞", 23, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.10f), new Vector2(0.85f, 0.17f));
+            CreateText(page, "Eyebrow", _localizer.Get("subtitle"), 30, Amber, TextAlignmentOptions.Center, new Vector2(0.12f, 0.90f), new Vector2(0.88f, 0.95f), true);
+            CreateText(page, "Title", _localizer.Get("title"), 58, Paper, TextAlignmentOptions.Center, new Vector2(0.08f, 0.80f), new Vector2(0.92f, 0.90f), true, TextRole.Display);
+            var boardState = _incidentBoardPresenter.Build(_incidents, _incidentProgress, _localizer);
+            var board = page.gameObject.AddComponent<IncidentBoardView>();
+            var current = CreateIncidentCard(page, "CurrentIncidentCard", new Vector2(0.08f, 0.48f), new Vector2(0.92f, 0.78f), false);
+            var resolved = new List<IncidentCardView>();
+            for (var index = 0; index < boardState.Resolved.Count; index++)
+            {
+                var id = boardState.Resolved[index].IncidentId;
+                resolved.Add(CreateIncidentCard(
+                    page,
+                    "ResolvedIncidentCard_" + id,
+                    new Vector2(0.08f, 0.38f - index * 0.075f),
+                    new Vector2(0.92f, 0.455f - index * 0.075f),
+                    true));
+            }
+            board.Configure(current, resolved);
+            board.Bind(
+                boardState,
+                VisualAssetLibrary.IncidentProfile,
+                VisualAssetLibrary.Artifact,
+                StartIncident,
+                id => new UnityEngine.Events.UnityAction(() => ReplayIncident(id)));
+            var currentGroup = current.GetComponent<CanvasGroup>();
+            var resolvedGroup = resolved.Count > 0 ? resolved[0].GetComponent<CanvasGroup>() : null;
+            if (resolvedGroup != null && boardState.Current != null)
+            {
+                var veil = CreatePanel(page, "IncidentBoardRainVeil", new Color(0.31f, 0.48f, 0.63f, 0.20f), Vector2.zero, Vector2.one)
+                    .gameObject.AddComponent<CanvasGroup>();
+                veil.blocksRaycasts = false;
+                var transition = page.gameObject.AddComponent<IncidentBoardTransitionView>();
+                transition.Configure(current.GetComponent<RectTransform>(), currentGroup, resolved[0].GetComponent<RectTransform>(), resolvedGroup, veil);
+                transition.Play(_pendingIncidentBoardReveal, VisualAssetLibrary.IncidentProfile(boardState.Current.IncidentId));
+            }
+            _pendingIncidentBoardReveal = false;
+            CreateButton(page, "CollectionButton", _localizer.Get("collection"), new Vector2(0.08f, 0.27f), new Vector2(0.46f, 0.35f), Wine, Paper, ShowCollection, 24);
+            CreateButton(page, "FreeShiftButton", _localizer.Get("free_shift"), new Vector2(0.54f, 0.27f), new Vector2(0.92f, 0.35f), Wine, Paper, OnStartPressed, 24);
+            CreateButton(page, "SettingsButton", _localizer.Get("settings"), new Vector2(0.28f, 0.13f), new Vector2(0.72f, 0.21f), Paper, Ink, ShowSettings, 25);
 
-            var equipped = ContentCatalog.CreateCosmetics().FirstOrDefault(item => item.Id == _save.equippedCosmeticId);
+            var equipped = ContentCatalog.CreateCosmetics()
+                .FirstOrDefault(item => item.Id == _save.equippedCosmeticId);
             if (equipped != null)
             {
-                var charm = CreatePanel(page, "EquippedDeskCharm", Hex(equipped.AccentHex), new Vector2(0.74f, 0.88f), new Vector2(0.94f, 0.96f));
-                CreateText(charm, "EquippedDeskCharmLabel", "✦  " + CosmeticName(equipped), 18, Ink, TextAlignmentOptions.Center, Vector2.zero, Vector2.one, true);
+                CreateEquippedCosmeticArtwork(
+                    page,
+                    equipped,
+                    new Vector2(0.82f, 0.89f),
+                    new Vector2(0.97f, 0.99f),
+                    false);
             }
+        }
+
+        public void StartIncident()
+        {
+            _isIncidentReplay = false;
+            RefreshIncidentProgress();
+            if (_incidentRunner == null || _incidentRunner.IsContentExhausted)
+            {
+                ShowMenu();
+                return;
+            }
+
+            ShowIncidentIntro();
+        }
+
+        public void ReplayIncident(string incidentId)
+        {
+            if (string.IsNullOrWhiteSpace(incidentId))
+            {
+                return;
+            }
+            var replay = _incidents.FirstOrDefault(value => value.Id == incidentId);
+            if (replay == null) return;
+            _isIncidentReplay = true;
+            _activeIncident = replay;
+            _incidentRunner = new IncidentRunner(
+                _activeIncident.Id,
+                _activeIncident.Stages.Select(stage => stage.Id).ToArray(),
+                0,
+                _activeIncident.CompletesWhenAllStagesCompleted);
+            ShowIncidentIntro();
+        }
+
+        public void ShowIncidentIntro()
+        {
+            if (!_isIncidentReplay)
+            {
+                RefreshIncidentProgress();
+            }
+            if (_incidentRunner == null || _incidentRunner.IsContentExhausted)
+            {
+                ShowMenu();
+                return;
+            }
+
+            _incidentStage = _activeIncident.Stages[_incidentRunner.CurrentStageIndex];
+            ActiveScreen = AppScreen.Narrative;
+            var page = CreatePage("NarrativeScreen");
+            var cueSurface = CreateArtworkImage(page, "NarrativeCueSurface", Vector2.zero, Vector2.one);
+            cueSurface.raycastTarget = false;
+            cueSurface.color = Color.white;
+
+            var portrait = CreateArtworkImage(
+                page,
+                "SeniorClerkPortrait",
+                new Vector2(0.08f, 0.45f),
+                new Vector2(0.92f, 0.92f));
+            portrait.preserveAspect = true;
+            portrait.raycastTarget = false;
+
+            var dialoguePanel = CreatePanel(
+                page,
+                "NarrativeDialoguePanel",
+                new Color(Paper.r, Paper.g, Paper.b, 0.97f),
+                new Vector2(0.06f, 0.18f),
+                new Vector2(0.94f, 0.47f));
+            AddSurfaceChrome(dialoguePanel, Amber, 3f, 0.28f);
+            var speaker = CreateText(
+                dialoguePanel,
+                "NarrativeSpeaker",
+                string.Empty,
+                30,
+                Wine,
+                TextAlignmentOptions.Left,
+                new Vector2(0.06f, 0.70f),
+                new Vector2(0.94f, 0.92f),
+                true);
+            var body = CreateText(
+                dialoguePanel,
+                "NarrativeBody",
+                string.Empty,
+                40,
+                Ink,
+                TextAlignmentOptions.TopLeft,
+                new Vector2(0.06f, 0.08f),
+                new Vector2(0.94f, 0.70f),
+                true);
+            var continueButton = CreateButton(
+                page,
+                "NarrativeContinueButton",
+                _localizer.Get("narrative_continue"),
+                new Vector2(0.06f, 0.035f),
+                new Vector2(0.94f, 0.155f),
+                Amber,
+                Ink,
+                () => { },
+                32);
+            var narrativeView = page.gameObject.AddComponent<NarrativeSequenceView>();
+            narrativeView.Configure(speaker, body, portrait, cueSurface, continueButton);
+            narrativeView.Play(
+                _incidentStage.IntroBeats,
+                _localizer.Locale,
+                VisualAssetLibrary.SeniorClerk,
+                BeginIncidentStage);
+        }
+
+        public void BeginIncidentStage()
+        {
+            if (_incidentStage == null || _incidentRunner == null || _incidentRunner.IsContentExhausted)
+            {
+                return;
+            }
+
+            _tutorialStage = TutorialStage.None;
+            _isIncidentShift = true;
+            _isDailyShift = false;
+            _dailyDateKey = string.Empty;
+            _activePlan = _incidentStage.CreateShiftPlan(_artifactById);
+            _plannedQueue = _activePlan.Queue;
+            _activeRules = _activePlan.Rules;
+            _session = new ShiftSession(_plannedQueue, _activeRules);
+            _incidentStageRun = new IncidentStageRun(
+                _incidentStage.Id,
+                _incidentStage.ResonanceHoldArtifactId);
+            _seenThisShift.Clear();
+            _resultApplied = false;
+            _appliedResultCoins = 0;
+            _lastCorrectArtifactId = null;
+            _rewardFeedbackKey = null;
+            _incidentConsecutiveCorrect = 0;
+            _docketPresentationDamaged = false;
+            _incidentResultApplied = false;
+            _incidentCompletionWasFinal = false;
+            BuildShiftScreen();
+        }
+
+        private void RefreshIncidentProgress()
+        {
+            if (_incidents == null || _save == null)
+            {
+                return;
+            }
+            _incidentProgress = ResolveIncidentProgress();
+            var current = _incidentProgress.Current;
+            _activeIncident = current == null ? null : _incidents.Single(value => value.Id == current.Definition.Id);
+            _incidentRunner = current == null
+                ? null
+                : new IncidentRunner(
+                    _activeIncident.Id,
+                    _activeIncident.Stages.Select(stage => stage.Id).ToArray(),
+                    current.NextStageIndex,
+                    _activeIncident.CompletesWhenAllStagesCompleted);
+        }
+
+        private IncidentProgressSnapshot ResolveIncidentProgress()
+        {
+            var definitions = _incidents.Select(value => value.CreateProgressDefinition()).ToArray();
+            return _incidentProgressResolver.Resolve(_save, definitions);
         }
 
         public void ShowTutorial()
         {
+            _tutorialStage = TutorialStage.None;
             ActiveScreen = AppScreen.Tutorial;
             var page = CreatePage("TutorialScreen");
             CreateText(page, "TutorialTitle", _localizer.Get("tutorial_title"), 48, Amber, TextAlignmentOptions.Center, new Vector2(0.10f, 0.72f), new Vector2(0.90f, 0.84f), true);
-            CreateText(page, "TutorialBody", _localizer.Get("tutorial_body"), 30, Paper, TextAlignmentOptions.Top, new Vector2(0.12f, 0.39f), new Vector2(0.88f, 0.69f));
-            CreateText(page, "TutorialIcons", "[ 1 ]  REPAIR     [ 2 ]  STORAGE     [ 3 ]  VAULT\n\n                        [ HOLD ]", 25, Amber, TextAlignmentOptions.Center, new Vector2(0.08f, 0.24f), new Vector2(0.92f, 0.39f), true);
-            CreateButton(page, "BeginTutorialShiftButton", _localizer.Get("begin"), new Vector2(0.18f, 0.11f), new Vector2(0.82f, 0.20f), Amber, Ink, () =>
-            {
-                _save.tutorialCompleted = true;
-                Save();
-                StartNewShift(1107);
-            });
+            CreateText(page, "TutorialBody", _localizer.Get("tutorial_body"), 27, Paper, TextAlignmentOptions.Center, new Vector2(0.07f, 0.35f), new Vector2(0.93f, 0.66f), true);
+            CreateButton(page, "BeginTutorialShiftButton", _localizer.Get("begin"), new Vector2(0.18f, 0.11f), new Vector2(0.82f, 0.20f), Amber, Ink, StartTutorialShift);
         }
 
         public void StartNewShift(int seed)
         {
-            var band = Mathf.Clamp(1 + _save.completedShifts / 5, 1, 5);
+            _tutorialStage = TutorialStage.None;
+            var band = Mathf.Clamp(1 + _save.completedShifts / 5, 1, 3);
+            StartShift(seed, band, false, string.Empty);
+        }
+
+        public void StartDailyShift()
+        {
+            _tutorialStage = TutorialStage.None;
+            var localNow = _clock.LocalNow;
+            var dateKey = localNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var seed = DailySeedProvider.ForDate(localNow, ContentCatalog.ContentVersion);
+            StartShift(seed, 3, true, dateKey);
+        }
+
+        private void StartShift(int seed, int band, bool isDailyShift, string dailyDateKey)
+        {
+            _isIncidentShift = false;
+            _incidentStage = null;
+            _incidentStageRun = null;
+            _isDailyShift = isDailyShift;
+            _dailyDateKey = dailyDateKey ?? string.Empty;
+            var supportedBand = Mathf.Clamp(band, 1, 3);
             var artifacts = _artifactContent.Select(item => item.ToArtifact()).ToArray();
-            _plannedQueue = _shiftGenerator.GenerateArtifactQueue(seed, artifacts, 12);
-            _activeRules = ContentCatalog.CreateRulesForBand(band, seed);
+            _activePlan = _shiftPlanGenerator.Generate(
+                seed,
+                supportedBand,
+                artifacts,
+                ContentCatalog.CreateRulePacks(),
+                ContentCatalog.CreateShiftTemplates());
+            _plannedQueue = _activePlan.Queue;
+            _activeRules = _activePlan.Rules;
             _session = new ShiftSession(_plannedQueue, _activeRules);
             _seenThisShift.Clear();
-            _sortedCount = 0;
             _resultApplied = false;
             _appliedResultCoins = 0;
-            _analytics.Track("shift_started", new Dictionary<string, string> { ["band"] = band.ToString() });
+            _lastCorrectArtifactId = null;
+            _rewardFeedbackKey = null;
+            _incidentConsecutiveCorrect = 0;
+            _docketPresentationDamaged = false;
+            _incidentResultApplied = false;
+            _incidentCompletionWasFinal = false;
             BuildShiftScreen();
         }
 
         public void ChooseDestination(Destination destination)
         {
-            if (_session == null || _session.State != ShiftState.Active)
+            if (_inputLocked || _session == null || _session.State != ShiftState.Active)
             {
                 return;
             }
 
-            var artifactId = _session.CurrentArtifact.Id;
-            var outcome = _session.Sort(destination);
-            _sortedCount++;
-            if (outcome.WasCorrect)
+            if (IsTutorialActive)
             {
-                _seenThisShift.Add(artifactId);
-                _statusText.text = _localizer.Get("correct");
-                _statusText.color = Sage;
-            }
-            else
-            {
-                _statusText.text = _localizer.Get("wrong", DestinationName(outcome.ExpectedDestination));
-                _statusText.color = DustyRose;
+                ChooseTutorialDestination(destination);
+                return;
             }
 
-            if (_session.State == ShiftState.Active)
+            var artifact = _session.CurrentArtifact;
+            var artifactId = artifact.Id;
+            var returningHeldResonance = IsReturningHeldResonance(artifactId);
+            var content = _artifactById[artifactId];
+            var outcome = _session.Sort(destination);
+            if (outcome.Disposition == SortDisposition.Correct)
             {
-                RefreshShiftView();
+                _seenThisShift.Add(artifactId);
+                _lastCorrectArtifactId = artifactId;
+            }
+
+            if (outcome.Disposition == SortDisposition.Blocked)
+            {
+                ShowBlockedFeedback();
+                RefreshShiftView(false, false);
+                return;
+            }
+
+            UpdateIncidentCalm(outcome);
+
+            if (outcome.Disposition == SortDisposition.Wrong)
+            {
+                MarkDocketMistakePresentation();
+                if (_session.State == ShiftState.Failed)
+                {
+                    ShowSortFeedback(artifact, content, outcome, true, false);
+                    RefreshShiftView(false, false);
+                    SetShiftInputLocked(true);
+                    _feedbackAnimator?.SetIdleEnabled(false);
+                    if (_feedbackAnimator == null || !_feedbackAnimator.isActiveAndEnabled)
+                    {
+                        CompleteTerminalWrongTransition();
+                    }
+                    else
+                    {
+                        _feedbackAnimator.PlayWrong(OwnTransition(CompleteTerminalWrongTransition));
+                    }
+
+                    return;
+                }
+
+                ShowSortFeedback(artifact, content, outcome);
+                RefreshShiftView(false, false);
+                return;
+            }
+
+            CloseDocketMistakePresentation();
+            var terminalCorrectSort = outcome.DidCompleteShift;
+            PrepareCurioFarewell(content, outcome.SelectedDestination);
+            ShowSortFeedback(artifact, content, outcome, false);
+            SetShiftInputLocked(true);
+            _feedbackAnimator?.SetIdleEnabled(false);
+            var isKeyReaction = IsIncidentKeyArtifact(artifactId) && _incidentReactionView != null;
+            Action beginFiling = () => BeginCorrectFiling(
+                outcome,
+                !isKeyReaction && !terminalCorrectSort,
+                returningHeldResonance);
+            if (isKeyReaction)
+            {
+                _incidentReactionView.PlayKeyReaction(
+                    IncidentKeyReactionText(),
+                    IncidentKeyReactionCue(),
+                    OwnTransition(beginFiling));
+                return;
+            }
+
+            beginFiling();
+        }
+
+        private void BeginCorrectFiling(
+            SortOutcome outcome,
+            bool playCorrectCue,
+            bool playResonancePulse)
+        {
+            if (playCorrectCue)
+            {
+                _feedbackService.Play(PlayerFeedbackCue.Correct);
+            }
+
+            RefreshDocketDuringTransition(outcome);
+            if (playResonancePulse)
+            {
+                _docketProgress?.PlayResonancePulse();
+            }
+            _feedbackAnimator?.SetIdleEnabled(false);
+            if (_feedbackAnimator == null || !_feedbackAnimator.isActiveAndEnabled)
+            {
+                CompleteCorrectTransition(outcome);
             }
             else
             {
-                ShowResults();
+                _feedbackAnimator.PlayCorrect(
+                    _destinationButtons[(int)outcome.SelectedDestination].GetComponent<RectTransform>(),
+                    OwnTransition(() => CompleteCorrectTransition(outcome)));
             }
         }
 
         public void HoldCurrent()
         {
+            if (_inputLocked)
+            {
+                return;
+            }
+
+            if (IsTutorialActive)
+            {
+                HoldTutorialArtifact();
+                return;
+            }
+
+            var artifactId = _session?.CurrentArtifact?.Id;
             if (_session != null && _session.Hold())
             {
-                RefreshShiftView();
+                _feedbackAnimator?.SetHeldResonanceEnabled(false);
+                if (_isIncidentShift && _incidentStageRun != null && !string.IsNullOrWhiteSpace(artifactId))
+                {
+                    _incidentStageRun.RecordHold(artifactId);
+                }
+
+                _feedbackService.Play(PlayerFeedbackCue.Hold);
+                SetShiftInputLocked(true);
+                _feedbackAnimator?.SetIdleEnabled(false);
+                if (_feedbackAnimator == null)
+                {
+                    CompleteHoldTransition();
+                }
+                else
+                {
+                    _feedbackAnimator.PlayHold(CompleteHoldTransition);
+                }
             }
         }
 
         public void ShowCollection()
         {
+            _collectionTab = CollectionTab.Casebook;
+            _cosmeticFeedback = null;
+            BuildCollectionScreen();
+        }
+
+        private void BuildCollectionScreen()
+        {
             ActiveScreen = AppScreen.Collection;
             var page = CreatePage("CollectionScreen");
             CreateText(page, "CollectionTitle", _localizer.Get("collection"), 50, Amber, TextAlignmentOptions.Center, new Vector2(0.08f, 0.89f), new Vector2(0.92f, 0.97f), true);
-            var scrollContent = CreateScrollContent(page, "CasebookScroll", new Vector2(0.08f, 0.30f), new Vector2(0.92f, 0.87f));
+            CreateButton(page, "CasebookTabButton", _localizer.Get("casebook_tab"), new Vector2(0.08f, 0.79f), new Vector2(0.49f, 0.85f), _collectionTab == CollectionTab.Casebook ? Amber : Wine, _collectionTab == CollectionTab.Casebook ? Ink : Paper, ShowCasebookTab);
+            CreateButton(page, "CosmeticsTabButton", _localizer.Get("cosmetics_tab"), new Vector2(0.51f, 0.79f), new Vector2(0.92f, 0.85f), _collectionTab == CollectionTab.Cosmetics ? Amber : Wine, _collectionTab == CollectionTab.Cosmetics ? Ink : Paper, ShowCosmeticsTab);
+
+            if (_collectionTab == CollectionTab.Casebook)
+            {
+                BuildCasebook(page);
+            }
+            else
+            {
+                BuildCosmetics(page);
+            }
+
+            CreateButton(page, "CollectionBackButton", _localizer.Get("back"), new Vector2(0.34f, 0.015f), new Vector2(0.66f, 0.065f), Paper, Ink, ShowMenu);
+        }
+
+        private void BuildCasebook(Transform page)
+        {
+            CreateText(page, "CollectionProgress", _localizer.Get("casebook_discovered", _save.discoveredArtifactIds.Count, _artifactContent.Count), 24, Paper, TextAlignmentOptions.Center, new Vector2(0.08f, 0.735f), new Vector2(0.92f, 0.785f), true);
+            var scrollContent = CreateScrollContent(page, "CasebookScroll", new Vector2(0.08f, 0.08f), new Vector2(0.92f, 0.73f));
             if (_save.discoveredArtifactIds.Count == 0)
             {
                 CreateLayoutText(scrollContent, _localizer.Get("casebook_empty"), 27, Paper, 110);
@@ -205,28 +660,80 @@ namespace CurioClerk.Presentation
             {
                 var known = _save.discoveredArtifactIds.Contains(artifact.Id);
                 var name = known ? Name(artifact) : "?????";
-                var description = known ? Description(artifact) : "···";
-                CreateLayoutText(scrollContent, $"{artifact.Symbol}   {name}\n<size=21>{description}</size>", 28, known ? Paper : DustyRose, 112);
+                var description = known ? Description(artifact) : _localizer.Get("casebook_locked");
+                var card = CreatePanel(scrollContent, "CasebookCard_" + artifact.Id, known ? Paper : new Color(Wine.r, Wine.g, Wine.b, 0.94f), Vector2.zero, Vector2.one);
+                var layout = card.gameObject.AddComponent<LayoutElement>();
+                layout.preferredHeight = 220;
+                AddSurfaceChrome(card, known ? Amber : DustyRose, 1.5f, 0.22f);
+                var artwork = CreateArtworkImage(card, "CasebookArtwork_" + artifact.Id, new Vector2(0.025f, 0.08f), new Vector2(0.32f, 0.92f));
+                artwork.sprite = VisualAssetLibrary.Artifact(artifact.Id);
+                artwork.enabled = artwork.sprite != null;
+                artwork.color = known ? Color.white : new Color(0.13f, 0.06f, 0.10f, 0.96f);
+                CreateText(card, "CasebookName_" + artifact.Id, name, 28, known ? Ink : Paper, TextAlignmentOptions.Left, new Vector2(0.35f, 0.70f), new Vector2(0.96f, 0.91f), true, TextRole.Display);
+                CreateText(card, "CasebookDescription_" + artifact.Id, description, 18, known ? Ink : DustyRose, TextAlignmentOptions.TopLeft, new Vector2(0.35f, 0.44f), new Vector2(0.96f, 0.70f));
+                if (known)
+                {
+                    CreateText(
+                        card,
+                        "CasebookResolution_" + artifact.Id,
+                        _localizer.Get("resolution_label") + " · " + Resolution(artifact),
+                        17,
+                        Wine,
+                        TextAlignmentOptions.TopLeft,
+                        new Vector2(0.35f, 0.18f),
+                        new Vector2(0.96f, 0.44f));
+                }
+
+                CreateText(card, "CasebookTraits_" + artifact.Id, known ? TraitsText(artifact.Traits) : string.Empty, 16, known ? Wine : DustyRose, TextAlignmentOptions.BottomLeft, new Vector2(0.35f, 0.05f), new Vector2(0.96f, 0.18f), true);
+            }
+        }
+
+        private void BuildCosmetics(Transform page)
+        {
+            CreateText(page, "CollectionCoins", _localizer.Get("collection_coins", _save.coins), 24, Paper, TextAlignmentOptions.Center, new Vector2(0.08f, 0.735f), new Vector2(0.92f, 0.785f), true);
+            if (!string.IsNullOrEmpty(_cosmeticFeedback))
+            {
+                CreateText(page, "CosmeticFeedback", _cosmeticFeedback, 21, Amber, TextAlignmentOptions.Center, new Vector2(0.08f, 0.69f), new Vector2(0.92f, 0.735f), true);
             }
 
-            CreateText(page, "CosmeticHeader", _localizer.Get("cosmetics"), 30, Amber, TextAlignmentOptions.Center, new Vector2(0.08f, 0.23f), new Vector2(0.92f, 0.29f), true);
+            var scrollContent = CreateScrollContent(page, "CosmeticsScroll", new Vector2(0.08f, 0.08f), new Vector2(0.92f, string.IsNullOrEmpty(_cosmeticFeedback) ? 0.73f : 0.685f));
             var cosmetics = ContentCatalog.CreateCosmetics();
-            for (var index = 0; index < cosmetics.Count; index++)
+            foreach (var item in cosmetics)
             {
-                var item = cosmetics[index];
-                var minX = 0.08f + (index % 3) * 0.29f;
-                var maxX = minX + 0.27f;
-                var minY = index < 3 ? 0.15f : 0.08f;
-                var maxY = minY + 0.06f;
                 var owned = _save.unlockedCosmeticIds.Contains(item.Id);
                 var equipped = owned && _save.equippedCosmeticId == item.Id;
-                var status = equipped ? _localizer.Get("equipped") : owned ? _localizer.Get("equip") : _localizer.Get("unlock", item.Cost);
-                var label = CosmeticName(item) + "\n<size=18>" + status + "</size>";
+                var status = equipped
+                    ? _localizer.Get("cosmetic_equipped_status")
+                    : owned
+                        ? _localizer.Get("cosmetic_equip_status")
+                        : _localizer.Get("cosmetic_unlock_status", item.Cost);
                 var color = equipped ? Amber : owned ? Sage : Wine;
-                CreateButton(page, "Cosmetic_" + item.Id, label, new Vector2(minX, minY), new Vector2(maxX, maxY), color, equipped ? Ink : Paper, () => SelectCosmetic(item));
+                var button = CreateButton(scrollContent, "Cosmetic_" + item.Id, CosmeticName(item), Vector2.zero, Vector2.one, color, equipped ? Ink : Paper, () => SelectCosmetic(item));
+                var layout = button.gameObject.AddComponent<LayoutElement>();
+                layout.preferredHeight = 230;
+                var label = button.transform.Find("Label").GetComponent<TMP_Text>();
+                label.name = "CosmeticName_" + item.Id;
+                label.alignment = TextAlignmentOptions.TopLeft;
+                label.fontSize = 28;
+                SetAnchors(label.rectTransform, new Vector2(0.38f, 0.42f), new Vector2(0.95f, 0.86f));
+                var artwork = CreateArtworkImage(button.transform, "CosmeticArtwork_" + item.Id, new Vector2(0.035f, 0.08f), new Vector2(0.34f, 0.92f));
+                artwork.sprite = VisualAssetLibrary.Cosmetic(item.Id);
+                artwork.enabled = artwork.sprite != null;
+                CreateText(button.transform, "CosmeticStatus_" + item.Id, status, 20, equipped ? Ink : Paper, TextAlignmentOptions.BottomLeft, new Vector2(0.38f, 0.13f), new Vector2(0.95f, 0.44f), true);
             }
+        }
 
-            CreateButton(page, "CollectionBackButton", _localizer.Get("back"), new Vector2(0.34f, 0.015f), new Vector2(0.66f, 0.065f), Paper, Ink, ShowMenu);
+        private void ShowCasebookTab()
+        {
+            _collectionTab = CollectionTab.Casebook;
+            _cosmeticFeedback = null;
+            BuildCollectionScreen();
+        }
+
+        private void ShowCosmeticsTab()
+        {
+            _collectionTab = CollectionTab.Cosmetics;
+            BuildCollectionScreen();
         }
 
         public void ShowSettings()
@@ -237,53 +744,235 @@ namespace CurioClerk.Presentation
             CreateText(page, "LanguageHeader", _localizer.Get("language"), 28, Paper, TextAlignmentOptions.Left, new Vector2(0.14f, 0.72f), new Vector2(0.86f, 0.78f), true);
             CreateButton(page, "EnglishButton", "English", new Vector2(0.14f, 0.62f), new Vector2(0.48f, 0.70f), _localizer.Locale == "en" ? Amber : Wine, _localizer.Locale == "en" ? Ink : Paper, () => SetLocale("en"));
             CreateButton(page, "KoreanButton", "한국어", new Vector2(0.52f, 0.62f), new Vector2(0.86f, 0.70f), _localizer.Locale == "ko" ? Amber : Wine, _localizer.Locale == "ko" ? Ink : Paper, () => SetLocale("ko"));
-            CreateText(page, "PrivacyHeader", _localizer.Get("privacy"), 28, Paper, TextAlignmentOptions.Left, new Vector2(0.14f, 0.49f), new Vector2(0.86f, 0.55f), true);
-            CreateButton(page, "AnalyticsConsentButton", _localizer.Get(_save.analyticsConsent ? "analytics_on" : "analytics_off"), new Vector2(0.14f, 0.39f), new Vector2(0.86f, 0.47f), _save.analyticsConsent ? Sage : Wine, Paper, ToggleAnalytics);
-            CreateButton(page, "CrashConsentButton", _localizer.Get(_save.crashReportingConsent ? "crash_on" : "crash_off"), new Vector2(0.14f, 0.29f), new Vector2(0.86f, 0.37f), _save.crashReportingConsent ? Sage : Wine, Paper, ToggleCrashReports);
+            CreateText(page, "FeedbackHeader", _localizer.Get("feedback_settings"), 28, Paper, TextAlignmentOptions.Left, new Vector2(0.14f, 0.53f), new Vector2(0.86f, 0.59f), true);
+            CreateButton(page, "SoundToggleButton", FeedbackToggleLabel("sound", _save.soundEnabled), new Vector2(0.14f, 0.43f), new Vector2(0.48f, 0.51f), _save.soundEnabled ? Sage : Wine, Paper, ToggleSound);
+            CreateButton(page, "HapticsToggleButton", FeedbackToggleLabel("haptics", _save.hapticsEnabled), new Vector2(0.52f, 0.43f), new Vector2(0.86f, 0.51f), _save.hapticsEnabled ? Sage : Wine, Paper, ToggleHaptics);
+            CreateText(page, "PrivacyHeader", _localizer.Get("privacy"), 28, Paper, TextAlignmentOptions.Left, new Vector2(0.14f, 0.33f), new Vector2(0.86f, 0.39f), true);
             if (_privacy.PrivacyOptionsRequired)
             {
-                CreateButton(page, "AdPrivacyOptionsButton", _localizer.Get("privacy_options"), new Vector2(0.14f, 0.19f), new Vector2(0.86f, 0.27f), Wine, Paper, ShowAdPrivacyOptions);
+                CreateButton(page, "AdPrivacyOptionsButton", _localizer.Get("privacy_options"), new Vector2(0.14f, 0.24f), new Vector2(0.86f, 0.31f), Wine, Paper, ShowAdPrivacyOptions);
             }
 
-            CreateText(page, "PrivacyNote", _localizer.Locale == "ko" ? "동의하지 않아도 모든 게임 기능을 이용할 수 있습니다." : "All gameplay remains available without consent.", 22, Paper, TextAlignmentOptions.Top, new Vector2(0.14f, 0.11f), new Vector2(0.86f, 0.18f));
+            CreateText(page, "PrivacyNote", _localizer.Locale == "ko" ? "광고 동의 없이도 모든 게임 기능을 이용할 수 있습니다." : "All gameplay remains available without ad consent.", 22, Paper, TextAlignmentOptions.Top, new Vector2(0.14f, 0.11f), new Vector2(0.86f, 0.22f));
             CreateButton(page, "SettingsBackButton", _localizer.Get("back"), new Vector2(0.30f, 0.03f), new Vector2(0.70f, 0.09f), Paper, Ink, ShowMenu);
         }
 
         private void OnStartPressed()
         {
-            if (_save.tutorialCompleted)
-            {
-                StartNewShift(_seedProvider.CreateStandardSeed(_save.completedShifts));
-            }
-            else
-            {
-                ShowTutorial();
-            }
+            StartNewShift(_seedProvider.CreateStandardSeed(_save.completedShifts));
         }
 
         private void BuildShiftScreen()
         {
+            _inputLocked = false;
             ActiveScreen = AppScreen.Shift;
             var page = CreatePage("ShiftScreen");
-            _hudText = CreateText(page, "ShiftHud", string.Empty, 26, Paper, TextAlignmentOptions.Center, new Vector2(0.07f, 0.93f), new Vector2(0.93f, 0.98f), true);
-            CreateText(page, "RulesHeader", _localizer.Get("rules"), 23, Amber, TextAlignmentOptions.Left, new Vector2(0.07f, 0.84f), new Vector2(0.93f, 0.90f), true);
-            CreateText(page, "RuleList", RulesText(), 22, Paper, TextAlignmentOptions.TopLeft, new Vector2(0.07f, 0.68f), new Vector2(0.93f, 0.85f));
+            _incidentReactionView = null;
+            _incidentWarmthOverlay = null;
+            if (_isIncidentShift)
+            {
+                _incidentWarmthOverlay = CreateArtworkImage(
+                    page,
+                    "IncidentWarmthOverlay",
+                    Vector2.zero,
+                    Vector2.one);
+                _incidentWarmthOverlay.color = Color.clear;
+                _incidentWarmthOverlay.enabled = false;
+            }
 
-            _nextTexts[0] = CreateText(page, "NextPreview0", string.Empty, 21, Paper, TextAlignmentOptions.Center, new Vector2(0.08f, 0.59f), new Vector2(0.42f, 0.66f), true);
-            _nextTexts[1] = CreateText(page, "NextPreview1", string.Empty, 21, Paper, TextAlignmentOptions.Center, new Vector2(0.44f, 0.59f), new Vector2(0.78f, 0.66f), true);
-            _heldText = CreateText(page, "HeldArtifactText", string.Empty, 20, Amber, TextAlignmentOptions.Center, new Vector2(0.80f, 0.59f), new Vector2(0.94f, 0.66f), true);
+            var equipped = ContentCatalog.CreateCosmetics().FirstOrDefault(item => item.Id == _save.equippedCosmeticId);
+            var hudMinimum = _isDailyShift ? new Vector2(0.32f, 0.945f) : new Vector2(0.06f, 0.945f);
+            _hudText = CreateText(page, "ShiftHud", string.Empty, 28, Paper, TextAlignmentOptions.Center, hudMinimum, new Vector2(0.86f, 0.985f), true);
+            if (_isDailyShift)
+            {
+                CreateText(page, "DailyChallengeBadge", _localizer.Get("daily_badge", _dailyDateKey), 18, Amber, TextAlignmentOptions.Left, new Vector2(0.03f, 0.945f), new Vector2(0.31f, 0.985f), true);
+            }
+            var rulesPanelMinimum = _isIncidentShift
+                ? new Vector2(0.045f, 0.73f)
+                : new Vector2(0.045f, 0.70f);
+            var rulesPanel = CreatePanel(page, "RulesPanel", new Color(Wine.r, Wine.g, Wine.b, 0.82f), rulesPanelMinimum, new Vector2(0.955f, 0.84f));
+            AddSurfaceChrome(rulesPanel, Amber, 2f, 0.28f);
+            CreateText(rulesPanel, "RulesHeader", _localizer.Get("rules"), _isIncidentShift ? 24 : 26, Amber, TextAlignmentOptions.Left, new Vector2(0.035f, 0.68f), new Vector2(0.965f, 0.94f), true);
+            _ruleListText = CreateText(rulesPanel, "RuleList", RulesText(), 24, Paper, TextAlignmentOptions.TopLeft, new Vector2(0.035f, 0.05f), new Vector2(0.965f, 0.70f));
+            if (equipped != null)
+            {
+                CreateEquippedCosmeticArtwork(page, equipped, new Vector2(0.87f, 0.945f), new Vector2(0.98f, 0.99f), false);
+            }
 
-            var card = CreatePanel(page, "CurrentArtifactCard", Paper, new Vector2(0.10f, 0.27f), new Vector2(0.90f, 0.58f));
-            _currentSymbol = CreateText(card, "ArtifactSymbol", string.Empty, 84, Wine, TextAlignmentOptions.Center, new Vector2(0.05f, 0.62f), new Vector2(0.28f, 0.94f), true);
-            _currentName = CreateText(card, "ArtifactName", string.Empty, 37, Ink, TextAlignmentOptions.Left, new Vector2(0.30f, 0.70f), new Vector2(0.94f, 0.93f), true);
-            _currentDescription = CreateText(card, "ArtifactDescription", string.Empty, 24, Ink, TextAlignmentOptions.TopLeft, new Vector2(0.08f, 0.27f), new Vector2(0.92f, 0.68f));
-            _currentTraits = CreateText(card, "ArtifactTraits", string.Empty, 20, Wine, TextAlignmentOptions.Center, new Vector2(0.08f, 0.07f), new Vector2(0.92f, 0.24f), true);
+            _docketProgress = null;
+            var previewBottom = _isIncidentShift ? 0.66f : 0.625f;
+            var previewTop = _isIncidentShift ? 0.72f : 0.69f;
+            BuildDocketProgress(page);
 
-            CreateButton(page, "HoldButton", _localizer.Get("hold"), new Vector2(0.36f, 0.20f), new Vector2(0.64f, 0.26f), Wine, Paper, HoldCurrent);
-            var repair = CreateButton(page, "RepairButton", _localizer.Get("repair"), new Vector2(0.05f, 0.08f), new Vector2(0.32f, 0.18f), DustyRose, Paper, () => ChooseDestination(Destination.Repair));
-            var storage = CreateButton(page, "StorageButton", _localizer.Get("storage"), new Vector2(0.365f, 0.08f), new Vector2(0.635f, 0.18f), Sage, Paper, () => ChooseDestination(Destination.Storage));
-            var vault = CreateButton(page, "VaultButton", _localizer.Get("vault"), new Vector2(0.68f, 0.08f), new Vector2(0.95f, 0.18f), Amber, Ink, () => ChooseDestination(Destination.Vault));
-            card.gameObject.AddComponent<ArtifactDragHandler>().Configure(
+            _nextIllustrations[0] = CreateArtifactPreview(page, "NextPreviewCard0", "NextPreviewArtwork0", "NextPreview0", Paper, new Vector2(0.05f, previewBottom), new Vector2(0.34f, previewTop), out _nextTexts[0]);
+            _nextIllustrations[1] = CreateArtifactPreview(page, "NextPreviewCard1", "NextPreviewArtwork1", "NextPreview1", Paper, new Vector2(0.355f, previewBottom), new Vector2(0.645f, previewTop), out _nextTexts[1]);
+            _heldIllustration = CreateArtifactPreview(page, "HeldPreviewCard", "HeldPreviewArtwork", "HeldArtifactText", Amber, new Vector2(0.66f, previewBottom), new Vector2(0.95f, previewTop), out _heldText);
+            _tutorialCoach = null;
+            if (IsTutorialActive)
+            {
+                _nextTexts[0].gameObject.SetActive(false);
+                _nextTexts[1].gameObject.SetActive(false);
+                var coachPanel = CreatePanel(page, "TutorialCoachPanel", Wine, new Vector2(0.05f, previewBottom), new Vector2(0.65f, previewTop));
+                _tutorialCoach = CreateText(coachPanel, "TutorialCoach", string.Empty, 20, Paper, TextAlignmentOptions.Center, new Vector2(0.04f, 0.05f), new Vector2(0.96f, 0.95f), true);
+            }
+
+            var cardMinimum = _isIncidentShift
+                ? new Vector2(0.06f, 0.26f)
+                : new Vector2(0.08f, 0.305f);
+            var cardMaximum = _isIncidentShift
+                ? new Vector2(0.94f, 0.65f)
+                : new Vector2(0.92f, 0.615f);
+            var card = CreatePanel(page, "CurrentArtifactCard", Paper, cardMinimum, cardMaximum);
+            _artifactCardSurface = card.GetComponent<Image>();
+            AddSurfaceChrome(card, Amber, 3f, 0.34f);
+            var artworkMaximum = _isIncidentShift
+                ? new Vector2(0.49f, 0.94f)
+                : new Vector2(0.46f, 0.94f);
+            _artifactIllustration = CreateArtworkImage(card, "ArtifactIllustration", new Vector2(0.035f, 0.16f), artworkMaximum);
+            _artifactIllustration.gameObject.AddComponent<CanvasGroup>();
+            _curioFarewellSeal = CreateArtworkImage(
+                _artifactIllustration.transform,
+                "CurioFarewellSeal",
+                new Vector2(0.23f, 0.23f),
+                new Vector2(0.77f, 0.77f));
+            _curioFarewellSealGroup = _curioFarewellSeal.gameObject.AddComponent<CanvasGroup>();
+            _curioFarewellSealGroup.alpha = 0f;
+            _curioFarewellSeal.gameObject.SetActive(false);
+            _currentSymbol = CreateText(card, "ArtifactSymbol", string.Empty, 92, Wine, TextAlignmentOptions.Center, new Vector2(0.05f, 0.30f), new Vector2(0.44f, 0.86f), true);
+            var copyMinimumX = _isIncidentShift ? 0.51f : 0.47f;
+            _currentName = CreateText(card, "ArtifactName", string.Empty, 42, Ink, TextAlignmentOptions.Left, new Vector2(copyMinimumX, 0.72f), new Vector2(0.95f, 0.94f), true, TextRole.Display);
+            _currentDescription = CreateText(card, "ArtifactDescription", string.Empty, 27, Ink, TextAlignmentOptions.TopLeft, new Vector2(copyMinimumX, 0.30f), new Vector2(0.94f, 0.71f), true);
+            _currentTraits = CreateText(card, "ArtifactTraits", string.Empty, 24, Wine, TextAlignmentOptions.Center, new Vector2(0.08f, 0.06f), new Vector2(0.92f, 0.20f), true);
+            var curioResponseSurface = CreatePanel(
+                card,
+                "CurioResponseVeil",
+                new Color(0.16f, 0.035f, 0.09f, 0.94f),
+                new Vector2(0.025f, 0.04f),
+                new Vector2(0.975f, 0.96f));
+            _curioResponseVeil = curioResponseSurface.GetComponent<Image>();
+            _curioResponseVeil.raycastTarget = false;
+            AddSurfaceChrome(curioResponseSurface, Amber, 3f, 0.42f);
+            _curioResponseOutline = curioResponseSurface.GetComponent<Outline>();
+            var curioResolutionGroup = curioResponseSurface.gameObject.AddComponent<CanvasGroup>();
+            curioResolutionGroup.alpha = 0f;
+            curioResolutionGroup.blocksRaycasts = false;
+            curioResolutionGroup.interactable = false;
+            _curioResponseSeal = CreateArtworkImage(
+                curioResponseSurface,
+                "CurioResponseSeal",
+                new Vector2(0.39f, 0.66f),
+                new Vector2(0.61f, 0.91f));
+            var responseSealGlow = _curioResponseSeal.gameObject.AddComponent<Outline>();
+            responseSealGlow.effectColor = new Color(Amber.r, Amber.g, Amber.b, 0.82f);
+            responseSealGlow.effectDistance = new Vector2(4f, -4f);
+            responseSealGlow.useGraphicAlpha = false;
+            _curioResponseSeal.gameObject.SetActive(false);
+            _curioResolution = CreateText(
+                curioResponseSurface,
+                "CurioResolution",
+                string.Empty,
+                46,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.07f, 0.10f),
+                new Vector2(0.93f, 0.66f),
+                true,
+                TextRole.Display);
+            _curioResolution.gameObject.SetActive(false);
+
+            if (_isIncidentShift)
+            {
+                var frostOverlay = CreateArtworkImage(
+                    card,
+                    "IncidentFrostOverlay",
+                    Vector2.zero,
+                    Vector2.one);
+                frostOverlay.sprite = VisualAssetLibrary.FrostOverlay;
+                frostOverlay.preserveAspect = false;
+                frostOverlay.color = new Color(1f, 1f, 1f, 0.28f);
+                frostOverlay.enabled = false;
+                frostOverlay.transform.SetSiblingIndex(1);
+                var reactionVeil = CreatePanel(
+                    card,
+                    "IncidentReactionVeil",
+                    new Color(0.16f, 0.035f, 0.09f, 0.82f),
+                    new Vector2(0.025f, 0.04f),
+                    new Vector2(0.975f, 0.96f));
+                var reactionVeilImage = reactionVeil.GetComponent<Image>();
+                reactionVeilImage.raycastTarget = false;
+                reactionVeilImage.enabled = false;
+                var reactionText = CreateText(
+                    card,
+                    "IncidentReactionText",
+                    string.Empty,
+                    42,
+                    Paper,
+                    TextAlignmentOptions.Center,
+                    new Vector2(0.07f, 0.18f),
+                    new Vector2(0.93f, 0.82f),
+                    true,
+                    TextRole.Display);
+                reactionText.enabled = false;
+                _incidentReactionView = page.gameObject.AddComponent<IncidentReactionView>();
+                _incidentReactionView.Configure(
+                    card.GetComponent<RectTransform>(),
+                    reactionText,
+                    reactionVeilImage,
+                    frostOverlay,
+                    _incidentWarmthOverlay,
+                    _feedbackService);
+            }
+
+            var holdMinimum = _isIncidentShift
+                ? new Vector2(0.34f, 0.14f)
+                : new Vector2(0.34f, 0.175f);
+            var holdMaximum = _isIncidentShift
+                ? new Vector2(0.66f, 0.19f)
+                : new Vector2(0.66f, 0.225f);
+            _holdButton = CreateButton(page, "HoldButton", _localizer.Get(_isIncidentShift ? "incident_hold_protect" : "hold"), holdMinimum, holdMaximum, Wine, Paper, HoldCurrent, 28);
+            _holdButtonLabel = _holdButton.transform.Find("Label").GetComponent<TMP_Text>();
+            AddButtonIcon(_holdButton, "HoldButtonIcon", VisualAssetLibrary.HoldIcon, Paper);
+            _holdHighlight = CreateButtonHighlight(_holdButton);
+            var feedbackMinimum = _isIncidentShift
+                ? new Vector2(0.05f, 0.20f)
+                : new Vector2(0.05f, 0.235f);
+            var feedbackMaximum = _isIncidentShift
+                ? new Vector2(0.95f, 0.25f)
+                : new Vector2(0.95f, 0.295f);
+            var feedbackPanel = CreatePanel(page, "SortFeedbackPanel", Color.clear, feedbackMinimum, feedbackMaximum);
+            _sortFeedbackPanel = feedbackPanel.GetComponent<Image>();
+            _statusText = CreateText(feedbackPanel, "SortFeedback", string.Empty, 24, Paper, TextAlignmentOptions.Center, Vector2.zero, Vector2.one, true);
+            _feedbackAnimator = page.gameObject.AddComponent<ShiftFeedbackAnimator>();
+            _feedbackAnimator.Configure(
+                card,
+                _artifactIllustration.rectTransform,
+                feedbackPanel,
+                _heldIllustration.rectTransform);
+            _feedbackAnimator.ConfigureFarewell(
+                _curioFarewellSeal.rectTransform,
+                _curioFarewellSealGroup);
+            _feedbackAnimator.ConfigureCurioResponse(
+                curioResponseSurface,
+                _curioResolution.rectTransform,
+                _curioResponseSeal.rectTransform,
+                curioResolutionGroup);
+
+            var destinationBottom = _isIncidentShift ? 0.015f : 0.035f;
+            var destinationTop = _isIncidentShift ? 0.125f : 0.145f;
+            var repair = CreateButton(page, "RepairButton", _localizer.Get("repair"), new Vector2(0.05f, destinationBottom), new Vector2(0.32f, destinationTop), DustyRose, Paper, () => ChooseDestination(Destination.Repair), 30);
+            var storage = CreateButton(page, "StorageButton", _localizer.Get("storage"), new Vector2(0.365f, destinationBottom), new Vector2(0.635f, destinationTop), Sage, Paper, () => ChooseDestination(Destination.Storage), 30);
+            var vault = CreateButton(page, "VaultButton", _localizer.Get("vault"), new Vector2(0.68f, destinationBottom), new Vector2(0.95f, destinationTop), Amber, Ink, () => ChooseDestination(Destination.Vault), 30);
+            AddButtonIcon(repair, "RepairButtonIcon", VisualAssetLibrary.RepairIcon, Paper);
+            AddButtonIcon(storage, "StorageButtonIcon", VisualAssetLibrary.StorageIcon, Paper);
+            AddButtonIcon(vault, "VaultButtonIcon", VisualAssetLibrary.VaultIcon, Ink);
+            _destinationButtons[(int)Destination.Repair] = repair;
+            _destinationButtons[(int)Destination.Storage] = storage;
+            _destinationButtons[(int)Destination.Vault] = vault;
+            _destinationHighlights[(int)Destination.Repair] = CreateButtonHighlight(repair);
+            _destinationHighlights[(int)Destination.Storage] = CreateButtonHighlight(storage);
+            _destinationHighlights[(int)Destination.Vault] = CreateButtonHighlight(vault);
+            _artifactDragHandler = card.gameObject.AddComponent<ArtifactDragHandler>();
+            _artifactDragHandler.Configure(
                 new[]
                 {
                     repair.GetComponent<RectTransform>(),
@@ -291,30 +980,1357 @@ namespace CurioClerk.Presentation
                     vault.GetComponent<RectTransform>()
                 },
                 index => ChooseDestination((Destination)index));
-            _statusText = CreateText(page, "SortFeedback", string.Empty, 22, Paper, TextAlignmentOptions.Center, new Vector2(0.07f, 0.01f), new Vector2(0.93f, 0.07f), true);
+            var inputLockPanel = CreatePanel(
+                page,
+                "ShiftInputLockPanel",
+                new Color(Plum.r, Plum.g, Plum.b, 0.94f),
+                new Vector2(0.045f, destinationBottom),
+                new Vector2(0.955f, holdMaximum.y));
+            AddSurfaceChrome(inputLockPanel, Amber, 3f, 0.42f);
+            CreateText(
+                inputLockPanel,
+                "ShiftInputLockText",
+                _localizer.Get("processing"),
+                30,
+                Paper,
+                TextAlignmentOptions.Center,
+                Vector2.zero,
+                Vector2.one,
+                true,
+                TextRole.Display);
+            _shiftInputLockPanel = inputLockPanel.gameObject;
+            _shiftInputLockPanel.SetActive(false);
             RefreshShiftView();
+            RefreshTutorialGuidance();
         }
 
-        private void RefreshShiftView()
+        private bool IsTutorialActive =>
+            _tutorialStage >= TutorialStage.FirstVault &&
+            _tutorialStage <= TutorialStage.FinalHeldVault;
+
+        private void StartTutorialShift()
+        {
+            _isIncidentShift = false;
+            _incidentStage = null;
+            _incidentStageRun = null;
+            _isDailyShift = false;
+            _dailyDateKey = string.Empty;
+            var tutorialIds = new[]
+            {
+                "whispering-key",
+                "borrowed-shadow",
+                "sleeping-teacup",
+                "clockwork-moth",
+                "rain-jar",
+                "moon-umbrella"
+            };
+            _plannedQueue = tutorialIds.Select(id => _artifactById[id].ToArtifact()).ToArray();
+            _activeRules = ContentCatalog.CreateRulePacks()
+                .Single(pack => pack.Id == "pack-cursed-fragile")
+                .Rules;
+            _session = new ShiftSession(_plannedQueue, _activeRules);
+            _activePlan = null;
+            _seenThisShift.Clear();
+            _resultApplied = false;
+            _appliedResultCoins = 0;
+            _lastCorrectArtifactId = null;
+            _rewardFeedbackKey = null;
+            _tutorialStage = TutorialStage.FirstVault;
+            BuildShiftScreen();
+        }
+
+        private void ChooseTutorialDestination(Destination destination)
+        {
+            if (_tutorialStage == TutorialStage.HoldDuplicateVault)
+            {
+                RefreshDecisionMessage();
+                RefreshTutorialGuidance();
+                return;
+            }
+
+            var artifact = _session.CurrentArtifact;
+            var content = _artifactById[artifact.Id];
+            var resolution = _ruleEngine.ResolveDetailed(artifact, _activeRules);
+            if (destination != resolution.Destination)
+            {
+                var wrong = new SortOutcome(
+                    SortDisposition.Wrong,
+                    destination,
+                    resolution.Destination,
+                    resolution.RuleId,
+                    false,
+                    false,
+                    0,
+                    0);
+                ShowSortFeedback(artifact, content, wrong);
+                return;
+            }
+
+            var outcome = _session.Sort(destination);
+            var completingTutorial = _tutorialStage == TutorialStage.FinalHeldVault;
+            var nextStage = NextTutorialStage(_tutorialStage);
+            PrepareCurioFarewell(content, outcome.SelectedDestination);
+            ShowSortFeedback(artifact, content, outcome, false);
+            if (!completingTutorial)
+            {
+                _feedbackService.Play(PlayerFeedbackCue.Correct);
+            }
+
+            RefreshDocketDuringTransition(outcome);
+            SetShiftInputLocked(true);
+            _feedbackAnimator?.SetIdleEnabled(false);
+            Action completed = () => CompleteTutorialSortTransition(
+                outcome,
+                nextStage,
+                completingTutorial);
+            if (_feedbackAnimator == null)
+            {
+                completed();
+            }
+            else
+            {
+                _feedbackAnimator.PlayCorrect(
+                    _destinationButtons[(int)outcome.SelectedDestination].GetComponent<RectTransform>(),
+                    completed);
+            }
+        }
+
+        private void HoldTutorialArtifact()
+        {
+            if (_tutorialStage != TutorialStage.HoldDuplicateVault)
+            {
+                _sortFeedbackPanel.color = Wine;
+                _statusText.text = _localizer.Get("tutorial_follow_step");
+                _statusText.color = Paper;
+                return;
+            }
+
+            if (_session.Hold())
+            {
+                _feedbackService.Play(PlayerFeedbackCue.Hold);
+                SetShiftInputLocked(true);
+                _feedbackAnimator?.SetIdleEnabled(false);
+                if (_feedbackAnimator == null)
+                {
+                    CompleteTutorialHoldTransition();
+                }
+                else
+                {
+                    _feedbackAnimator.PlayHold(CompleteTutorialHoldTransition);
+                }
+            }
+        }
+
+        private static TutorialStage NextTutorialStage(TutorialStage stage)
+        {
+            switch (stage)
+            {
+                case TutorialStage.FirstVault: return TutorialStage.HoldDuplicateVault;
+                case TutorialStage.FirstRepair: return TutorialStage.FirstStorage;
+                case TutorialStage.FirstStorage: return TutorialStage.SecondStorage;
+                case TutorialStage.SecondStorage: return TutorialStage.SecondRepair;
+                case TutorialStage.SecondRepair: return TutorialStage.FinalHeldVault;
+                case TutorialStage.FinalHeldVault: return TutorialStage.Complete;
+                default: return stage;
+            }
+        }
+
+        private void CompleteCorrectTransition(SortOutcome outcome)
+        {
+            if (outcome.DidCompleteDocket && _docketProgress != null)
+            {
+                ShowDocketCompleteFeedback(outcome);
+                ShowDocketWarmth();
+                if (!_docketProgress.isActiveAndEnabled)
+                {
+                    FinishCorrectTransition(outcome);
+                    return;
+                }
+
+                _docketProgress.PlayComplete(OwnTransition(() => FinishCorrectTransition(outcome)));
+                return;
+            }
+
+            FinishCorrectTransition(outcome);
+        }
+
+        private void FinishCorrectTransition(SortOutcome outcome)
+        {
+            if (outcome.DidCompleteDocket)
+            {
+                ResetDocketMistakePresentation();
+                HideDocketWarmth();
+            }
+
+            if (outcome.DidCompleteShift)
+            {
+                _inputLocked = false;
+                if (_isIncidentShift)
+                {
+                    ShowIncidentResults();
+                }
+                else
+                {
+                    _feedbackService.Play(PlayerFeedbackCue.ShiftComplete);
+                    ShowResults();
+                }
+                return;
+            }
+
+            RefreshShiftView();
+            SetShiftInputLocked(false);
+        }
+
+        private void CompleteHoldTransition()
+        {
+            RefreshShiftView();
+            SetShiftInputLocked(false);
+        }
+
+        private void CompleteTerminalWrongTransition()
+        {
+            _inputLocked = false;
+            if (_isIncidentShift)
+            {
+                ShowIncidentResults();
+            }
+            else
+            {
+                ShowResults();
+            }
+        }
+
+        private void CompleteTutorialSortTransition(
+            SortOutcome outcome,
+            TutorialStage nextStage,
+            bool completingTutorial)
+        {
+            Action finish = () =>
+            {
+                HideTutorialDocketCompleteCard();
+                if (completingTutorial)
+                {
+                    _inputLocked = false;
+                    CompleteTutorial();
+                    return;
+                }
+
+                _tutorialStage = nextStage;
+                RefreshShiftView();
+                SetShiftInputLocked(false);
+            };
+
+            if (outcome.DidCompleteDocket && _docketProgress != null)
+            {
+                ShowDocketCompleteFeedback(outcome);
+                if (!completingTutorial && _session.CompletedDockets == 1)
+                {
+                    ShowTutorialDocketCompleteCard();
+                }
+
+                _docketProgress.PlayComplete(finish);
+            }
+            else
+            {
+                finish();
+            }
+        }
+
+        private void CompleteTutorialHoldTransition()
+        {
+            _tutorialStage = TutorialStage.FirstRepair;
+            RefreshShiftView();
+            SetShiftInputLocked(false);
+        }
+
+        private void RefreshDocketDuringTransition(SortOutcome outcome)
+        {
+            if (_docketProgress == null || _session.RequiredDockets <= 0)
+            {
+                return;
+            }
+
+            var docket = _session.CurrentDocket;
+            var completedDockets = _session.CompletedDockets;
+            if (outcome.DidCompleteDocket)
+            {
+                docket = new DocketState();
+                docket.TryStamp(Destination.Repair);
+                docket.TryStamp(Destination.Storage);
+                docket.TryStamp(Destination.Vault);
+                completedDockets = Math.Max(0, completedDockets - 1);
+            }
+
+            _docketProgress.Refresh(
+                docket,
+                completedDockets,
+                _session.RequiredDockets,
+                _localizer.Get("docket_empty"),
+                _localizer.Get("docket_complete"));
+        }
+
+        private void SetShiftInputLocked(bool locked)
+        {
+            _inputLocked = locked;
+            _artifactDragHandler?.SetInputEnabled(!locked);
+            _shiftInputLockPanel?.SetActive(locked);
+            if (_holdButton == null)
+            {
+                return;
+            }
+
+            if (locked)
+            {
+                _holdButton.interactable = false;
+                for (var index = 0; index < _destinationButtons.Length; index++)
+                {
+                    _destinationButtons[index].interactable = false;
+                }
+
+                return;
+            }
+
+            if (IsTutorialActive)
+            {
+                RefreshTutorialGuidance();
+                return;
+            }
+
+            _holdButton.interactable = _session?.CanHold == true;
+            for (var index = 0; index < _destinationButtons.Length; index++)
+            {
+                _destinationButtons[index].interactable =
+                    !_inputLocked && _session.CanSort((Destination)index);
+            }
+        }
+
+        private void RefreshTutorialGuidance()
+        {
+            if (!IsTutorialActive || _tutorialCoach == null)
+            {
+                return;
+            }
+
+            var highlightedRule = -1;
+            var highlightedDestination = -1;
+            var holdEnabled = false;
+            switch (_tutorialStage)
+            {
+                case TutorialStage.FirstVault:
+                    highlightedRule = 0;
+                    highlightedDestination = (int)Destination.Vault;
+                    break;
+                case TutorialStage.HoldDuplicateVault:
+                    highlightedRule = 0;
+                    holdEnabled = true;
+                    break;
+                case TutorialStage.FirstRepair:
+                    highlightedRule = 1;
+                    highlightedDestination = (int)Destination.Repair;
+                    break;
+                case TutorialStage.FirstStorage:
+                    highlightedRule = 2;
+                    highlightedDestination = (int)Destination.Storage;
+                    break;
+                case TutorialStage.SecondStorage:
+                    highlightedRule = 2;
+                    highlightedDestination = (int)Destination.Storage;
+                    break;
+                case TutorialStage.SecondRepair:
+                    highlightedRule = 1;
+                    highlightedDestination = (int)Destination.Repair;
+                    break;
+                case TutorialStage.FinalHeldVault:
+                    highlightedRule = 0;
+                    highlightedDestination = (int)Destination.Vault;
+                    break;
+            }
+
+            _tutorialCoach.text = holdEnabled
+                ? _localizer.Get(
+                    "hold_required",
+                    DestinationName(_session.CurrentResolution.Destination))
+                : _localizer.Get("tutorial_goal");
+            _ruleListText.text = RulesText(highlightedRule);
+            _holdButton.interactable = !_inputLocked && holdEnabled;
+            _holdHighlight.enabled = holdEnabled;
+            for (var index = 0; index < _destinationButtons.Length; index++)
+            {
+                _destinationButtons[index].interactable =
+                    !_inputLocked && !holdEnabled && _session.CanSort((Destination)index);
+                _destinationHighlights[index].enabled = index == highlightedDestination;
+            }
+        }
+
+        private void ShowTutorialDocketCompleteCard()
+        {
+            HideTutorialDocketCompleteCard();
+            var card = CreatePanel(
+                _screenRoot,
+                "TutorialDocketCompleteCard",
+                Wine,
+                new Vector2(0.12f, 0.40f),
+                new Vector2(0.88f, 0.56f));
+            AddSurfaceChrome(card, Amber, 3f, 0.38f);
+            CreateText(
+                card,
+                "TutorialDocketCompleteMessage",
+                _localizer.Get("tutorial_first_docket_complete"),
+                28,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.05f, 0.10f),
+                new Vector2(0.95f, 0.90f),
+                true);
+            _tutorialDocketCompleteCard = card.gameObject;
+        }
+
+        private void HideTutorialDocketCompleteCard()
+        {
+            if (_tutorialDocketCompleteCard == null)
+            {
+                return;
+            }
+
+            _tutorialDocketCompleteCard.SetActive(false);
+            Destroy(_tutorialDocketCompleteCard);
+            _tutorialDocketCompleteCard = null;
+        }
+
+        private void CompleteTutorial()
+        {
+            _tutorialStage = TutorialStage.Complete;
+            _save.tutorialCompleted = true;
+            Save();
+            _feedbackService.Play(PlayerFeedbackCue.ShiftComplete);
+            ActiveScreen = AppScreen.Tutorial;
+            var page = CreatePage("TutorialCompleteScreen");
+            CreateText(page, "TutorialCompleteTitle", _localizer.Get("tutorial_complete_title"), 58, Amber, TextAlignmentOptions.Center, new Vector2(0.10f, 0.62f), new Vector2(0.90f, 0.76f), true, TextRole.Display);
+            CreateText(page, "TutorialCompleteBody", _localizer.Get("tutorial_finish"), 30, Paper, TextAlignmentOptions.Center, new Vector2(0.14f, 0.39f), new Vector2(0.86f, 0.58f));
+            CreateButton(page, "TutorialStartShiftButton", _localizer.Get("tutorial_start_shift"), new Vector2(0.18f, 0.20f), new Vector2(0.82f, 0.30f), Amber, Ink, () => StartNewShift(_seedProvider.CreateStandardSeed(_save.completedShifts)));
+        }
+
+        private void ShowSortFeedback(
+            Artifact artifact,
+            ArtifactContent content,
+            SortOutcome outcome,
+            bool playCue = true,
+            bool playAnimation = true)
+        {
+            var wasCorrect = outcome.WasCorrect;
+            var reason = RuleReason(artifact, outcome);
+            _sortFeedbackPanel.color = wasCorrect
+                ? DestinationColor(outcome.SelectedDestination)
+                : _isIncidentShift ? Wine : DustyRose;
+            if (wasCorrect)
+            {
+                _statusText.text = _localizer.Get("feedback_correct_label") + " · " + reason + "\n" +
+                                   Resolution(content);
+            }
+            else if (_isIncidentShift)
+            {
+                _statusText.text = reason + "\n" +
+                                   _localizer.Get("wrong", DestinationName(outcome.ExpectedDestination));
+            }
+            else
+            {
+                _statusText.text = _localizer.Get("feedback_wrong_label") + " · " +
+                                   _localizer.Get("wrong", DestinationName(outcome.ExpectedDestination)) + "\n" +
+                                   reason;
+            }
+
+            if (_isIncidentShift && wasCorrect && _incidentConsecutiveCorrect == 3)
+            {
+                _statusText.text += "\n" + _localizer.Get("calm_streak");
+            }
+
+            _statusText.color = wasCorrect && outcome.SelectedDestination == Destination.Vault ? Ink : Paper;
+            if (playCue)
+            {
+                _feedbackService.Play(wasCorrect ? PlayerFeedbackCue.Correct : PlayerFeedbackCue.Wrong);
+            }
+            if (!wasCorrect && _isIncidentShift)
+            {
+                _incidentReactionView?.PlayMistake(reason);
+            }
+            if (!wasCorrect && playAnimation)
+            {
+                _feedbackAnimator?.PlayWrong();
+            }
+            if (!wasCorrect && _ruleListText != null)
+            {
+                _ruleListText.text = RulesText(MatchedRuleIndex(outcome));
+            }
+
+            var highlighted = wasCorrect ? outcome.SelectedDestination : outcome.ExpectedDestination;
+            for (var index = 0; index < _destinationHighlights.Length; index++)
+            {
+                var outline = _destinationHighlights[index];
+                outline.enabled = !_isIncidentShift && index == (int)highlighted;
+            }
+        }
+
+        private void UpdateIncidentCalm(SortOutcome outcome)
+        {
+            if (!_isIncidentShift)
+            {
+                return;
+            }
+
+            if (outcome.Disposition == SortDisposition.Correct)
+            {
+                _incidentConsecutiveCorrect++;
+                return;
+            }
+
+            if (outcome.Disposition == SortDisposition.Wrong)
+            {
+                _incidentConsecutiveCorrect = 0;
+            }
+        }
+
+        private bool IsIncidentKeyArtifact(string artifactId)
+            => _isIncidentShift &&
+               _incidentStage != null &&
+               artifactId == _incidentStage.LeadArtifactId;
+
+        private bool IsReturningHeldResonance(string artifactId)
+            => _isIncidentShift &&
+               _incidentStage != null &&
+               _incidentStageRun?.ResonanceConditionMet == true &&
+               !string.IsNullOrWhiteSpace(_incidentStage.ResonanceHoldArtifactId) &&
+               artifactId == _incidentStage.ResonanceHoldArtifactId;
+
+        private string IncidentKeyReactionText()
+        {
+            var quality = _session.Mistakes > 0
+                ? IncidentQuality.Stable
+                : _incidentStageRun?.ResonanceConditionMet == true
+                    ? IncidentQuality.Resonant
+                    : IncidentQuality.Precise;
+            return _incidentStage.Reactions.ForQuality(quality).ForLocale(_localizer.Locale);
+        }
+
+        private IncidentVisualCue IncidentKeyReactionCue()
+            => _incidentStage?.OutroBeats.Count > 0
+                ? _incidentStage.OutroBeats[0].VisualCue
+                : IncidentVisualCue.None;
+
+        private void MarkDocketMistakePresentation()
+        {
+            if (!_isIncidentShift || _docketSigilCrack == null)
+            {
+                return;
+            }
+
+            _docketPresentationDamaged = true;
+            _docketSigilCrack.enabled = true;
+            _docketSigilCrack.color = DustyRose;
+            _docketSigilCrack.rectTransform.localScale = Vector3.one;
+        }
+
+        private void CloseDocketMistakePresentation()
+        {
+            if (!_isIncidentShift || !_docketPresentationDamaged || _docketSigilCrack == null)
+            {
+                return;
+            }
+
+            _docketSigilCrack.enabled = true;
+            _docketSigilCrack.color = Sage;
+            _docketSigilCrack.rectTransform.localScale = new Vector3(0.02f, 1f, 1f);
+        }
+
+        private void ResetDocketMistakePresentation()
+        {
+            _docketPresentationDamaged = false;
+            if (_docketSigilCrack == null)
+            {
+                return;
+            }
+
+            _docketSigilCrack.enabled = false;
+            _docketSigilCrack.color = DustyRose;
+            _docketSigilCrack.rectTransform.localScale = Vector3.one;
+        }
+
+        private void ShowDocketWarmth()
+        {
+            if (!_isIncidentShift || _incidentWarmthOverlay == null)
+            {
+                return;
+            }
+
+            _incidentWarmthOverlay.enabled = true;
+            _incidentWarmthOverlay.color = new Color(0.98f, 0.68f, 0.27f, 0.12f);
+        }
+
+        private void HideDocketWarmth()
+        {
+            if (_incidentWarmthOverlay == null)
+            {
+                return;
+            }
+
+            _incidentWarmthOverlay.color = Color.clear;
+            _incidentWarmthOverlay.enabled = false;
+        }
+
+        private Action OwnTransition(Action continuation)
+        {
+            if (continuation == null)
+            {
+                return null;
+            }
+
+            if (_pendingTransition != null)
+            {
+                throw new InvalidOperationException("A presentation transition is already pending.");
+            }
+
+            var version = ++_pendingTransitionVersion;
+            _pendingTransition = continuation;
+            return () => CompleteOwnedTransition(version);
+        }
+
+        private void CompleteOwnedTransition(int version)
+        {
+            if (_pendingTransition == null || version != _pendingTransitionVersion)
+            {
+                return;
+            }
+
+            var continuation = _pendingTransition;
+            _pendingTransition = null;
+            continuation();
+        }
+
+        private void FlushPendingTransitions()
+        {
+            if (_flushingTransitions)
+            {
+                return;
+            }
+
+            _flushingTransitions = true;
+            try
+            {
+                while (_pendingTransition != null)
+                {
+                    var version = _pendingTransitionVersion;
+                    FlushPresentationView(_incidentReactionView);
+                    FlushPresentationView(_feedbackAnimator);
+                    FlushPresentationView(_docketProgress);
+                    if (_pendingTransition != null && version == _pendingTransitionVersion)
+                    {
+                        CompleteOwnedTransition(version);
+                    }
+                }
+            }
+            finally
+            {
+                _flushingTransitions = false;
+            }
+        }
+
+        private static void FlushPresentationView(Behaviour view)
+        {
+            if (view == null || !view.isActiveAndEnabled)
+            {
+                return;
+            }
+
+            view.enabled = false;
+            view.enabled = true;
+        }
+
+        private string RuleReason(Artifact artifact, SortOutcome outcome)
+        {
+            var matchedIndex = MatchedRuleIndex(outcome);
+            var matched = _activeRules[matchedIndex];
+            var destination = DestinationName(outcome.ExpectedDestination);
+            if (matched.IsFallback)
+            {
+                return _localizer.Get("fallback_reason", destination);
+            }
+
+            var matchedTraits = matched.RequiredAll != ArtifactTraits.None
+                ? matched.RequiredAll
+                : matched.RequiredAny;
+            var hasLowerMatch = false;
+            for (var index = matchedIndex + 1; index < _activeRules.Count; index++)
+            {
+                if (!_activeRules[index].IsFallback && _activeRules[index].Matches(artifact))
+                {
+                    hasLowerMatch = true;
+                    break;
+                }
+            }
+
+            return _localizer.Get(
+                hasLowerMatch ? "rule_priority_reason" : "rule_reason",
+                TraitsText(matchedTraits),
+                destination);
+        }
+
+        private int MatchedRuleIndex(SortOutcome outcome)
+            => MatchedRuleIndex(outcome.MatchedRuleId);
+
+        private int CurrentMatchedRuleIndex()
+        {
+            var resolution = _ruleEngine.ResolveDetailed(_session.CurrentArtifact, _activeRules);
+            return MatchedRuleIndex(resolution.RuleId);
+        }
+
+        private int MatchedRuleIndex(string ruleId)
+        {
+            for (var index = 0; index < _activeRules.Count; index++)
+            {
+                if (_activeRules[index].Id == ruleId)
+                {
+                    return index;
+                }
+            }
+
+            throw new InvalidOperationException("Sort outcome references an unknown active rule.");
+        }
+
+        private void PrepareCurioFarewell(ArtifactContent content, Destination destination)
+        {
+            _currentDescription.gameObject.SetActive(false);
+            _curioResolution.text = Resolution(content);
+            _curioResolution.gameObject.SetActive(true);
+            _curioResponseSeal.sprite = DestinationIcon(destination);
+            _curioResponseSeal.color = DestinationColor(destination);
+            _curioResponseSeal.gameObject.SetActive(true);
+            if (_curioResponseOutline != null)
+            {
+                var accent = DestinationColor(destination);
+                _curioResponseOutline.effectColor = new Color(accent.r, accent.g, accent.b, 0.86f);
+            }
+            _curioFarewellSeal.sprite = DestinationIcon(destination);
+            _curioFarewellSeal.color = DestinationColor(destination);
+            _curioFarewellSealGroup.alpha = 0f;
+            _curioFarewellSeal.gameObject.SetActive(true);
+            _artifactCardSurface.color = Color.Lerp(Paper, DestinationColor(destination), 0.24f);
+        }
+
+        private void ShowDocketCompleteFeedback(SortOutcome outcome)
+        {
+            var streak = _session.PristineDocketStreak;
+            _sortFeedbackPanel.color = streak > 0 ? Sage : DustyRose;
+            _statusText.color = Paper;
+            _statusText.text = _localizer.Get("docket_complete_feedback", outcome.ScoreDelta);
+            if (streak > 0)
+            {
+                _statusText.text += "\n" + _localizer.Get("docket_pristine_feedback", streak);
+            }
+        }
+
+        private static Color DestinationColor(Destination destination)
+        {
+            switch (destination)
+            {
+                case Destination.Repair: return DustyRose;
+                case Destination.Vault: return Amber;
+                default: return Sage;
+            }
+        }
+
+        private static Sprite DestinationIcon(Destination destination)
+        {
+            switch (destination)
+            {
+                case Destination.Repair: return VisualAssetLibrary.RepairIcon;
+                case Destination.Vault: return VisualAssetLibrary.VaultIcon;
+                default: return VisualAssetLibrary.StorageIcon;
+            }
+        }
+
+        private void ShowBlockedFeedback()
+        {
+            RefreshDecisionMessage();
+        }
+
+        private void RefreshDecisionMessage()
+        {
+            var holdRequired = _session?.ShouldSuggestHold == true;
+            _sortFeedbackPanel.color = holdRequired ? Wine : Color.clear;
+            _statusText.text = holdRequired
+                ? IncidentHoldExplanation()
+                : _localizer.Get("decision_prompt");
+            _statusText.color = Paper;
+            SetHoldPresentation(holdRequired);
+            for (var index = 0; index < _destinationHighlights.Length; index++)
+            {
+                _destinationHighlights[index].enabled = false;
+            }
+        }
+
+        private void SetHoldPresentation(bool required)
+        {
+            _holdButtonLabel.text = _localizer.Get(
+                _isIncidentShift
+                    ? "incident_hold_protect"
+                    : required ? "hold_for_next" : "hold");
+            _holdHighlight.enabled = required;
+        }
+
+        private string IncidentHoldExplanation()
+        {
+            if (_isIncidentShift &&
+                _incidentStage?.Id == "ice-04-frozen-seal" &&
+                _incidentStage.IntroBeats.Count > 0)
+            {
+                return _incidentStage.IntroBeats[0].Copy.ForLocale(_localizer.Locale);
+            }
+
+            if (_isIncidentShift)
+            {
+                return _localizer.Get("incident_hold_protect") + " · " +
+                       _localizer.Get("tutorial_blocked");
+            }
+
+            return _localizer.Get(
+                "hold_required",
+                DestinationName(_session.CurrentResolution.Destination));
+        }
+
+        private void RefreshShiftView(
+            bool animateArtifact = true,
+            bool refreshDecisionMessage = true)
         {
             if (_session?.CurrentArtifact == null)
             {
                 return;
             }
 
+            ResetCurioFarewell();
+            if (!IsTutorialActive && refreshDecisionMessage && _ruleListText != null)
+            {
+                _ruleListText.text = RulesText(
+                    _isIncidentShift ? CurrentMatchedRuleIndex() : -1);
+            }
             var content = _artifactById[_session.CurrentArtifact.Id];
+            var currentTraits = _session.CurrentArtifact.Traits;
+            var artwork = VisualAssetLibrary.Artifact(content.Id);
+            _artifactIllustration.sprite = artwork;
+            _artifactIllustration.enabled = artwork != null;
+            _currentSymbol.gameObject.SetActive(artwork == null);
             _currentSymbol.text = content.Symbol;
             _currentName.text = Name(content);
             _currentDescription.text = Description(content);
-            _currentTraits.text = TraitsText(content.Traits);
-            _heldText.text = _session.HeldArtifact == null ? "—" : _artifactById[_session.HeldArtifact.Id].Symbol + "\n" + _localizer.Get("hold");
-            for (var index = 0; index < _nextTexts.Length; index++)
+            _currentTraits.text = TraitsText(
+                currentTraits,
+                IsTutorialActive ? TutorialEmphasizedTraits() : ArtifactTraits.None);
+            _incidentReactionView?.SetFrosted(
+                _isIncidentShift && (currentTraits & ArtifactTraits.Frosted) != 0);
+            if (_session.HeldArtifact == null)
             {
-                var queueIndex = _sortedCount + index + 1;
-                _nextTexts[index].text = queueIndex < _plannedQueue.Count ? "NEXT  " + _artifactById[_plannedQueue[queueIndex].Id].Symbol : "NEXT  —";
+                _heldText.text = _localizer.Get("hold") + "\n—";
+                SetPreviewArtwork(_heldIllustration, null);
+            }
+            else
+            {
+                var heldContent = _artifactById[_session.HeldArtifact.Id];
+                _heldText.text = _localizer.Get("hold") + "\n" + heldContent.Symbol + "  " + Name(heldContent);
+                SetPreviewArtwork(_heldIllustration, heldContent.Id);
             }
 
-            _hudText.text = $"♥ {_session.Hearts}     COMBO {_session.Combo}     {_localizer.Get("coins")} {_session.Coins}";
+            _feedbackAnimator?.SetHeldResonanceEnabled(
+                _isIncidentShift &&
+                _incidentStage != null &&
+                _session.HeldArtifact != null &&
+                !string.IsNullOrWhiteSpace(_incidentStage.ResonanceHoldArtifactId) &&
+                _session.HeldArtifact.Id == _incidentStage.ResonanceHoldArtifactId);
+
+            for (var index = 0; index < _nextTexts.Length; index++)
+            {
+                var nextArtifact = _session.PeekNextArtifact(index);
+                if (nextArtifact != null)
+                {
+                    var nextContent = _artifactById[nextArtifact.Id];
+                    _nextTexts[index].text = _localizer.Get("next") + " " + (index + 1) + "\n" + nextContent.Symbol + "  " + Name(nextContent);
+                    SetPreviewArtwork(_nextIllustrations[index], nextContent.Id);
+                }
+                else
+                {
+                    _nextTexts[index].text = _localizer.Get("next") + " " + (index + 1) + "\n—";
+                    SetPreviewArtwork(_nextIllustrations[index], null);
+                }
+            }
+
+            for (var index = 0; index < _destinationButtons.Length; index++)
+            {
+                _destinationButtons[index].interactable =
+                    !_inputLocked && _session.CanSort((Destination)index);
+            }
+            _holdButton.interactable = !_inputLocked && _session.CanHold;
+
+            if (refreshDecisionMessage)
+            {
+                RefreshDecisionMessage();
+            }
+            if (_session.RequiredDockets > 0)
+            {
+                _docketProgress?.Refresh(
+                    _session.CurrentDocket,
+                    _session.CompletedDockets,
+                    _session.RequiredDockets,
+                    _localizer.Get("docket_empty"),
+                    _localizer.Get("docket_complete"));
+                _hudText.text = _localizer.Get(
+                    "shift_hud",
+                    _session.Hearts,
+                    _session.CompletedDockets + 1,
+                    _session.RequiredDockets,
+                    _session.PristineDocketStreak,
+                    _session.Coins);
+            }
+            else
+            {
+                _hudText.text = $"♥ {_session.Hearts}     {_localizer.Get("coins")} {_session.Coins}";
+            }
+
+            if (animateArtifact && _feedbackAnimator != null && _feedbackAnimator.isActiveAndEnabled)
+            {
+                _feedbackAnimator.PlayArtifactEntrance();
+            }
+
+            _feedbackAnimator?.SetIdleEnabled(true);
+        }
+
+        private void ResetCurioFarewell()
+        {
+            if (_artifactCardSurface != null)
+            {
+                _artifactCardSurface.color = Paper;
+            }
+
+            _currentDescription?.gameObject.SetActive(true);
+            _curioResolution?.gameObject.SetActive(false);
+            _curioResponseSeal?.gameObject.SetActive(false);
+            if (_curioFarewellSeal != null)
+            {
+                _curioFarewellSeal.gameObject.SetActive(false);
+            }
+        }
+
+        private void ShowIncidentResults()
+        {
+            if (!_isIncidentShift || _incidentStage == null || _session == null)
+            {
+                ShowResults();
+                return;
+            }
+
+            var completed = _session.State == ShiftState.Completed;
+            if (completed)
+            {
+                ApplyIncidentResultOnce();
+            }
+
+            ActiveScreen = AppScreen.IncidentResults;
+            var page = CreatePage("IncidentResultsScreen");
+            if (!completed)
+            {
+                BuildIncidentFailureResults(page);
+                return;
+            }
+
+            BuildIncidentSuccessResults(page);
+        }
+
+        private void ApplyIncidentResultOnce()
+        {
+            if (_incidentResultApplied)
+            {
+                return;
+            }
+
+            var quality = _incidentStageRun.Evaluate(_session.CreateResult());
+            var completion = _incidentRunner.CompleteCurrentStage(quality);
+            _feedbackService.Play(
+                completion.IncidentCompleted ? PlayerFeedbackCue.IncidentComplete : PlayerFeedbackCue.ShiftComplete);
+            if (!_isIncidentReplay)
+            {
+                _progression.ApplyIncidentStage(_save, completion);
+                if (completion.IncidentCompleted)
+                {
+                    _pendingIncidentBoardReveal = IncidentBoardPresenter.ShouldRevealSuccessor(
+                        ResolveIncidentProgress(),
+                        completion.IncidentId);
+                }
+            }
+            _incidentResultQuality = quality;
+            _incidentCompletionWasFinal = completion.IncidentCompleted;
+            _incidentResultApplied = true;
+            if (!_isIncidentReplay)
+            {
+                Save();
+            }
+        }
+
+        private void BuildIncidentFailureResults(RectTransform page)
+        {
+            CreateText(
+                page,
+                "IncidentFailureTitle",
+                _localizer.Get("failed"),
+                54,
+                DustyRose,
+                TextAlignmentOptions.Center,
+                new Vector2(0.08f, 0.84f),
+                new Vector2(0.92f, 0.94f),
+                true,
+                TextRole.Display);
+            var artwork = CreateArtworkImage(
+                page,
+                "IncidentFailureArtifact",
+                new Vector2(0.20f, 0.45f),
+                new Vector2(0.80f, 0.78f));
+            artwork.sprite = VisualAssetLibrary.Artifact(_incidentStage.LeadArtifactId);
+            artwork.color = new Color(1f, 1f, 1f, 0.74f);
+            CreateText(
+                page,
+                "IncidentFailureBody",
+                _localizer.Get("incident_failed_body"),
+                34,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.10f, 0.27f),
+                new Vector2(0.90f, 0.43f),
+                true,
+                TextRole.Display);
+            CreateButton(
+                page,
+                "RetryStageButton",
+                _localizer.Get("retry_stage"),
+                new Vector2(0.12f, 0.13f),
+                new Vector2(0.88f, 0.23f),
+                Amber,
+                Ink,
+                RetryIncidentStage,
+                30);
+            CreateButton(
+                page,
+                "IncidentResultsMenuButton",
+                _localizer.Get("back"),
+                new Vector2(0.28f, 0.035f),
+                new Vector2(0.72f, 0.10f),
+                Wine,
+                Paper,
+                ShowMenu,
+                24);
+        }
+
+        private void BuildIncidentSuccessResults(RectTransform page)
+        {
+            var cueSurface = CreateArtworkImage(page, "IncidentOutroCueSurface", Vector2.zero, Vector2.one);
+            cueSurface.raycastTarget = false;
+            cueSurface.color = Color.white;
+
+            if (_incidentCompletionWasFinal)
+            {
+                BuildIncidentEndingPresentation(page);
+            }
+            else
+            {
+                var leadArtwork = CreateArtworkImage(
+                    page,
+                    "IncidentResultArtifact",
+                    new Vector2(0.27f, 0.49f),
+                    new Vector2(0.73f, 0.74f));
+                leadArtwork.sprite = VisualAssetLibrary.Artifact(_incidentStage.LeadArtifactId);
+            }
+
+            CreateText(
+                page,
+                "IncidentQualityLabel",
+                IncidentQualityLabel(_incidentResultQuality),
+                58,
+                _incidentResultQuality == IncidentQuality.Resonant ? Amber : Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.08f, 0.88f),
+                new Vector2(0.92f, 0.96f),
+                true,
+                TextRole.Display);
+            CreateText(
+                page,
+                "IncidentQualityBody",
+                IncidentQualityBody(_incidentResultQuality),
+                26,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.10f, 0.78f),
+                new Vector2(0.90f, 0.87f),
+                true);
+            CreateText(
+                page,
+                "IncidentReactionBody",
+                _incidentStage.Reactions.ForQuality(_incidentResultQuality).ForLocale(_localizer.Locale),
+                31,
+                Amber,
+                TextAlignmentOptions.Center,
+                new Vector2(0.09f, 0.39f),
+                new Vector2(0.91f, 0.49f),
+                true,
+                TextRole.Display);
+
+            var dialoguePanel = CreatePanel(
+                page,
+                "IncidentOutroPanel",
+                new Color(Paper.r, Paper.g, Paper.b, 0.96f),
+                new Vector2(0.06f, 0.15f),
+                new Vector2(0.94f, 0.38f));
+            AddSurfaceChrome(dialoguePanel, Amber, 3f, 0.26f);
+            var portrait = CreateArtworkImage(
+                dialoguePanel,
+                "IncidentOutroPortrait",
+                new Vector2(0.02f, 0.08f),
+                new Vector2(0.27f, 0.94f));
+            var speaker = CreateText(
+                dialoguePanel,
+                "IncidentOutroSpeaker",
+                string.Empty,
+                25,
+                Wine,
+                TextAlignmentOptions.Left,
+                new Vector2(0.29f, 0.70f),
+                new Vector2(0.96f, 0.92f),
+                true);
+            var body = CreateText(
+                dialoguePanel,
+                "IncidentOutroBody",
+                string.Empty,
+                34,
+                Ink,
+                TextAlignmentOptions.TopLeft,
+                new Vector2(0.29f, 0.08f),
+                new Vector2(0.96f, 0.70f),
+                true);
+            var continueButton = CreateButton(
+                page,
+                "IncidentOutroContinueButton",
+                _localizer.Get("narrative_continue"),
+                new Vector2(0.08f, 0.035f),
+                new Vector2(0.92f, 0.125f),
+                Amber,
+                Ink,
+                () => { },
+                30);
+            var narrativeView = page.gameObject.AddComponent<NarrativeSequenceView>();
+            narrativeView.Configure(speaker, body, portrait, cueSurface, continueButton);
+            narrativeView.Play(
+                _incidentStage.OutroBeats,
+                _localizer.Locale,
+                VisualAssetLibrary.SeniorClerk,
+                () => RevealIncidentNextAction(page, continueButton));
+        }
+
+        private void RevealIncidentNextAction(RectTransform page, Button outroContinueButton)
+        {
+            if (page == null || outroContinueButton == null)
+            {
+                return;
+            }
+
+            outroContinueButton.gameObject.SetActive(false);
+            var returnToBoard = _incidentRunner != null && _incidentRunner.IsContentExhausted;
+            var label = returnToBoard
+                ? _localizer.Get("incident_return_board")
+                : _incidentCompletionWasFinal
+                    ? _localizer.Get("incident_next_teaser")
+                    : _localizer.Get("next_stage");
+            CreateButton(
+                page,
+                "NextStageButton",
+                label,
+                new Vector2(0.08f, 0.035f),
+                new Vector2(0.92f, 0.125f),
+                Amber,
+                Ink,
+                ContinueIncident,
+                returnToBoard || _incidentCompletionWasFinal ? 25 : 30);
+        }
+
+        private void RetryIncidentStage()
+        {
+            _incidentResultApplied = false;
+            _incidentCompletionWasFinal = false;
+            ShowIncidentIntro();
+        }
+
+        private void ContinueIncident()
+        {
+            if (!_incidentResultApplied)
+            {
+                return;
+            }
+
+            if (_incidentCompletionWasFinal || (_incidentRunner != null && _incidentRunner.IsContentExhausted))
+            {
+                ShowMenu();
+                return;
+            }
+
+            ShowIncidentIntro();
+        }
+
+        private string IncidentQualityLabel(IncidentQuality quality)
+        {
+            switch (quality)
+            {
+                case IncidentQuality.Stable: return _localizer.Get("quality_stable");
+                case IncidentQuality.Precise: return _localizer.Get("quality_precise");
+                case IncidentQuality.Resonant: return _localizer.Get("quality_resonant");
+                default: throw new ArgumentOutOfRangeException(nameof(quality));
+            }
+        }
+
+        private string IncidentQualityBody(IncidentQuality quality)
+        {
+            switch (quality)
+            {
+                case IncidentQuality.Stable: return _localizer.Get("quality_stable_body");
+                case IncidentQuality.Precise: return _localizer.Get("quality_precise_body");
+                case IncidentQuality.Resonant: return _localizer.Get("quality_resonant_body");
+                default: throw new ArgumentOutOfRangeException(nameof(quality));
+            }
+        }
+
+        private void BuildIncidentEndingPresentation(RectTransform page)
+        {
+            var warmth = CreateArtworkImage(page, "IncidentEndingWarmth", Vector2.zero, Vector2.one);
+            warmth.preserveAspect = false;
+            warmth.color = new Color(0.98f, 0.68f, 0.27f, 0.02f);
+            var frost = CreateArtworkImage(page, "IncidentEndingFrost", Vector2.zero, Vector2.one);
+            frost.sprite = VisualAssetLibrary.FrostOverlay;
+            frost.preserveAspect = false;
+            frost.color = new Color(1f, 1f, 1f, 0.56f);
+
+            var ice = CreateArtworkImage(
+                page,
+                "IncidentEndingIce",
+                new Vector2(0.08f, 0.52f),
+                new Vector2(0.49f, 0.78f));
+            ice.sprite = VisualAssetLibrary.Artifact("unmelting-ice");
+            var umbrella = CreateArtworkImage(
+                page,
+                "IncidentEndingUmbrella",
+                new Vector2(0.51f, 0.52f),
+                new Vector2(0.92f, 0.78f));
+            umbrella.sprite = VisualAssetLibrary.Artifact("moon-umbrella");
+            var umbrellaSeal = CreateArtworkImage(
+                umbrella.transform,
+                "IncidentEndingUmbrellaSeal",
+                new Vector2(0.58f, 0.02f),
+                new Vector2(0.94f, 0.38f));
+            umbrellaSeal.sprite = VisualAssetLibrary.VaultIcon;
+            umbrellaSeal.color = Amber;
+
+            _incidentEndingFrost = frost;
+            _incidentEndingWarmth = warmth;
+            _incidentEndingIce = ice.rectTransform;
+            _incidentEndingUmbrella = umbrella.rectTransform;
+
+            CreateText(
+                page,
+                "IncidentEndingTitle",
+                _localizer.Get("incident_complete"),
+                37,
+                Amber,
+                TextAlignmentOptions.Center,
+                new Vector2(0.10f, 0.71f),
+                new Vector2(0.90f, 0.78f),
+                true,
+                TextRole.Display);
+            CreateText(
+                page,
+                "IncidentEndingHook",
+                _localizer.Get("incident_next_teaser"),
+                24,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.10f, 0.49f),
+                new Vector2(0.90f, 0.54f),
+                true);
+
+            if (isActiveAndEnabled)
+            {
+                _incidentEndingRoutine = StartCoroutine(
+                    AnimateIncidentEnding(
+                        _incidentEndingFrost,
+                        _incidentEndingWarmth,
+                        _incidentEndingIce,
+                        _incidentEndingUmbrella));
+            }
+            else
+            {
+                ApplyIncidentEndingFinalState(
+                    _incidentEndingFrost,
+                    _incidentEndingWarmth,
+                    _incidentEndingIce,
+                    _incidentEndingUmbrella);
+            }
+        }
+
+        private IEnumerator AnimateIncidentEnding(
+            Image frost,
+            Image warmth,
+            RectTransform ice,
+            RectTransform umbrella)
+        {
+            const float duration = 1.35f;
+            var elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                var progress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / duration));
+                frost.color = new Color(1f, 1f, 1f, Mathf.Lerp(0.56f, 0.04f, progress));
+                warmth.color = new Color(0.98f, 0.68f, 0.27f, Mathf.Lerp(0.02f, 0.22f, progress));
+                ice.localScale = Vector3.one * Mathf.Lerp(1.06f, 0.97f, progress);
+                umbrella.localScale = Vector3.one * Mathf.Lerp(0.94f, 1.04f, progress);
+                umbrella.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(-4f, 1.5f, progress));
+                yield return null;
+            }
+
+            ApplyIncidentEndingFinalState(frost, warmth, ice, umbrella);
+            _incidentEndingRoutine = null;
+        }
+
+        private static void ApplyIncidentEndingFinalState(
+            Image frost,
+            Image warmth,
+            RectTransform ice,
+            RectTransform umbrella)
+        {
+            frost.color = new Color(1f, 1f, 1f, 0.04f);
+            warmth.color = new Color(0.98f, 0.68f, 0.27f, 0.22f);
+            ice.localScale = Vector3.one * 0.97f;
+            umbrella.localScale = Vector3.one * 1.04f;
+            umbrella.localRotation = Quaternion.Euler(0f, 0f, 1.5f);
+        }
+
+        private void StopIncidentEndingAnimation()
+        {
+            if (_incidentEndingRoutine != null)
+            {
+                StopCoroutine(_incidentEndingRoutine);
+                _incidentEndingRoutine = null;
+            }
+
+            if (_incidentEndingFrost != null &&
+                _incidentEndingWarmth != null &&
+                _incidentEndingIce != null &&
+                _incidentEndingUmbrella != null)
+            {
+                ApplyIncidentEndingFinalState(
+                    _incidentEndingFrost,
+                    _incidentEndingWarmth,
+                    _incidentEndingIce,
+                    _incidentEndingUmbrella);
+            }
         }
 
         private void ShowResults()
@@ -323,17 +2339,64 @@ namespace CurioClerk.Presentation
             ActiveScreen = AppScreen.Results;
             var page = CreatePage("ResultsScreen");
             var completed = _session.State == ShiftState.Completed;
-            CreateText(page, "ResultTitle", _localizer.Get(completed ? "complete" : "failed"), 58, completed ? Amber : DustyRose, TextAlignmentOptions.Center, new Vector2(0.08f, 0.69f), new Vector2(0.92f, 0.82f), true);
-            CreateText(page, "ResultScore", $"{_localizer.Get("score")}  {_session.Score}\n{_localizer.Get("coins")}  {_session.Coins}\n✓ {_session.CorrectSorts}   ✕ {_session.Mistakes}", 33, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.45f), new Vector2(0.85f, 0.66f), true);
-            var rewardLabel = completed ? _localizer.Get("double") : _localizer.Get("revive");
-            if (!CanShowRewarded || _session.RewardClaimed)
+            var resultTitle = CreateText(page, "ResultTitle", _localizer.Get(completed ? "complete" : "failed"), 54, completed ? Amber : DustyRose, TextAlignmentOptions.Center, new Vector2(0.08f, 0.87f), new Vector2(0.92f, 0.96f), true, TextRole.Display);
+            CreateText(page, "ResultDocketsHeader", _localizer.Get("result_dockets"), 25, Amber, TextAlignmentOptions.Center, new Vector2(0.12f, 0.81f), new Vector2(0.88f, 0.86f), true);
+            var resultRows = new List<CanvasGroup>(4);
+            for (var docket = 0; docket < 4; docket++)
             {
-                rewardLabel = _localizer.Get("ad_unavailable");
+                var hasCompletedDocket = docket < _session.CompletedDocketPristine.Count;
+                var pristine = hasCompletedDocket && _session.CompletedDocketPristine[docket];
+                var status = pristine
+                    ? _localizer.Get("docket_pristine")
+                    : _localizer.Get("docket_inked");
+                var rowTop = 0.80f - docket * 0.045f;
+                var row = CreateText(
+                    page,
+                    "ResultDocket" + docket,
+                    (docket + 1) + " · " + status,
+                    22,
+                    pristine ? Sage : DustyRose,
+                    TextAlignmentOptions.Center,
+                    new Vector2(0.20f, rowTop - 0.04f),
+                    new Vector2(0.80f, rowTop),
+                    true);
+                resultRows.Add(row.gameObject.AddComponent<CanvasGroup>());
             }
 
-            var reward = CreateButton(page, "RewardedAdButton", rewardLabel, new Vector2(0.12f, 0.30f), new Vector2(0.88f, 0.40f), Wine, Paper, () => RequestReward(completed));
-            reward.interactable = CanShowRewarded && !_session.RewardClaimed;
-            CreateButton(page, "ResultsContinueButton", _localizer.Get("continue"), new Vector2(0.20f, 0.15f), new Vector2(0.80f, 0.25f), Amber, Ink, ReturnFromResults);
+            var ledgerAnimator = page.gameObject.AddComponent<ResultLedgerAnimator>();
+            ledgerAnimator.Configure(resultRows);
+            if (ledgerAnimator.isActiveAndEnabled)
+            {
+                ledgerAnimator.Play();
+            }
+
+            var resultResolution = _lastCorrectArtifactId != null && _artifactById.TryGetValue(_lastCorrectArtifactId, out var finalContent)
+                ? Resolution(finalContent)
+                : _localizer.Get("result_waiting");
+            CreateText(
+                page,
+                "ResultResolution",
+                _localizer.Get("resolution_label") + "\n" + resultResolution,
+                22,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.12f, 0.45f),
+                new Vector2(0.88f, 0.61f),
+                true,
+                TextRole.Display);
+            var resultScore = CreateText(page, "ResultScore", $"{_localizer.Get("score")}  {_session.Score}\n{_localizer.Get("coins")}  {_session.Coins}\n{_localizer.Get("result_correct_label")}  {_session.CorrectSorts}   ·   {_localizer.Get("result_mistakes_label")}  {_session.Mistakes}", 27, Paper, TextAlignmentOptions.Center, new Vector2(0.15f, 0.27f), new Vector2(0.85f, 0.43f), true);
+            if (_isDailyShift && completed)
+            {
+                CreateText(page, "DailyResultStatus", _localizer.Get("daily_result_best", _save.dailyBestScore), 20, Amber, TextAlignmentOptions.Center, new Vector2(0.15f, 0.23f), new Vector2(0.85f, 0.27f), true);
+            }
+            var resultAnimator = page.gameObject.AddComponent<ShiftFeedbackAnimator>();
+            resultAnimator.Configure(resultTitle.rectTransform, resultScore.rectTransform);
+            if (resultAnimator.isActiveAndEnabled)
+            {
+                resultAnimator.PlayArtifactEntrance();
+            }
+            CreateText(page, "RewardedAdFeedback", string.IsNullOrEmpty(_rewardFeedbackKey) ? string.Empty : _localizer.Get(_rewardFeedbackKey), 20, DustyRose, TextAlignmentOptions.Center, new Vector2(0.12f, 0.20f), new Vector2(0.88f, 0.25f), true);
+            CreateButton(page, "ResultsContinueButton", _localizer.Get("continue"), new Vector2(0.20f, 0.09f), new Vector2(0.80f, 0.17f), Amber, Ink, ReturnFromResults);
         }
 
         private void RequestReward(bool completed)
@@ -344,13 +2407,27 @@ namespace CurioClerk.Presentation
             }
 
             var placement = completed ? "shift_complete_double" : "shift_failed_revive";
-            _adService.ShowRewarded(placement, success =>
+            var completionHandled = false;
+            _adService.ShowRewarded(placement, result =>
             {
-                if (!success)
+                if (completionHandled)
                 {
                     return;
                 }
 
+                completionHandled = true;
+                if (result != RewardedAdResult.Earned)
+                {
+                    _rewardFeedbackKey = RewardFeedbackKey(result);
+                    if (_screenRoot != null && ActiveScreen == AppScreen.Results)
+                    {
+                        ShowResults();
+                    }
+
+                    return;
+                }
+
+                _rewardFeedbackKey = null;
                 if (completed && _session.TryDoubleCoins())
                 {
                     PersistAdditionalRewardCoins();
@@ -377,27 +2454,43 @@ namespace CurioClerk.Presentation
             }
 
             _progression.ApplyShift(_save, _session.CreateResult(), _seenThisShift);
+            if (_isDailyShift)
+            {
+                _progression.RecordDailyCompletion(_save, _dailyDateKey, _session.Score);
+            }
+
             _resultApplied = true;
             _appliedResultCoins = _session.Coins;
-            _analytics.Track("shift_completed", new Dictionary<string, string>
-            {
-                ["score"] = _session.Score.ToString(),
-                ["mistakes"] = _session.Mistakes.ToString(),
-                ["rewarded"] = _session.RewardClaimed.ToString()
-            });
             Save();
+        }
+
+        private string DailyButtonText()
+        {
+            var dateKey = _clock.LocalNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var status = string.Equals(_save.lastDailyCompletedDate, dateKey, StringComparison.Ordinal)
+                ? _localizer.Get("daily_completed", _save.dailyBestScore)
+                : _localizer.Get("daily_available");
+            return $"{_localizer.Get("daily")}\n{dateKey} · {status}";
         }
 
         private void SelectCosmetic(CosmeticContent cosmetic)
         {
-            var changed = _save.unlockedCosmeticIds.Contains(cosmetic.Id)
+            var wasOwned = _save.unlockedCosmeticIds.Contains(cosmetic.Id);
+            var changed = wasOwned
                 ? _progression.TryEquipCosmetic(_save, cosmetic.Id)
                 : _progression.TryUnlockCosmetic(_save, cosmetic.Id, cosmetic.Cost);
             if (changed)
             {
                 Save();
-                ShowCollection();
+                _cosmeticFeedback = _localizer.Get("cosmetic_equipped_feedback", CosmeticName(cosmetic));
             }
+            else if (!wasOwned && _save.coins < cosmetic.Cost)
+            {
+                _cosmeticFeedback = _localizer.Get("insufficient");
+            }
+
+            _collectionTab = CollectionTab.Cosmetics;
+            BuildCollectionScreen();
         }
 
         private void RequestAdConsent()
@@ -408,9 +2501,14 @@ namespace CurioClerk.Presentation
             {
                 _adConsentResolved = true;
                 _canRequestAds = canRequestAds && _privacy.CanRequestAds;
+                _adService?.SetRequestPermission(_canRequestAds);
                 if (_screenRoot != null && ActiveScreen == AppScreen.Results)
                 {
                     ShowResults();
+                }
+                else if (_screenRoot != null && ActiveScreen == AppScreen.Settings)
+                {
+                    ShowSettings();
                 }
             });
         }
@@ -421,6 +2519,7 @@ namespace CurioClerk.Presentation
             {
                 _adConsentResolved = true;
                 _canRequestAds = canRequestAds && _privacy.CanRequestAds;
+                _adService?.SetRequestPermission(_canRequestAds);
                 ShowSettings();
             });
         }
@@ -451,20 +2550,17 @@ namespace CurioClerk.Presentation
             _adService != null &&
             _adService.IsRewardedReady;
 
-        private void ToggleAnalytics()
+        private static string RewardFeedbackKey(RewardedAdResult result)
         {
-            _save.analyticsConsent = !_save.analyticsConsent;
-            _analytics.SetConsent(_save.analyticsConsent);
-            Save();
-            ShowSettings();
-        }
-
-        private void ToggleCrashReports()
-        {
-            _save.crashReportingConsent = !_save.crashReportingConsent;
-            _crashReporter.SetConsent(_save.crashReportingConsent);
-            Save();
-            ShowSettings();
+            switch (result)
+            {
+                case RewardedAdResult.Dismissed:
+                    return "ad_dismissed";
+                case RewardedAdResult.Failed:
+                    return "ad_failed";
+                default:
+                    return "ad_unavailable";
+            }
         }
 
         private void SetLocale(string locale)
@@ -475,11 +2571,65 @@ namespace CurioClerk.Presentation
             ShowSettings();
         }
 
+        private string FeedbackToggleLabel(string key, bool enabled)
+        {
+            return _localizer.Get(key) + ": " + _localizer.Get(enabled ? "on" : "off");
+        }
+
+        private void ToggleSound()
+        {
+            _save.soundEnabled = !_save.soundEnabled;
+            ConfigureFeedback();
+            Save();
+            ShowSettings();
+        }
+
+        private void ToggleHaptics()
+        {
+            _save.hapticsEnabled = !_save.hapticsEnabled;
+            ConfigureFeedback();
+            Save();
+            ShowSettings();
+        }
+
+        private void ConfigureFeedback()
+        {
+            _feedbackService?.Configure(_save.soundEnabled, _save.hapticsEnabled);
+        }
+
         private void Save()
         {
             if (_saveStore != null && _save != null)
             {
                 _saveStore.Save(_save);
+            }
+        }
+
+        private void EnsureDisplayCamera()
+        {
+            var displayCamera = FindObjectsByType<Camera>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                .FirstOrDefault(camera => camera.isActiveAndEnabled);
+            if (displayCamera == null)
+            {
+                var cameraObject = new GameObject("CurioClerkDisplayCamera", typeof(Camera));
+                cameraObject.transform.SetParent(transform, false);
+                displayCamera = cameraObject.GetComponent<Camera>();
+                displayCamera.clearFlags = CameraClearFlags.SolidColor;
+                displayCamera.backgroundColor = Plum;
+                displayCamera.cullingMask = 0;
+            }
+
+            var hasActiveListener = FindObjectsByType<AudioListener>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                .Any(listener => listener.isActiveAndEnabled);
+            if (!hasActiveListener)
+            {
+                var listener = displayCamera.GetComponent<AudioListener>();
+                if (listener == null)
+                {
+                    listener = displayCamera.gameObject.AddComponent<AudioListener>();
+                }
+
+                listener.enabled = true;
             }
         }
 
@@ -495,6 +2645,17 @@ namespace CurioClerk.Presentation
             scaler.matchWidthOrHeight = 0.5f;
 
             var background = CreatePanel(canvasObject.transform, "OccultDeskBackground", Plum, Vector2.zero, Vector2.one);
+            var backgroundImage = background.GetComponent<Image>();
+            var deskBackground = VisualAssetLibrary.DeskBackground;
+            if (deskBackground != null)
+            {
+                backgroundImage.sprite = deskBackground;
+                backgroundImage.color = Color.white;
+            }
+
+            backgroundImage.raycastTarget = false;
+            var deskTint = CreatePanel(background, "DeskTint", new Color(Plum.r, Plum.g, Plum.b, 0.36f), Vector2.zero, Vector2.one);
+            deskTint.GetComponent<Image>().raycastTarget = false;
             var safeArea = CreatePanel(background, "SafeArea", Color.clear, Vector2.zero, Vector2.one);
             safeArea.gameObject.AddComponent<SafeAreaFitter>();
             _screenRoot = CreatePanel(safeArea, "ScreenRoot", Color.clear, Vector2.zero, Vector2.one);
@@ -509,6 +2670,10 @@ namespace CurioClerk.Presentation
 
         private RectTransform CreatePage(string name)
         {
+            var requestedScreen = ActiveScreen;
+            FlushPendingTransitions();
+            StopIncidentEndingAnimation();
+            ActiveScreen = requestedScreen;
             ClearScreen();
             return CreatePanel(_screenRoot, name, Color.clear, Vector2.zero, Vector2.one);
         }
@@ -568,7 +2733,81 @@ namespace CurioClerk.Presentation
             return rect;
         }
 
-        private static TMP_Text CreateText(Transform parent, string name, string value, float size, Color color, TextAlignmentOptions alignment, Vector2 min, Vector2 max, bool bold = false)
+        private IncidentCardView CreateIncidentCard(
+            Transform parent,
+            string name,
+            Vector2 min,
+            Vector2 max,
+            bool compact)
+        {
+            var card = CreatePanel(parent, name, new Color(Wine.r, Wine.g, Wine.b, 0.91f), min, max);
+            AddSurfaceChrome(card, Amber, compact ? 1.5f : 3f, compact ? 0.18f : 0.30f);
+            card.gameObject.AddComponent<CanvasGroup>();
+            var status = CreateText(
+                card,
+                "IncidentState",
+                string.Empty,
+                compact ? 17 : 28,
+                Amber,
+                TextAlignmentOptions.Center,
+                new Vector2(0.06f, compact ? 0.58f : 0.78f),
+                new Vector2(0.94f, 0.94f),
+                true);
+            var artwork = CreateArtworkImage(
+                card,
+                "IncidentArtwork",
+                compact ? new Vector2(0.04f, 0.10f) : new Vector2(0.06f, 0.25f),
+                compact ? new Vector2(0.22f, 0.56f) : new Vector2(0.34f, 0.74f));
+            artwork.preserveAspect = true;
+            var title = CreateText(
+                card,
+                "IncidentTitle",
+                string.Empty,
+                compact ? 25 : 46,
+                Paper,
+                compact ? TextAlignmentOptions.Left : TextAlignmentOptions.Center,
+                compact ? new Vector2(0.25f, 0.20f) : new Vector2(0.08f, 0.43f),
+                compact ? new Vector2(0.66f, 0.58f) : new Vector2(0.92f, 0.78f),
+                true,
+                TextRole.Display);
+            var clue = CreateText(
+                card,
+                "IncidentClue",
+                string.Empty,
+                compact ? 14 : 20,
+                Paper,
+                TextAlignmentOptions.Center,
+                compact ? new Vector2(0.25f, 0.08f) : new Vector2(0.08f, 0.25f),
+                compact ? new Vector2(0.66f, 0.22f) : new Vector2(0.92f, 0.42f));
+            var actionName = compact ? "ReplayIncident_" + name.Substring("ResolvedIncidentCard_".Length) : "IncidentButton";
+            var button = CreateButton(
+                card,
+                actionName,
+                string.Empty,
+                compact ? new Vector2(0.68f, 0.14f) : new Vector2(0.14f, 0.05f),
+                compact ? new Vector2(0.96f, 0.82f) : new Vector2(0.86f, 0.20f),
+                compact ? Sage : Amber,
+                compact ? Paper : Ink,
+                () => { },
+                compact ? 17 : 28);
+            var waiting = CreateText(
+                card,
+                "IncidentWaitingState",
+                string.Empty,
+                22,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.10f, 0.05f),
+                new Vector2(0.90f, 0.20f),
+                true);
+            waiting.gameObject.SetActive(false);
+            var view = card.gameObject.AddComponent<IncidentCardView>();
+            view.Configure(card.GetComponent<Image>(), artwork, status, title, clue, button, button.GetComponentInChildren<TMP_Text>());
+            view.ConfigureWaitingState(waiting);
+            return view;
+        }
+
+        private static TMP_Text CreateText(Transform parent, string name, string value, float size, Color color, TextAlignmentOptions alignment, Vector2 min, Vector2 max, bool bold = false, TextRole role = TextRole.Interface)
         {
             var gameObject = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
             var rect = gameObject.GetComponent<RectTransform>();
@@ -580,9 +2819,15 @@ namespace CurioClerk.Presentation
                 s_InterfaceFont = Resources.Load<TMP_FontAsset>("Fonts/NotoSansKR-Dynamic");
             }
 
-            if (s_InterfaceFont != null)
+            if (s_DisplayFont == null)
             {
-                text.font = s_InterfaceFont;
+                s_DisplayFont = Resources.Load<TMP_FontAsset>("Fonts/GowunBatang-Bold-Dynamic");
+            }
+
+            var selectedFont = role == TextRole.Display ? s_DisplayFont : s_InterfaceFont;
+            if (selectedFont != null)
+            {
+                text.font = selectedFont;
             }
 
             text.text = value;
@@ -595,7 +2840,164 @@ namespace CurioClerk.Presentation
             return text;
         }
 
-        private static Button CreateButton(Transform parent, string name, string label, Vector2 min, Vector2 max, Color background, Color foreground, UnityEngine.Events.UnityAction action)
+        private static Image CreateArtworkImage(Transform parent, string name, Vector2 min, Vector2 max)
+        {
+            var gameObject = new GameObject(name, typeof(RectTransform), typeof(Image));
+            var rect = gameObject.GetComponent<RectTransform>();
+            rect.SetParent(parent, false);
+            SetAnchors(rect, min, max);
+            var image = gameObject.GetComponent<Image>();
+            image.color = Color.white;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            return image;
+        }
+
+        private void BuildDocketProgress(Transform parent)
+        {
+            _docketSigilCrack = null;
+            var panel = CreatePanel(
+                parent,
+                "DocketProgress",
+                new Color(Wine.r, Wine.g, Wine.b, 0.88f),
+                new Vector2(0.05f, 0.85f),
+                new Vector2(0.95f, 0.935f));
+            AddSurfaceChrome(panel, Amber, 1.5f, 0.22f);
+            CreateText(
+                panel,
+                "DocketLabel",
+                _localizer.Get("docket"),
+                19,
+                Amber,
+                TextAlignmentOptions.Center,
+                new Vector2(0.02f, 0.08f),
+                new Vector2(0.16f, 0.92f),
+                true);
+            var counter = CreateText(
+                panel,
+                "DocketCounter",
+                string.Empty,
+                22,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.16f, 0.08f),
+                new Vector2(0.31f, 0.92f),
+                true);
+            var stampLabels = new TMP_Text[3];
+            var stamps = new[]
+            {
+                CreateDocketStamp(panel, "DocketStampRepair", VisualAssetLibrary.RepairIcon,
+                    DustyRose, new Vector2(0.34f, 0.14f), new Vector2(0.52f, 0.86f),
+                    out stampLabels[0]),
+                CreateDocketStamp(panel, "DocketStampStorage", VisualAssetLibrary.StorageIcon,
+                    Sage, new Vector2(0.56f, 0.14f), new Vector2(0.74f, 0.86f),
+                    out stampLabels[1]),
+                CreateDocketStamp(panel, "DocketStampVault", VisualAssetLibrary.VaultIcon,
+                    Amber, new Vector2(0.78f, 0.14f), new Vector2(0.96f, 0.86f),
+                    out stampLabels[2])
+            };
+
+            Image completionSigil = null;
+            if (_isIncidentShift)
+            {
+                completionSigil = CreateArtworkImage(
+                    panel,
+                    "DocketCompletionSigil",
+                    new Vector2(0.35f, 0.04f),
+                    new Vector2(0.95f, 0.96f));
+                completionSigil.sprite = VisualAssetLibrary.VaultIcon;
+                completionSigil.color = new Color(Amber.r, Amber.g, Amber.b, 0f);
+                completionSigil.enabled = false;
+                completionSigil.transform.SetAsFirstSibling();
+
+                var crack = CreatePanel(
+                    panel,
+                    "DocketSigilCrack",
+                    DustyRose,
+                    new Vector2(0.635f, 0.16f),
+                    new Vector2(0.650f, 0.84f));
+                crack.localRotation = Quaternion.Euler(0f, 0f, -18f);
+                _docketSigilCrack = crack.GetComponent<Image>();
+                _docketSigilCrack.raycastTarget = false;
+                _docketSigilCrack.enabled = false;
+            }
+
+            _docketProgress = panel.gameObject.AddComponent<DocketProgressView>();
+            _docketProgress.Configure(
+                counter,
+                stamps,
+                stampLabels,
+                new Color(Paper.r, Paper.g, Paper.b, 0.16f),
+                new[]
+                {
+                    new Color(DustyRose.r, DustyRose.g, DustyRose.b, 0.72f),
+                    new Color(Sage.r, Sage.g, Sage.b, 0.72f),
+                    new Color(Amber.r, Amber.g, Amber.b, 0.72f)
+                });
+            if (completionSigil != null)
+            {
+                _docketProgress.ConfigureCompletionSigil(completionSigil);
+            }
+        }
+
+        private static Image CreateDocketStamp(
+            Transform parent,
+            string name,
+            Sprite iconSprite,
+            Color iconColor,
+            Vector2 min,
+            Vector2 max,
+            out TMP_Text statusLabel)
+        {
+            var stamp = CreatePanel(parent, name, Color.clear, min, max);
+            AddSurfaceChrome(stamp, iconColor, 1f, 0.12f);
+            var icon = CreateArtworkImage(stamp, name + "Icon", new Vector2(0.20f, 0.32f), new Vector2(0.80f, 0.94f));
+            icon.sprite = iconSprite;
+            icon.color = iconColor;
+            statusLabel = CreateText(
+                stamp,
+                name + "Status",
+                string.Empty,
+                16,
+                Paper,
+                TextAlignmentOptions.Center,
+                new Vector2(0.04f, 0.02f),
+                new Vector2(0.96f, 0.32f),
+                true);
+            return stamp.GetComponent<Image>();
+        }
+
+        private static Image CreateArtifactPreview(Transform parent, string panelName, string artworkName, string labelName, Color accent, Vector2 min, Vector2 max, out TMP_Text label)
+        {
+            var panel = CreatePanel(parent, panelName, new Color(Wine.r, Wine.g, Wine.b, 0.88f), min, max);
+            panel.GetComponent<Image>().raycastTarget = false;
+            AddSurfaceChrome(panel, accent, 1f, 0.20f);
+            var artwork = CreateArtworkImage(panel, artworkName, new Vector2(0.035f, 0.08f), new Vector2(0.29f, 0.92f));
+            label = CreateText(panel, labelName, string.Empty, 20, accent, TextAlignmentOptions.Center, new Vector2(0.29f, 0.04f), new Vector2(0.98f, 0.96f), true);
+            return artwork;
+        }
+
+        private void CreateEquippedCosmeticArtwork(Transform parent, CosmeticContent cosmetic, Vector2 min, Vector2 max, bool showLabel)
+        {
+            var panel = CreatePanel(parent, "EquippedDeskCharm", new Color(Wine.r, Wine.g, Wine.b, 0.78f), min, max);
+            AddSurfaceChrome(panel, Hex(cosmetic.AccentHex), 1.5f, 0.20f);
+            var artwork = CreateArtworkImage(panel, "EquippedDeskCharmArtwork", new Vector2(0.06f, showLabel ? 0.25f : 0.06f), new Vector2(0.94f, 0.94f));
+            artwork.sprite = VisualAssetLibrary.Cosmetic(cosmetic.Id);
+            artwork.enabled = artwork.sprite != null;
+            if (showLabel)
+            {
+                CreateText(panel, "EquippedDeskCharmLabel", CosmeticName(cosmetic), 15, Paper, TextAlignmentOptions.Center, new Vector2(0.04f, 0.02f), new Vector2(0.96f, 0.26f), true);
+            }
+        }
+
+        private static void SetPreviewArtwork(Image preview, string artifactId)
+        {
+            var sprite = VisualAssetLibrary.Artifact(artifactId);
+            preview.sprite = sprite;
+            preview.enabled = sprite != null;
+        }
+
+        private static Button CreateButton(Transform parent, string name, string label, Vector2 min, Vector2 max, Color background, Color foreground, UnityEngine.Events.UnityAction action, float labelSize = 26)
         {
             var gameObject = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
             var rect = gameObject.GetComponent<RectTransform>();
@@ -606,8 +3008,50 @@ namespace CurioClerk.Presentation
             var button = gameObject.GetComponent<Button>();
             button.targetGraphic = image;
             button.onClick.AddListener(action);
-            CreateText(rect, "Label", label, 26, foreground, TextAlignmentOptions.Center, Vector2.zero, Vector2.one, true);
+            var colors = button.colors;
+            colors.highlightedColor = Color.Lerp(background, Color.white, 0.12f);
+            colors.pressedColor = Color.Lerp(background, Color.black, 0.12f);
+            colors.selectedColor = colors.highlightedColor;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
+            CreateText(rect, "Label", label, labelSize, foreground, TextAlignmentOptions.Center, Vector2.zero, Vector2.one, true);
+            AddSurfaceChrome(rect, foreground, 1.5f, 0.18f, false);
             return button;
+        }
+
+        private static void AddButtonIcon(Button button, string name, Sprite sprite, Color color)
+        {
+            var icon = CreateArtworkImage(button.transform, name, new Vector2(0.08f, 0.18f), new Vector2(0.30f, 0.82f));
+            icon.sprite = sprite;
+            icon.color = color;
+            var label = button.transform.Find("Label").GetComponent<RectTransform>();
+            SetAnchors(label, new Vector2(0.27f, 0), new Vector2(0.98f, 1));
+        }
+
+        private static void AddSurfaceChrome(RectTransform surface, Color edgeColor, float edgeDistance, float shadowAlpha, bool addOutline = true)
+        {
+            if (addOutline)
+            {
+                var outline = surface.gameObject.AddComponent<Outline>();
+                outline.effectColor = new Color(edgeColor.r, edgeColor.g, edgeColor.b, 0.58f);
+                outline.effectDistance = new Vector2(edgeDistance, -edgeDistance);
+                outline.useGraphicAlpha = false;
+            }
+
+            var shadow = surface.gameObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color(Ink.r, Ink.g, Ink.b, shadowAlpha);
+            shadow.effectDistance = new Vector2(0, -8f);
+            shadow.useGraphicAlpha = false;
+        }
+
+        private static Outline CreateButtonHighlight(Button button)
+        {
+            var outline = button.gameObject.AddComponent<Outline>();
+            outline.effectColor = Paper;
+            outline.effectDistance = new Vector2(5f, -5f);
+            outline.useGraphicAlpha = false;
+            outline.enabled = false;
+            return outline;
         }
 
         private static void SetAnchors(RectTransform rect, Vector2 min, Vector2 max)
@@ -618,7 +3062,7 @@ namespace CurioClerk.Presentation
             rect.offsetMax = Vector2.zero;
         }
 
-        private string RulesText()
+        private string RulesText(int highlightedRule = -1)
         {
             var lines = new List<string>(_activeRules.Count);
             for (var index = 0; index < _activeRules.Count; index++)
@@ -626,7 +3070,8 @@ namespace CurioClerk.Presentation
                 var rule = _activeRules[index];
                 if (rule.IsFallback)
                 {
-                    lines.Add($"{index + 1}. {_localizer.Get("fallback")}");
+                    var fallbackLine = $"{index + 1}. {_localizer.Get("fallback")}";
+                    lines.Add(index == highlightedRule ? HighlightRule(fallbackLine) : fallbackLine);
                     continue;
                 }
 
@@ -637,29 +3082,63 @@ namespace CurioClerk.Presentation
                     conditions = conditions.Replace(" · ", joiner);
                 }
 
-                lines.Add($"{index + 1}. {conditions}  →  {DestinationName(rule.Destination)}");
+                var line = $"{index + 1}. {conditions}  →  {DestinationName(rule.Destination)}";
+                lines.Add(index == highlightedRule ? HighlightRule(line) : line);
             }
 
             return string.Join("\n", lines);
         }
 
-        private string TraitsText(ArtifactTraits traits)
+        private static string HighlightRule(string line) => "<color=#E0A24B><b>" + line + "</b></color>";
+
+        private ArtifactTraits TutorialEmphasizedTraits()
         {
-            var labels = new List<string>(3);
-            AddTrait(labels, traits, ArtifactTraits.Cursed, "trait_cursed");
-            AddTrait(labels, traits, ArtifactTraits.Fragile, "trait_fragile");
-            AddTrait(labels, traits, ArtifactTraits.Alive, "trait_alive");
-            AddTrait(labels, traits, ArtifactTraits.Temporal, "trait_temporal");
-            AddTrait(labels, traits, ArtifactTraits.Wet, "trait_wet");
-            AddTrait(labels, traits, ArtifactTraits.Metallic, "trait_metallic");
+            var resolution = _session?.CurrentResolution;
+            if (resolution == null || _activeRules == null)
+            {
+                return ArtifactTraits.None;
+            }
+
+            var rule = _activeRules.FirstOrDefault(candidate => candidate.Id == resolution.RuleId);
+            if (rule == null || rule.IsFallback)
+            {
+                return ArtifactTraits.None;
+            }
+
+            var required = rule.RequiredAll != ArtifactTraits.None
+                ? rule.RequiredAll
+                : rule.RequiredAny;
+            return required & _session.CurrentArtifact.Traits;
+        }
+
+        private string TraitsText(
+            ArtifactTraits traits,
+            ArtifactTraits emphasized = ArtifactTraits.None)
+        {
+            var labels = new List<string>(7);
+            AddTrait(labels, traits, ArtifactTraits.Cursed, "trait_cursed", emphasized);
+            AddTrait(labels, traits, ArtifactTraits.Fragile, "trait_fragile", emphasized);
+            AddTrait(labels, traits, ArtifactTraits.Alive, "trait_alive", emphasized);
+            AddTrait(labels, traits, ArtifactTraits.Temporal, "trait_temporal", emphasized);
+            AddTrait(labels, traits, ArtifactTraits.Wet, "trait_wet", emphasized);
+            AddTrait(labels, traits, ArtifactTraits.Metallic, "trait_metallic", emphasized);
+            AddTrait(labels, traits, ArtifactTraits.Frosted, "trait_frosted", emphasized);
             return string.Join(" · ", labels);
         }
 
-        private void AddTrait(ICollection<string> labels, ArtifactTraits value, ArtifactTraits trait, string key)
+        private void AddTrait(
+            ICollection<string> labels,
+            ArtifactTraits value,
+            ArtifactTraits trait,
+            string key,
+            ArtifactTraits emphasized)
         {
             if ((value & trait) != 0)
             {
-                labels.Add(_localizer.Get(key));
+                var label = _localizer.Get(key);
+                labels.Add((emphasized & trait) != 0
+                    ? "<color=#E0A24B><b>" + label + "</b></color>"
+                    : label);
             }
         }
 
@@ -676,6 +3155,8 @@ namespace CurioClerk.Presentation
         private string Name(ArtifactContent content) => _localizer.Locale == "ko" ? content.NameKorean : content.NameEnglish;
 
         private string Description(ArtifactContent content) => _localizer.Locale == "ko" ? content.DescriptionKorean : content.DescriptionEnglish;
+
+        private string Resolution(ArtifactContent content) => _localizer.Locale == "ko" ? content.ResolutionKorean : content.ResolutionEnglish;
 
         private string CosmeticName(CosmeticContent content) => _localizer.Locale == "ko" ? content.NameKorean : content.NameEnglish;
 

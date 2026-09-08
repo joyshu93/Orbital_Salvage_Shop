@@ -131,102 +131,108 @@ namespace CurioClerk.Tests.EditMode
         }
 
         [Test]
-        public void SecondIncident_HasApprovedRulesQueueCopyAndTwoRequiredHolds()
+        public void SecondIncident_HasExactFiveStageGameplayAndNarrativeMatrix()
         {
             var incident = ContentCatalog.CreateIncidents().Single(value => value.Id == "remembering-rain");
-            var stage = incident.Stages.Single();
             var artifacts = ContentCatalog.CreateArtifacts().ToDictionary(item => item.Id, StringComparer.Ordinal);
             var ruleEngine = new RuleEngine();
             var analyzer = new DocketSequenceAnalyzer();
-            var plan = stage.CreateShiftPlan(artifacts);
-            var destinations = plan.Queue.Select(item => ruleEngine.Resolve(item, plan.Rules)).ToArray();
+            var expected = new[]
+            {
+                new RainStageExpectation("rain-01-voices", "moon-umbrella", "paper-fish", 2,
+                    new[] { ArtifactTraits.Wet, ArtifactTraits.Fragile, ArtifactTraits.Alive, ArtifactTraits.None },
+                    new[] { Destination.Vault, Destination.Repair, Destination.Storage, Destination.Storage },
+                    new[] { "moon-umbrella", "paper-fish", "sleeping-teacup", "clockwork-moth", "backward-candle", "patient-compass", "rain-jar", "porcelain-tooth", "humming-scarf", "yesterday-ticket", "murmur-box", "ink-snowglobe" },
+                    "VVRSRSVRSRSV", "promise", "약속"),
+                new RainStageExpectation("rain-02-names-under-water", "rain-jar", "rain-jar", 2,
+                    new[] { ArtifactTraits.Temporal, ArtifactTraits.Wet, ArtifactTraits.Alive, ArtifactTraits.Fragile, ArtifactTraits.None },
+                    new[] { Destination.Vault, Destination.Repair, Destination.Storage, Destination.Repair, Destination.Storage },
+                    new[] { "moon-umbrella", "mossy-watch", "rain-jar", "clockwork-moth", "paper-fish", "humming-scarf", "yesterday-ticket", "porcelain-tooth", "whispering-key", "ink-snowglobe", "patient-compass", "unmelting-ice" },
+                    "RVVSRSVRSRSV", "Tuesday", "화요일"),
+                new RainStageExpectation("rain-03-unsent-letter", "paper-fish", "paper-fish", 2,
+                    new[] { ArtifactTraits.Alive, ArtifactTraits.Fragile, ArtifactTraits.Cursed, ArtifactTraits.None },
+                    new[] { Destination.Storage, Destination.Repair, Destination.Vault, Destination.Vault },
+                    new[] { "rain-jar", "humming-scarf", "paper-fish", "moon-umbrella", "whispering-key", "porcelain-tooth", "clockwork-moth", "mirror-seed", "borrowed-shadow", "yesterday-ticket", "silent-bell", "patient-compass" },
+                    "VSSRVRSRVRVS", "Night Repository", "야간 보관소"),
+                new RainStageExpectation("rain-04-dry-order", "moon-umbrella", "moon-umbrella", 2,
+                    new[] { ArtifactTraits.Cursed, ArtifactTraits.Wet, ArtifactTraits.Fragile, ArtifactTraits.Alive, ArtifactTraits.None },
+                    new[] { Destination.Vault, Destination.Storage, Destination.Repair, Destination.Storage, Destination.Repair },
+                    new[] { "sleeping-teacup", "rain-jar", "moon-umbrella", "whispering-key", "backward-candle", "clockwork-moth", "silent-bell", "rusty-comet", "ink-snowglobe", "lantern-snail", "tide-locket", "murmur-box" },
+                    "RSSVRSVRVRSV", "sender", "발신"),
+                new RainStageExpectation("rain-05-testimony", "paper-fish", "paper-fish", 3,
+                    new[] { ArtifactTraits.Temporal, ArtifactTraits.Wet, ArtifactTraits.Alive, ArtifactTraits.Cursed, ArtifactTraits.Fragile, ArtifactTraits.None },
+                    new[] { Destination.Vault, Destination.Repair, Destination.Storage, Destination.Vault, Destination.Repair, Destination.Storage },
+                    new[] { "moon-umbrella", "paper-fish", "clockwork-moth", "rain-jar", "humming-scarf", "patient-compass", "whispering-key", "thimble-storm", "ink-snowglobe", "borrowed-shadow", "murmur-box", "unmelting-ice" },
+                    "RRSVSSVRRVSV", "clerk before your senior", "선임보다 먼저 일한 관리인")
+            };
 
             Assert.That(incident.Title.English, Is.EqualTo("The Remembering Rain"));
             Assert.That(incident.Title.Korean, Is.EqualTo("기억하는 비"));
             Assert.That(incident.LeadArtifactId, Is.EqualTo("moon-umbrella"));
             Assert.That(incident.BoardVisualCue, Is.EqualTo(IncidentVisualCue.Rain));
-            Assert.That(stage.Id, Is.EqualTo("rain-01-voices"));
-            Assert.That(stage.ResonanceHoldArtifactId, Is.EqualTo("paper-fish"));
-            Assert.That(stage.MinimumRequiredHolds, Is.EqualTo(2));
-            Assert.That(stage.Rules.Select(rule => rule.Id), Is.EqualTo(new[]
+            Assert.That(incident.CompletesWhenAllStagesCompleted, Is.True);
+            Assert.That(incident.AwaitingContentClue, Is.Null);
+            Assert.That(incident.Stages.Select(stage => stage.Id), Is.EqualTo(expected.Select(stage => stage.Id)));
+
+            for (var index = 0; index < expected.Length; index++)
             {
-                "incident-wet-vault", "incident-fragile-repair", "incident-alive-storage", "incident-fallback-storage"
-            }));
-            Assert.That(stage.Rules.Select(rule => rule.RequiredAll), Is.EqualTo(new[]
-            {
-                ArtifactTraits.Wet, ArtifactTraits.Fragile, ArtifactTraits.Alive, ArtifactTraits.None
-            }));
-            Assert.That(stage.Rules.Select(rule => rule.RequiredAny), Is.EqualTo(new[]
-            {
-                ArtifactTraits.None, ArtifactTraits.None, ArtifactTraits.None, ArtifactTraits.None
-            }));
-            Assert.That(stage.Rules.Select(rule => rule.Destination), Is.EqualTo(new[]
-            {
-                Destination.Vault, Destination.Repair, Destination.Storage, Destination.Storage
-            }));
-            Assert.That(stage.Rules.Select(rule => rule.IsFallback), Is.EqualTo(new[] { false, false, false, true }));
-            Assert.That(stage.Queue.Select(item => item.ArtifactId), Is.EqualTo(new[]
-            {
-                "moon-umbrella", "paper-fish", "sleeping-teacup", "clockwork-moth",
-                "backward-candle", "patient-compass", "rain-jar", "porcelain-tooth",
-                "humming-scarf", "yesterday-ticket", "murmur-box", "ink-snowglobe"
-            }));
-            Assert.That(Pattern(destinations), Is.EqualTo("VVRSRSVRSRSV"));
-            Assert.That(destinations.Count(value => value == Destination.Repair), Is.EqualTo(4));
-            Assert.That(destinations.Count(value => value == Destination.Storage), Is.EqualTo(4));
-            Assert.That(destinations.Count(value => value == Destination.Vault), Is.EqualTo(4));
-            Assert.That(analyzer.MinimumHolds(destinations), Is.EqualTo(2));
+                var stage = incident.Stages[index];
+                var contract = expected[index];
+                var plan = stage.CreateShiftPlan(artifacts);
+                var destinations = plan.Queue.Select(item => ruleEngine.Resolve(item, plan.Rules)).ToArray();
+                var allEnglish = NarrativeText(stage, "en");
+                var allKorean = NarrativeText(stage, "ko");
+
+                Assert.That(stage.LeadArtifactId, Is.EqualTo(contract.LeadArtifactId), stage.Id);
+                Assert.That(stage.ResonanceHoldArtifactId, Is.EqualTo(contract.ProtectedArtifactId), stage.Id);
+                Assert.That(stage.MinimumRequiredHolds, Is.EqualTo(contract.MinimumHolds), stage.Id);
+                Assert.That(stage.Queue, Has.Count.EqualTo(12), stage.Id);
+                Assert.That(stage.Queue.Select(item => item.ArtifactId), Is.EqualTo(contract.QueueIds), stage.Id);
+                Assert.That(stage.Queue.Select(item => item.ArtifactId).Distinct().Count(), Is.EqualTo(12), stage.Id);
+                Assert.That(stage.Rules.Select(rule => rule.RequiredAll), Is.EqualTo(contract.RequiredTraits), stage.Id);
+                Assert.That(stage.Rules.Select(rule => rule.Destination), Is.EqualTo(contract.Destinations), stage.Id);
+                Assert.That(stage.Rules.Take(stage.Rules.Count - 1).All(rule => !rule.IsFallback), Is.True, stage.Id);
+                Assert.That(stage.Rules.Last().IsFallback, Is.True, stage.Id);
+                Assert.That(Pattern(destinations), Is.EqualTo(contract.Pattern), stage.Id);
+                Assert.That(destinations.Count(value => value == Destination.Repair), Is.EqualTo(4), stage.Id);
+                Assert.That(destinations.Count(value => value == Destination.Storage), Is.EqualTo(4), stage.Id);
+                Assert.That(destinations.Count(value => value == Destination.Vault), Is.EqualTo(4), stage.Id);
+                Assert.That(analyzer.MinimumHolds(destinations), Is.EqualTo(contract.MinimumHolds), stage.Id);
+                Assert.That(stage.DocketBeats.Select(beat => beat.CompletedDocketNumber), Is.EqualTo(new[] { 1, 2, 3 }), stage.Id);
+                Assert.That(stage.DocketBeats.All(beat => beat.Narrative.Speaker != null), Is.True, stage.Id);
+                foreach (var docketBeat in stage.DocketBeats)
+                {
+                    AssertBilingual(docketBeat.Narrative.Speaker, stage.Id + " docket speaker");
+                    AssertBilingual(docketBeat.Narrative.Copy, stage.Id + " docket body");
+                }
+
+                StringAssert.Contains(contract.EnglishAnchor, allEnglish, stage.Id);
+                StringAssert.Contains(contract.KoreanAnchor, allKorean, stage.Id);
+                Assert.Throws<NotSupportedException>(() =>
+                    ((IList<IncidentArtifactEntry>)stage.Queue)[0] = stage.Queue[0], stage.Id);
+                Assert.Throws<NotSupportedException>(() =>
+                    ((IList<SortingRule>)stage.Rules)[0] = stage.Rules[0], stage.Id);
+                Assert.Throws<NotSupportedException>(() =>
+                    ((IList<IncidentDocketBeat>)stage.DocketBeats)[0] = stage.DocketBeats[0], stage.Id);
+            }
+
+            Assert.Throws<NotSupportedException>(() =>
+                ((IList<IncidentStageDefinition>)incident.Stages)[0] = incident.Stages[0]);
+        }
+
+        [Test]
+        public void ThirdIncident_IsFixedReadOnlyUpcomingPreview()
+        {
+            var incident = ContentCatalog.CreateIncidents().Single(value => value.Id == "one-minute-ahead");
+
+            Assert.That(incident.Title.English, Is.EqualTo("One Minute Ahead"));
+            Assert.That(incident.Title.Korean, Is.EqualTo("1분 앞선 저녁"));
+            Assert.That(incident.LeadArtifactId, Is.EqualTo("backward-candle"));
+            Assert.That(incident.BoardVisualCue, Is.EqualTo(IncidentVisualCue.AmberWarmth));
+            Assert.That(incident.Stages, Is.Empty);
             Assert.That(incident.CompletesWhenAllStagesCompleted, Is.False);
-            Assert.That(incident.AwaitingContentClue.English,
-                Is.EqualTo("The voice inside the rain knows the senior clerk."));
-            Assert.That(incident.AwaitingContentClue.Korean,
-                Is.EqualTo("빗속의 목소리는 선임 관리인을 알고 있다."));
-            Assert.That(stage.IntroBeats.Select(beat => beat.Copy.English), Is.EqualTo(new[]
-            {
-                "Since midnight, it has been raining inside the sealed umbrella. Do not open it.",
-                "Every drop repeats someone's memory. One of them is saying my name.",
-                "Seal what the rain has touched. Mend the fragile. Let the living rest. Read the ledger from the top."
-            }));
-            Assert.That(stage.IntroBeats.Select(beat => beat.Copy.Korean), Is.EqualTo(new[]
-            {
-                "자정부터 봉인된 우산 안에서 비가 내리고 있어요. 절대 열지 마세요.",
-                "빗방울마다 누군가의 기억을 되풀이합니다. 그중 하나가 제 이름을 부르고 있어요.",
-                "비에 젖은 것은 봉인하고, 깨지기 쉬운 것은 수리하세요. 살아 있는 것은 쉬게 하세요. 규칙은 위에서부터 적용합니다."
-            }));
-            Assert.That(stage.IntroBeats.Select(beat => beat.Mood), Is.EqualTo(new[]
-            {
-                SeniorClerkMood.Concerned, SeniorClerkMood.Alert, SeniorClerkMood.Neutral
-            }));
-            Assert.That(stage.IntroBeats.Select(beat => beat.VisualCue), Is.EqualTo(new[]
-            {
-                IncidentVisualCue.Rain, IncidentVisualCue.Rain, IncidentVisualCue.InkSeal
-            }));
-            Assert.That(stage.OutroBeats.Select(beat => beat.Copy.English), Is.EqualTo(new[]
-            {
-                "The rain falls silent. One drop remains on the inside of the seal.",
-                "It whispers, “You promised to come back.” The senior clerk does not answer."
-            }));
-            Assert.That(stage.OutroBeats.Select(beat => beat.Copy.Korean), Is.EqualTo(new[]
-            {
-                "비가 멎습니다. 봉인 안쪽에 빗방울 하나만 남았습니다.",
-                "빗방울이 속삭입니다. “돌아오겠다고 약속했잖아.” 선임 관리인은 대답하지 않습니다."
-            }));
-            Assert.That(stage.OutroBeats.Select(beat => beat.Mood), Is.EqualTo(new[]
-            {
-                SeniorClerkMood.Concerned, SeniorClerkMood.Alert
-            }));
-            Assert.That(stage.OutroBeats.Select(beat => beat.VisualCue), Is.EqualTo(new[]
-            {
-                IncidentVisualCue.Rain, IncidentVisualCue.Rain
-            }));
-            Assert.That(stage.Reactions.Stable.English, Is.EqualTo("The last drop shivers, but does not fall."));
-            Assert.That(stage.Reactions.Stable.Korean, Is.EqualTo("마지막 빗방울이 떨리지만 떨어지지 않는다."));
-            Assert.That(stage.Reactions.Precise.English, Is.EqualTo("The rain gathers into one clear memory."));
-            Assert.That(stage.Reactions.Precise.Korean, Is.EqualTo("비가 하나의 선명한 기억으로 모인다."));
-            Assert.That(stage.Reactions.Resonant.English,
-                Is.EqualTo("The umbrella closes by itself, as if it recognizes your hands."));
-            Assert.That(stage.Reactions.Resonant.Korean,
-                Is.EqualTo("우산이 스스로 접힌다. 당신의 손길을 알아본 듯하다."));
+            Assert.That(incident.AwaitingContentClue.English, Is.EqualTo("The moss grows toward 2:17."));
+            Assert.That(incident.AwaitingContentClue.Korean, Is.EqualTo("이끼가 2시 17분을 향해 자라고 있다."));
         }
 
         [Test]
@@ -440,6 +446,113 @@ namespace CurioClerk.Tests.EditMode
         }
 
         [Test]
+        public void IncidentDefinition_AllowsBilingualZeroStagePreviewButRejectsConclusiveZeroStageIncident()
+        {
+            var title = new LocalizedCopy("Preview", "예고");
+            var clue = new LocalizedCopy("Awaiting clue.", "단서를 기다린다.");
+
+            var preview = new IncidentDefinition(
+                "preview",
+                title,
+                "backward-candle",
+                IncidentVisualCue.AmberWarmth,
+                completesWhenAllStagesCompleted: false,
+                awaitingContentClue: clue,
+                stages: Array.Empty<IncidentStageDefinition>());
+
+            Assert.That(preview.Stages, Is.Empty);
+            Assert.That(preview.AwaitingContentClue, Is.SameAs(clue));
+            Assert.Throws<ArgumentException>(() => new IncidentDefinition(
+                "invalid",
+                title,
+                "backward-candle",
+                IncidentVisualCue.AmberWarmth,
+                completesWhenAllStagesCompleted: true,
+                awaitingContentClue: null,
+                stages: Array.Empty<IncidentStageDefinition>()));
+        }
+
+        [Test]
+        public void NarrativeBeat_PreservesOptionalBilingualSpeakerAndLegacyConstructorLeavesItNull()
+        {
+            var speaker = new LocalizedCopy("Voice in the Rain", "빗속의 목소리");
+            var named = new NarrativeBeat(
+                speaker,
+                new LocalizedCopy("Listen.", "들어."),
+                SeniorClerkMood.Alert,
+                IncidentVisualCue.Rain);
+            var legacy = Beat("Legacy", "기존");
+
+            Assert.That(named.Speaker, Is.SameAs(speaker));
+            Assert.That(named.Speaker.ForLocale("ko"), Is.EqualTo("빗속의 목소리"));
+            Assert.That(legacy.Speaker, Is.Null);
+        }
+
+        [TestCase(0)]
+        [TestCase(4)]
+        public void IncidentDocketBeat_RejectsDocketNumbersOutsideAuthoredInterludes(int docketNumber)
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new IncidentDocketBeat(docketNumber, Beat("Beat", "막간")));
+        }
+
+        [Test]
+        public void IncidentDocketBeat_RejectsNullNarrative()
+        {
+            Assert.Throws<ArgumentNullException>(() => new IncidentDocketBeat(1, null));
+        }
+
+        [Test]
+        public void IncidentStageDefinition_CopiesAndFindsAuthoredDocketBeats()
+        {
+            var first = new IncidentDocketBeat(1, Beat("First", "첫째"));
+            var third = new IncidentDocketBeat(3, Beat("Third", "셋째"));
+            var authored = new[] { first, third };
+            var stage = new IncidentStageDefinition(
+                "docket-beat-stage",
+                new[] { Beat("Intro", "도입") },
+                new[] { Beat("Outro", "마무리") },
+                Reactions(),
+                "unmelting-ice",
+                null,
+                QueueIds().Select(id => new IncidentArtifactEntry(id, ArtifactTraits.None)).ToArray(),
+                DefaultRules(),
+                1,
+                authored);
+
+            authored[0] = new IncidentDocketBeat(2, Beat("Changed", "변경"));
+
+            Assert.That(stage.DocketBeats, Is.EqualTo(new[] { first, third }));
+            Assert.That(stage.FindDocketBeat(1), Is.SameAs(first));
+            Assert.That(stage.FindDocketBeat(2), Is.Null);
+            Assert.That(stage.FindDocketBeat(3), Is.SameAs(third));
+            Assert.That(stage.FindDocketBeat(0), Is.Null);
+            Assert.That(stage.FindDocketBeat(4), Is.Null);
+        }
+
+        [Test]
+        public void IncidentStageDefinition_RejectsDuplicateDocketBeatNumbers()
+        {
+            var duplicate = new[]
+            {
+                new IncidentDocketBeat(2, Beat("First", "첫째")),
+                new IncidentDocketBeat(2, Beat("Second", "둘째"))
+            };
+
+            Assert.Throws<ArgumentException>(() => new IncidentStageDefinition(
+                "duplicate-docket-beat-stage",
+                new[] { Beat("Intro", "도입") },
+                new[] { Beat("Outro", "마무리") },
+                Reactions(),
+                "unmelting-ice",
+                null,
+                QueueIds().Select(id => new IncidentArtifactEntry(id, ArtifactTraits.None)).ToArray(),
+                DefaultRules(),
+                1,
+                duplicate));
+        }
+
+        [Test]
         public void IncidentContent_CopiesAuthoredCollectionsAtConstructionBoundaries()
         {
             var queue = QueueIds().Select(id => new IncidentArtifactEntry(id, ArtifactTraits.None)).ToArray();
@@ -560,6 +673,14 @@ namespace CurioClerk.Tests.EditMode
 
         private static IEnumerable<string> QueueIds() => ExpectedStages[0].QueueIds;
 
+        private static string NarrativeText(IncidentStageDefinition stage, string locale)
+        {
+            var beats = stage.IntroBeats
+                .Concat(stage.DocketBeats.Select(docket => docket.Narrative))
+                .Concat(stage.OutroBeats);
+            return string.Join(" ", beats.Select(beat => beat.Copy.ForLocale(locale)));
+        }
+
         private static string Pattern(IEnumerable<Destination> destinations)
         {
             return string.Concat(destinations.Select(destination =>
@@ -607,6 +728,44 @@ namespace CurioClerk.Tests.EditMode
             public string IntroKorean { get; }
             public string OutroEnglish { get; }
             public string OutroKorean { get; }
+        }
+
+        private sealed class RainStageExpectation
+        {
+            public RainStageExpectation(
+                string id,
+                string leadArtifactId,
+                string protectedArtifactId,
+                int minimumHolds,
+                ArtifactTraits[] requiredTraits,
+                Destination[] destinations,
+                string[] queueIds,
+                string pattern,
+                string englishAnchor,
+                string koreanAnchor)
+            {
+                Id = id;
+                LeadArtifactId = leadArtifactId;
+                ProtectedArtifactId = protectedArtifactId;
+                MinimumHolds = minimumHolds;
+                RequiredTraits = requiredTraits;
+                Destinations = destinations;
+                QueueIds = queueIds;
+                Pattern = pattern;
+                EnglishAnchor = englishAnchor;
+                KoreanAnchor = koreanAnchor;
+            }
+
+            public string Id { get; }
+            public string LeadArtifactId { get; }
+            public string ProtectedArtifactId { get; }
+            public int MinimumHolds { get; }
+            public ArtifactTraits[] RequiredTraits { get; }
+            public Destination[] Destinations { get; }
+            public string[] QueueIds { get; }
+            public string Pattern { get; }
+            public string EnglishAnchor { get; }
+            public string KoreanAnchor { get; }
         }
     }
 }

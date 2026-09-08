@@ -112,14 +112,20 @@ namespace CurioClerk.Content
         }
 
         public static IReadOnlyList<IncidentDefinition> CreateIncidents()
-            => new[] { FirstIncidentCatalog.Create(), SecondIncidentCatalog.Create() };
+            => new[]
+            {
+                FirstIncidentCatalog.Create(),
+                SecondIncidentCatalog.Create(),
+                ThirdIncidentCatalog.CreatePreview()
+            };
 
         public static IReadOnlyList<IncidentPresentationStyleContent> CreateIncidentPresentationStyles()
         {
             return new[]
             {
                 new IncidentPresentationStyleContent("unmelting-ice", "D6A85F", "6E334F", 0.85f),
-                new IncidentPresentationStyleContent("remembering-rain", "8094B8", "343B57", 1.00f)
+                new IncidentPresentationStyleContent("remembering-rain", "8094B8", "343B57", 1.00f),
+                new IncidentPresentationStyleContent("one-minute-ahead", "D6A85F", "4A2D36", 0.92f)
             };
         }
 

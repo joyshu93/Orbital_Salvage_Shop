@@ -121,6 +121,8 @@ namespace CurioClerk.Presentation
         private Image _incidentWarmthOverlay;
         private ShiftFeedbackAnimator _feedbackAnimator;
         private IncidentReactionView _incidentReactionView;
+        private GameObject _incidentDocketInterlude;
+        private NarrativeSequenceView _incidentDocketInterludeView;
         private ArtifactDragHandler _artifactDragHandler;
         private GameObject _tutorialDocketCompleteCard;
         private bool _resultApplied;
@@ -137,6 +139,7 @@ namespace CurioClerk.Presentation
         private bool _inputLocked;
         private bool _isIncidentShift;
         private int _incidentConsecutiveCorrect;
+        private int _lastIncidentDocketInterlude;
         private bool _docketPresentationDamaged;
         private Action _pendingTransition;
         private int _pendingTransitionVersion;
@@ -403,7 +406,7 @@ namespace CurioClerk.Presentation
             _incidentProgress = ResolveIncidentProgress();
             var current = _incidentProgress.Current;
             _activeIncident = current == null ? null : _incidents.Single(value => value.Id == current.Definition.Id);
-            _incidentRunner = current == null
+            _incidentRunner = current == null || current.Lifecycle != IncidentLifecycle.Available
                 ? null
                 : new IncidentRunner(
                     _activeIncident.Id,
@@ -769,6 +772,9 @@ namespace CurioClerk.Presentation
             var page = CreatePage("ShiftScreen");
             _incidentReactionView = null;
             _incidentWarmthOverlay = null;
+            _incidentDocketInterlude = null;
+            _incidentDocketInterludeView = null;
+            _lastIncidentDocketInterlude = 0;
             if (_isIncidentShift)
             {
                 _incidentWarmthOverlay = CreateArtworkImage(
@@ -1000,8 +1006,86 @@ namespace CurioClerk.Presentation
                 TextRole.Display);
             _shiftInputLockPanel = inputLockPanel.gameObject;
             _shiftInputLockPanel.SetActive(false);
+            BuildIncidentDocketInterlude(page);
             RefreshShiftView();
             RefreshTutorialGuidance();
+        }
+
+        private void BuildIncidentDocketInterlude(RectTransform page)
+        {
+            if (!_isIncidentShift)
+            {
+                return;
+            }
+
+            var overlay = CreatePanel(
+                page,
+                "IncidentDocketInterlude",
+                new Color(Plum.r, Plum.g, Plum.b, 0.98f),
+                Vector2.zero,
+                Vector2.one);
+            var group = overlay.gameObject.AddComponent<CanvasGroup>();
+            group.blocksRaycasts = true;
+            group.interactable = true;
+
+            var cueSurface = CreateArtworkImage(
+                overlay,
+                "IncidentDocketInterludeCueSurface",
+                Vector2.zero,
+                Vector2.one);
+            cueSurface.raycastTarget = false;
+
+            var portrait = CreateArtworkImage(
+                overlay,
+                "IncidentDocketInterludePortrait",
+                new Vector2(0.08f, 0.43f),
+                new Vector2(0.92f, 0.91f));
+            portrait.preserveAspect = true;
+            portrait.raycastTarget = false;
+
+            var dialoguePanel = CreatePanel(
+                overlay,
+                "IncidentDocketInterludeDialoguePanel",
+                new Color(Paper.r, Paper.g, Paper.b, 0.98f),
+                new Vector2(0.06f, 0.17f),
+                new Vector2(0.94f, 0.45f));
+            AddSurfaceChrome(dialoguePanel, Amber, 3f, 0.28f);
+            var speaker = CreateText(
+                dialoguePanel,
+                "IncidentDocketInterludeSpeaker",
+                string.Empty,
+                31,
+                Wine,
+                TextAlignmentOptions.Left,
+                new Vector2(0.06f, 0.69f),
+                new Vector2(0.94f, 0.92f),
+                true,
+                TextRole.Display);
+            var body = CreateText(
+                dialoguePanel,
+                "IncidentDocketInterludeBody",
+                string.Empty,
+                39,
+                Ink,
+                TextAlignmentOptions.TopLeft,
+                new Vector2(0.06f, 0.08f),
+                new Vector2(0.94f, 0.69f),
+                true);
+            var continueButton = CreateButton(
+                overlay,
+                "IncidentDocketInterludeContinueButton",
+                _localizer.Get("narrative_continue"),
+                new Vector2(0.06f, 0.035f),
+                new Vector2(0.94f, 0.145f),
+                Amber,
+                Ink,
+                () => { },
+                32);
+
+            _incidentDocketInterlude = overlay.gameObject;
+            _incidentDocketInterludeView = overlay.gameObject.AddComponent<NarrativeSequenceView>();
+            _incidentDocketInterludeView.Configure(speaker, body, portrait, cueSurface, continueButton);
+            _incidentDocketInterlude.SetActive(false);
         }
 
         private bool IsTutorialActive =>
@@ -1164,19 +1248,74 @@ namespace CurioClerk.Presentation
 
             if (outcome.DidCompleteShift)
             {
-                _inputLocked = false;
-                if (_isIncidentShift)
-                {
-                    ShowIncidentResults();
-                }
-                else
-                {
-                    _feedbackService.Play(PlayerFeedbackCue.ShiftComplete);
-                    ShowResults();
-                }
+                FinishCompletedShift();
                 return;
             }
 
+            if (outcome.DidCompleteDocket && TryPlayIncidentDocketInterlude())
+            {
+                return;
+            }
+
+            ResumeShiftAfterCorrectTransition();
+        }
+
+        private void FinishCompletedShift()
+        {
+            _inputLocked = false;
+            if (_isIncidentShift)
+            {
+                ShowIncidentResults();
+            }
+            else
+            {
+                _feedbackService.Play(PlayerFeedbackCue.ShiftComplete);
+                ShowResults();
+            }
+        }
+
+        private bool TryPlayIncidentDocketInterlude()
+        {
+            if (!_isIncidentShift ||
+                _incidentStage == null ||
+                _session == null ||
+                _session.CompletedDockets < 1 ||
+                _session.CompletedDockets > 3 ||
+                _session.CompletedDockets <= _lastIncidentDocketInterlude ||
+                _incidentDocketInterlude == null ||
+                _incidentDocketInterludeView == null)
+            {
+                return false;
+            }
+
+            var beat = _incidentStage.FindDocketBeat(_session.CompletedDockets);
+            if (beat == null)
+            {
+                return false;
+            }
+
+            _lastIncidentDocketInterlude = _session.CompletedDockets;
+            _incidentDocketInterlude.SetActive(true);
+            _incidentDocketInterludeView.Play(
+                new[] { beat.Narrative },
+                _localizer.Locale,
+                VisualAssetLibrary.SeniorClerk,
+                OwnTransition(CompleteIncidentDocketInterlude));
+            return true;
+        }
+
+        private void CompleteIncidentDocketInterlude()
+        {
+            if (_incidentDocketInterlude != null)
+            {
+                _incidentDocketInterlude.SetActive(false);
+            }
+
+            ResumeShiftAfterCorrectTransition();
+        }
+
+        private void ResumeShiftAfterCorrectTransition()
+        {
             RefreshShiftView();
             SetShiftInputLocked(false);
         }
@@ -1618,6 +1757,7 @@ namespace CurioClerk.Presentation
                 while (_pendingTransition != null)
                 {
                     var version = _pendingTransitionVersion;
+                    FlushPresentationView(_incidentDocketInterludeView);
                     FlushPresentationView(_incidentReactionView);
                     FlushPresentationView(_feedbackAnimator);
                     FlushPresentationView(_docketProgress);

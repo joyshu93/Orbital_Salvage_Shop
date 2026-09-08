@@ -245,6 +245,38 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Store submission decision | Not submitted to a store and not included in the player build. Promotional reuse requires a separate provenance and store-media decision. |
 | Release status | **Approved as internal design documentation; implementation and final creative assets require separate review.** |
 
+### DESIGN-NARRATIVE-003 — full-campaign story master blueprint
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Docs/superpowers/specs/2026-09-04-curio-clerk-story-master-design.md` |
+| Asset type and intended use | Internal long-form story bible and production storyboard covering the three-act, twelve-incident, approximately sixty-shift campaign; not an in-game or store asset |
+| Tool | OpenAI Codex authored the structure and prose from the developer-approved story direction |
+| Creation date | 2026-09-04 KST |
+| Reference inputs | Existing Curio Clerk product constraints, repository artifact catalog and fiction, implemented Unmelting Ice and Remembering Rain content, the approved narrative occupational puzzle specification, and developer playtest feedback; no third-party prose, image, audio, film, game, or style reference supplied |
+| Human direction | The developer requested a reusable campaign-scale storyboard before further scene-by-scene implementation, selected the senior clerk's broken promise as the emotional spine, approved the promise to reveal the repository's truth to the next clerk, requested exciting and absorbing pacing with fair and credible reversals, and authorized Codex to resolve remaining story choices consistently without repeated questions. |
+| Human edits | The document is a review draft. Exact dialogue, incident titles, bilingual copy, shift rules, pacing, and final canon remain subject to developer approval and later in-context revision. |
+| Third-party elements | None. The document uses only project-owned concepts, artifact names, traits, mechanics, and original prose. |
+| Intended uses | Campaign continuity source, incident planning, dialogue briefs, reveal tracking, gameplay-story alignment, production scoping, and later playtest review. |
+| Store submission decision | Internal documentation only and not included in the player build. Any direct reuse as store copy or promotional media requires a separate review and provenance decision. |
+| Release status | **Internal review draft — developer story and continuity approval required before it becomes campaign canon.** |
+
+### DESIGN-NARRATIVE-004 — Remembering Rain full-incident implementation plan
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Docs/superpowers/plans/2026-09-04-remembering-rain-full-incident.md` |
+| Asset type and intended use | Internal implementation plan that converts the approved campaign blueprint into the five-stage Remembering Rain incident, reusable three-docket narrative interludes, and a read-only third-incident teaser; not an in-game or store asset |
+| Tool | OpenAI Codex authored the technical and narrative implementation plan from the approved master story blueprint and the existing Unity architecture |
+| Creation date | 2026-09-04 KST |
+| Reference inputs | Existing repository code and tests, the approved full-campaign story master blueprint, implemented first-shift Remembering Rain content, Three-Seal Docket mechanics, and repository-owned artifact fiction only; no third-party prose, image, audio, game, film, or style reference supplied |
+| Human direction | The developer approved the campaign-scale story direction, asked Codex to make remaining detailed decisions without repeated questions, required exciting and fair reversals, and requested reusable use of Unity systems without unnecessary feature growth. |
+| Human edits | The plan fixes implementation boundaries, test checkpoints, rule matrices, and draft bilingual beats. Runtime wording and pacing remain subject to developer review in Unity before release. |
+| Third-party elements | None. The plan uses project-owned mechanics, artifact names, story concepts, and original prose. |
+| Intended uses | TDD implementation, code review, continuity checks, manual playtest instructions, and future incident reuse. |
+| Store submission decision | Internal documentation only and not included in the player build. Any direct reuse as store copy or promotional material requires separate review. |
+| Release status | **Approved planning scope only — runtime implementation and bilingual in-context review remain pending.** |
+
 ### TEXT-NARRATIVE-005 — Remembering Rain first-shift prototype copy
 
 | Field | Record |
@@ -256,6 +288,21 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Reference inputs | The approved Curio Clerk caretaker fantasy, existing artifact names and traits, Three-Seal Docket terminology, first-incident ending hook, and developer direction for bold visual-novel presentation; no third-party prose supplied or copied |
 | Human direction | The developer approved `Remembering Rain / 기억하는 비`, the indoor rain that repeats owners' memories, the senior clerk connection, the Wet-over-Fragile priority judgment, and the unresolved first-clue ending. |
 | Human edits | The text remains a prototype draft. Korean naturalness, English clarity, tone, line wrapping, and contextual fit require developer bilingual review in Unity before RC. |
+| Third-party elements | None identified. No external prose, quotation, named style, franchise text, likeness, or third-party reference material was used. |
+| Store submission decision | Ordinary in-game narrative text; no separate AI-media declaration currently identified. Recheck the selected store's current requirements at submission time. |
+| Release status | **Prototype copy — developer bilingual and in-context review required before RC.** |
+
+### TEXT-NARRATIVE-006 — Remembering Rain five-stage prototype script
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Assets/Scripts/Runtime/Content/Incidents/SecondIncidentCatalog.cs`; generated runtime presentation derived from this source after catalog generation |
+| Asset type and intended use | English/Korean five-stage incident dialogue, three-docket interludes, judgment reactions, completion hook, and read-only next-incident clue for the complete Remembering Rain prototype |
+| Tool | OpenAI Codex drafted the bilingual narrative copy from the developer-approved campaign blueprint and implementation plan |
+| Creation date | 2026-09-07 KST |
+| Reference inputs | The approved Curio Clerk story master blueprint and Remembering Rain implementation plan, existing repository artifact fiction and mechanics, and the previously approved first-shift draft only; no third-party prose, quotation, image, audio, game, film, or style reference was supplied or copied |
+| Human direction | The developer approved direct implementation of all five shifts, their connected three-docket reveals, the fixed judgment matrices, and the third-incident teaser, and authorized AI-driven Unity validation and Korean play acceptance. |
+| Human edits | All English and Korean prose remains prototype copy. Naturalness, clarity, emotional pacing, line wrapping, and in-context presentation require review in the running Korean build before RC. |
 | Third-party elements | None identified. No external prose, quotation, named style, franchise text, likeness, or third-party reference material was used. |
 | Store submission decision | Ordinary in-game narrative text; no separate AI-media declaration currently identified. Recheck the selected store's current requirements at submission time. |
 | Release status | **Prototype copy — developer bilingual and in-context review required before RC.** |

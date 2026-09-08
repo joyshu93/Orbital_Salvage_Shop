@@ -49,7 +49,7 @@ namespace CurioClerk.Editor
             }
 
             Debug.Log("Curio Clerk validation passed: 24 artifacts, 10 rules, 2 rule packs, " +
-                      "3 docket templates, 2 incidents, 6 incident stages, 5 difficulties, 6 cosmetics, 2 scenes.");
+                      "3 docket templates, 3 incidents, 10 incident stages, 5 difficulties, 6 cosmetics, 2 scenes.");
         }
 
         private static void ValidateCatalog(ICollection<string> errors)
@@ -156,9 +156,9 @@ namespace CurioClerk.Editor
             ICollection<string> errors)
         {
             var incidents = ContentCatalog.CreateIncidents();
-            if (incidents.Count != 2)
+            if (incidents.Count != 3)
             {
-                errors.Add($"Expected 2 incidents, found {incidents.Count}.");
+                errors.Add($"Expected 3 incidents, found {incidents.Count}.");
             }
 
             AddDuplicateErrors(incidents.Select(incident => incident.Id), "incident", errors);
@@ -181,11 +181,18 @@ namespace CurioClerk.Editor
                     errors.Add($"Incident '{incident.Id}' has an invalid lead artifact ID.");
                 }
 
+                if (incident.Stages.Count == 0 &&
+                    (incident.CompletesWhenAllStagesCompleted || !HasBilingualCopy(incident.AwaitingContentClue)))
+                {
+                    errors.Add($"Zero-stage incident '{incident.Id}' must be open and have a bilingual awaiting-content clue.");
+                }
+
                 foreach (var stage in incident.Stages)
                 {
                     stageIds.Add(stage.Id);
                     ValidateNarrativeBeats(stage, stage.IntroBeats, "intro", errors);
                     ValidateNarrativeBeats(stage, stage.OutroBeats, "outro", errors);
+                    ValidateDocketBeats(stage, errors);
                     ValidateReactions(stage, errors);
 
                     var queueIds = new HashSet<string>(
@@ -253,9 +260,9 @@ namespace CurioClerk.Editor
             }
 
             AddDuplicateErrors(stageIds, "incident stage", errors);
-            if (stageIds.Count != 6)
+            if (stageIds.Count != 10)
             {
-                errors.Add($"Expected 6 incident stages, found {stageIds.Count}.");
+                errors.Add($"Expected 10 incident stages, found {stageIds.Count}.");
             }
 
             ValidateIncidentPresentation(incidents, errors);
@@ -266,9 +273,9 @@ namespace CurioClerk.Editor
             ICollection<string> errors)
         {
             var styles = ContentCatalog.CreateIncidentPresentationStyles();
-            if (styles.Count != 2)
+            if (styles.Count != 3)
             {
-                errors.Add($"Expected 2 incident presentation styles, found {styles.Count}.");
+                errors.Add($"Expected 3 incident presentation styles, found {styles.Count}.");
             }
 
             var validStyles = new List<IncidentPresentationStyleContent>();
@@ -310,9 +317,9 @@ namespace CurioClerk.Editor
                     Profile = AssetDatabase.LoadAssetAtPath<IncidentPresentationProfile>(path)
                 })
                 .ToArray();
-            if (profiles.Length != 2)
+            if (profiles.Length != 3)
             {
-                errors.Add($"Expected 2 IncidentPresentationProfile assets in {IncidentPresentationRoot}, found {profiles.Length}.");
+                errors.Add($"Expected 3 IncidentPresentationProfile assets in {IncidentPresentationRoot}, found {profiles.Length}.");
             }
 
             var profileIds = new List<string>();
@@ -368,6 +375,33 @@ namespace CurioClerk.Editor
                 if (beats[index] == null || !HasBilingualCopy(beats[index].Copy))
                 {
                     errors.Add($"Incident stage '{stage.Id}' has missing bilingual {label} text.");
+                }
+            }
+        }
+
+        private static void ValidateDocketBeats(
+            IncidentStageDefinition stage,
+            ICollection<string> errors)
+        {
+            if (stage.DocketBeats.Count == 0)
+            {
+                return;
+            }
+
+            if (stage.DocketBeats.Count != 3 ||
+                !stage.DocketBeats.Select(beat => beat.CompletedDocketNumber)
+                    .SequenceEqual(new[] { 1, 2, 3 }))
+            {
+                errors.Add($"Incident stage '{stage.Id}' must have zero docket beats or ordered beats 1, 2, and 3.");
+            }
+
+            foreach (var docketBeat in stage.DocketBeats)
+            {
+                if (docketBeat?.Narrative == null ||
+                    !HasBilingualCopy(docketBeat.Narrative.Speaker) ||
+                    !HasBilingualCopy(docketBeat.Narrative.Copy))
+                {
+                    errors.Add($"Incident stage '{stage.Id}' has a docket beat with missing bilingual speaker or body text.");
                 }
             }
         }

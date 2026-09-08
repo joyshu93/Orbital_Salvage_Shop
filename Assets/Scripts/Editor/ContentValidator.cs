@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using CurioClerk.Content;
+using CurioClerk.Content.Incidents;
+using CurioClerk.Core.Rules;
+using CurioClerk.Core.Shifts;
 using TMPro;
 using UnityEditor;
 using UnityEditor.Build;
@@ -13,6 +17,15 @@ namespace CurioClerk.Editor
     public sealed class ContentValidator : IPreprocessBuildWithReport
     {
         private const string ContentRoot = "Assets/Resources/Content";
+        private const string IncidentPresentationRoot = ContentRoot + "/IncidentPresentation";
+        private static readonly string[] NarrativeArtPaths =
+        {
+            "Assets/Resources/Art/Characters/senior-clerk-neutral.png",
+            "Assets/Resources/Art/Characters/senior-clerk-concerned.png",
+            "Assets/Resources/Art/Characters/senior-clerk-alert.png",
+            "Assets/Resources/Art/Characters/senior-clerk-relieved.png",
+            "Assets/Resources/Art/Effects/frost-overlay.png"
+        };
 
         public int callbackOrder => -1000;
 
@@ -35,7 +48,8 @@ namespace CurioClerk.Editor
                 throw new BuildFailedException("Curio Clerk validation failed:\n- " + string.Join("\n- ", errors));
             }
 
-            Debug.Log("Curio Clerk validation passed: 24 artifacts, 10 rules, 5 difficulties, 6 cosmetics, 2 scenes.");
+            Debug.Log("Curio Clerk validation passed: 24 artifacts, 10 rules, 2 rule packs, " +
+                      "3 docket templates, 3 incidents, 10 incident stages, 5 difficulties, 6 cosmetics, 2 scenes.");
         }
 
         private static void ValidateCatalog(ICollection<string> errors)
@@ -51,7 +65,8 @@ namespace CurioClerk.Editor
             {
                 var traitCount = CountBits((int)item.Traits);
                 if (string.IsNullOrWhiteSpace(item.NameEnglish) || string.IsNullOrWhiteSpace(item.NameKorean) ||
-                    string.IsNullOrWhiteSpace(item.DescriptionEnglish) || string.IsNullOrWhiteSpace(item.DescriptionKorean))
+                    string.IsNullOrWhiteSpace(item.DescriptionEnglish) || string.IsNullOrWhiteSpace(item.DescriptionKorean) ||
+                    string.IsNullOrWhiteSpace(item.ResolutionEnglish) || string.IsNullOrWhiteSpace(item.ResolutionKorean))
                 {
                     errors.Add($"Artifact '{item.Id}' has missing bilingual text.");
                 }
@@ -70,14 +85,60 @@ namespace CurioClerk.Editor
 
             AddDuplicateErrors(ruleTemplates.Select(rule => rule.Id), "rule", errors);
 
-            for (var band = 1; band <= 5; band++)
+            var ruleEngine = new RuleEngine();
+            var rulePacks = ContentCatalog.CreateRulePacks();
+            if (rulePacks.Count != 2)
             {
-                var rules = ContentCatalog.CreateRulesForBand(band, 7300 + band);
-                if (rules.Count < 3 || !rules[rules.Count - 1].IsFallback)
+                errors.Add($"Expected 2 rule packs, found {rulePacks.Count}.");
+            }
+
+            AddDuplicateErrors(rulePacks.Select(pack => pack.Id), "rule pack", errors);
+            foreach (var pack in rulePacks)
+            {
+                var counts = new int[3];
+                foreach (var artifact in artifacts)
                 {
-                    errors.Add($"Difficulty band {band} does not end in a fallback rule.");
+                    var destination = ruleEngine.Resolve(artifact.ToArtifact(), pack.Rules);
+                    counts[(int)destination]++;
+                }
+
+                if (counts[(int)Destination.Repair] < 4 ||
+                    counts[(int)Destination.Storage] < 4 ||
+                    counts[(int)Destination.Vault] < 4)
+                {
+                    errors.Add($"Rule pack '{pack.Id}' requires at least four artifacts per destination.");
                 }
             }
+
+            var sequenceAnalyzer = new DocketSequenceAnalyzer();
+            var shiftTemplates = ContentCatalog.CreateShiftTemplates();
+            if (shiftTemplates.Count != 3)
+            {
+                errors.Add($"Expected 3 docket templates, found {shiftTemplates.Count}.");
+            }
+
+            AddDuplicateErrors(shiftTemplates.Select(template => template.Id), "docket template", errors);
+            foreach (var template in shiftTemplates)
+            {
+                var counts = new int[3];
+                foreach (var destination in template.Destinations)
+                {
+                    counts[(int)destination]++;
+                }
+
+                if (counts.Any(count => count != 4))
+                {
+                    errors.Add($"Docket template '{template.Id}' must contain four of every destination.");
+                }
+
+                var minimumHolds = sequenceAnalyzer.MinimumHolds(template.Destinations);
+                if (minimumHolds < 0 || minimumHolds < template.MinimumRequiredHolds)
+                {
+                    errors.Add($"Docket template '{template.Id}' does not satisfy its Hold requirement.");
+                }
+            }
+
+            ValidateIncidents(artifacts, ruleEngine, sequenceAnalyzer, errors);
 
             var cosmetics = ContentCatalog.CreateCosmetics();
             if (cosmetics.Count != 6)
@@ -88,12 +149,302 @@ namespace CurioClerk.Editor
             AddDuplicateErrors(cosmetics.Select(item => item.Id), "cosmetic", errors);
         }
 
+        private static void ValidateIncidents(
+            IReadOnlyList<ArtifactContent> artifacts,
+            RuleEngine ruleEngine,
+            DocketSequenceAnalyzer sequenceAnalyzer,
+            ICollection<string> errors)
+        {
+            var incidents = ContentCatalog.CreateIncidents();
+            if (incidents.Count != 3)
+            {
+                errors.Add($"Expected 3 incidents, found {incidents.Count}.");
+            }
+
+            AddDuplicateErrors(incidents.Select(incident => incident.Id), "incident", errors);
+            var artifactById = artifacts.ToDictionary(artifact => artifact.Id, StringComparer.Ordinal);
+            var stageIds = new List<string>();
+            foreach (var incident in incidents)
+            {
+                if (!HasBilingualCopy(incident.Title))
+                {
+                    errors.Add($"Incident '{incident.Id}' has missing bilingual title text.");
+                }
+
+                if (!incident.CompletesWhenAllStagesCompleted && !HasBilingualCopy(incident.AwaitingContentClue))
+                {
+                    errors.Add($"Incident '{incident.Id}' has missing bilingual awaiting-content clue text.");
+                }
+
+                if (!artifactById.ContainsKey(incident.LeadArtifactId))
+                {
+                    errors.Add($"Incident '{incident.Id}' has an invalid lead artifact ID.");
+                }
+
+                if (incident.Stages.Count == 0 &&
+                    (incident.CompletesWhenAllStagesCompleted || !HasBilingualCopy(incident.AwaitingContentClue)))
+                {
+                    errors.Add($"Zero-stage incident '{incident.Id}' must be open and have a bilingual awaiting-content clue.");
+                }
+
+                foreach (var stage in incident.Stages)
+                {
+                    stageIds.Add(stage.Id);
+                    ValidateNarrativeBeats(stage, stage.IntroBeats, "intro", errors);
+                    ValidateNarrativeBeats(stage, stage.OutroBeats, "outro", errors);
+                    ValidateDocketBeats(stage, errors);
+                    ValidateReactions(stage, errors);
+
+                    var queueIds = new HashSet<string>(
+                        stage.Queue.Select(entry => entry.ArtifactId),
+                        StringComparer.Ordinal);
+                    if (!artifactById.ContainsKey(stage.LeadArtifactId) || !queueIds.Contains(stage.LeadArtifactId))
+                    {
+                        errors.Add($"Incident stage '{stage.Id}' has an invalid lead artifact ID.");
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(stage.ResonanceHoldArtifactId) &&
+                        (!artifactById.ContainsKey(stage.ResonanceHoldArtifactId) ||
+                         !queueIds.Contains(stage.ResonanceHoldArtifactId)))
+                    {
+                        errors.Add($"Incident stage '{stage.Id}' has an invalid resonance Hold artifact ID.");
+                    }
+
+                    ShiftPlan plan;
+                    try
+                    {
+                        plan = stage.CreateShiftPlan(artifactById);
+                    }
+                    catch (Exception exception)
+                    {
+                        errors.Add($"Incident stage '{stage.Id}' cannot create a shift plan: {exception.Message}");
+                        continue;
+                    }
+
+                    Destination[] destinations;
+                    try
+                    {
+                        destinations = plan.Queue
+                            .Select(artifact => ruleEngine.Resolve(artifact, plan.Rules))
+                            .ToArray();
+                    }
+                    catch (Exception exception)
+                    {
+                        errors.Add($"Incident stage '{stage.Id}' has invalid sorting rules: {exception.Message}");
+                        continue;
+                    }
+
+                    var counts = new int[3];
+                    foreach (var destination in destinations)
+                    {
+                        counts[(int)destination]++;
+                    }
+
+                    if (counts.Any(count => count != 4))
+                    {
+                        errors.Add($"Incident stage '{stage.Id}' must resolve to four of every destination.");
+                    }
+
+                    var minimumHolds = sequenceAnalyzer.MinimumHolds(destinations);
+                    if (minimumHolds < 0)
+                    {
+                        errors.Add($"Incident stage '{stage.Id}' is not solvable with one Hold slot.");
+                    }
+                    else if (minimumHolds != stage.MinimumRequiredHolds)
+                    {
+                        errors.Add(
+                            $"Incident stage '{stage.Id}' declares {stage.MinimumRequiredHolds} minimum Holds " +
+                            $"but requires {minimumHolds}.");
+                    }
+                }
+            }
+
+            AddDuplicateErrors(stageIds, "incident stage", errors);
+            if (stageIds.Count != 10)
+            {
+                errors.Add($"Expected 10 incident stages, found {stageIds.Count}.");
+            }
+
+            ValidateIncidentPresentation(incidents, errors);
+        }
+
+        private static void ValidateIncidentPresentation(
+            IReadOnlyList<IncidentDefinition> incidents,
+            ICollection<string> errors)
+        {
+            var styles = ContentCatalog.CreateIncidentPresentationStyles();
+            if (styles.Count != 3)
+            {
+                errors.Add($"Expected 3 incident presentation styles, found {styles.Count}.");
+            }
+
+            var validStyles = new List<IncidentPresentationStyleContent>();
+            foreach (var style in styles)
+            {
+                if (style == null || string.IsNullOrWhiteSpace(style.IncidentId))
+                {
+                    errors.Add("Incident presentation styles require an incident ID.");
+                    continue;
+                }
+
+                if (!TryParseStyleColor(style.AccentHex, out _))
+                {
+                    errors.Add($"Incident presentation style '{style.IncidentId}' has an invalid accent color.");
+                }
+
+                if (!TryParseStyleColor(style.SurfaceHex, out _))
+                {
+                    errors.Add($"Incident presentation style '{style.IncidentId}' has an invalid surface color.");
+                }
+
+                validStyles.Add(style);
+            }
+
+            AddDuplicateErrors(validStyles.Select(style => style.IncidentId), "incident presentation style", errors);
+            foreach (var incident in incidents)
+            {
+                if (validStyles.Count(style => style.IncidentId == incident.Id) != 1)
+                {
+                    errors.Add($"Incident '{incident.Id}' must have exactly one presentation style.");
+                }
+            }
+
+            var profiles = AssetDatabase.FindAssets("t:IncidentPresentationProfile", new[] { IncidentPresentationRoot })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Select(path => new
+                {
+                    Path = path,
+                    Profile = AssetDatabase.LoadAssetAtPath<IncidentPresentationProfile>(path)
+                })
+                .ToArray();
+            if (profiles.Length != 3)
+            {
+                errors.Add($"Expected 3 IncidentPresentationProfile assets in {IncidentPresentationRoot}, found {profiles.Length}.");
+            }
+
+            var profileIds = new List<string>();
+            foreach (var profileAsset in profiles)
+            {
+                var profile = profileAsset.Profile;
+                var fileName = Path.GetFileNameWithoutExtension(profileAsset.Path);
+                if (profile == null || string.IsNullOrWhiteSpace(profile.IncidentId))
+                {
+                    errors.Add($"Incident presentation profile '{profileAsset.Path}' is missing an incident ID.");
+                    continue;
+                }
+
+                if (!string.Equals(profile.IncidentId, fileName, StringComparison.Ordinal))
+                {
+                    errors.Add($"Incident presentation profile '{profileAsset.Path}' must match its file name.");
+                }
+
+                profileIds.Add(profile.IncidentId);
+            }
+
+            AddDuplicateErrors(profileIds, "incident presentation profile", errors);
+            foreach (var incident in incidents)
+            {
+                if (profileIds.Count(profileId => profileId == incident.Id) != 1)
+                {
+                    errors.Add($"Incident '{incident.Id}' must have exactly one generated presentation profile.");
+                }
+            }
+        }
+
+        private static bool TryParseStyleColor(string hex, out Color color)
+        {
+            color = default;
+            return !string.IsNullOrWhiteSpace(hex) &&
+                   ColorUtility.TryParseHtmlString("#" + hex, out color);
+        }
+
+        private static void ValidateNarrativeBeats(
+            IncidentStageDefinition stage,
+            IReadOnlyList<NarrativeBeat> beats,
+            string label,
+            ICollection<string> errors)
+        {
+            if (beats == null || beats.Count == 0)
+            {
+                errors.Add($"Incident stage '{stage.Id}' is missing {label} beats.");
+                return;
+            }
+
+            for (var index = 0; index < beats.Count; index++)
+            {
+                if (beats[index] == null || !HasBilingualCopy(beats[index].Copy))
+                {
+                    errors.Add($"Incident stage '{stage.Id}' has missing bilingual {label} text.");
+                }
+            }
+        }
+
+        private static void ValidateDocketBeats(
+            IncidentStageDefinition stage,
+            ICollection<string> errors)
+        {
+            if (stage.DocketBeats.Count == 0)
+            {
+                return;
+            }
+
+            if (stage.DocketBeats.Count != 3 ||
+                !stage.DocketBeats.Select(beat => beat.CompletedDocketNumber)
+                    .SequenceEqual(new[] { 1, 2, 3 }))
+            {
+                errors.Add($"Incident stage '{stage.Id}' must have zero docket beats or ordered beats 1, 2, and 3.");
+            }
+
+            foreach (var docketBeat in stage.DocketBeats)
+            {
+                if (docketBeat?.Narrative == null ||
+                    !HasBilingualCopy(docketBeat.Narrative.Speaker) ||
+                    !HasBilingualCopy(docketBeat.Narrative.Copy))
+                {
+                    errors.Add($"Incident stage '{stage.Id}' has a docket beat with missing bilingual speaker or body text.");
+                }
+            }
+        }
+
+        private static void ValidateReactions(IncidentStageDefinition stage, ICollection<string> errors)
+        {
+            if (stage.Reactions == null)
+            {
+                errors.Add($"Incident stage '{stage.Id}' is missing quality reactions.");
+                return;
+            }
+
+            if (!HasBilingualCopy(stage.Reactions.Stable) ||
+                !HasBilingualCopy(stage.Reactions.Precise) ||
+                !HasBilingualCopy(stage.Reactions.Resonant))
+            {
+                errors.Add($"Incident stage '{stage.Id}' has missing bilingual quality reactions.");
+            }
+        }
+
+        private static bool HasBilingualCopy(LocalizedCopy copy)
+            => copy != null &&
+               !string.IsNullOrWhiteSpace(copy.English) &&
+               !string.IsNullOrWhiteSpace(copy.Korean);
+
         private static void ValidateAssets(ICollection<string> errors)
         {
             ValidateAssetCount<ArtifactDefinition>(ContentRoot + "/Artifacts", 24, errors);
             ValidateAssetCount<RuleDefinition>(ContentRoot + "/Rules", 10, errors);
             ValidateAssetCount<DifficultyProfile>(ContentRoot + "/Difficulties", 5, errors);
             ValidateAssetCount<CosmeticDefinition>(ContentRoot + "/Cosmetics", 6, errors);
+            ValidateNarrativeArt(errors);
+        }
+
+        private static void ValidateNarrativeArt(ICollection<string> errors)
+        {
+            foreach (var path in NarrativeArtPaths)
+            {
+                if (AssetDatabase.LoadAssetAtPath<Sprite>(path) == null)
+                {
+                    errors.Add("Required narrative art sprite is missing: " + path);
+                }
+            }
         }
 
         private static void ValidateScenes(ICollection<string> errors)

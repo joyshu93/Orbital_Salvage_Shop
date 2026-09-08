@@ -1,0 +1,498 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using CurioClerk.Content.Incidents;
+using CurioClerk.Infrastructure.Feedback;
+using CurioClerk.Presentation;
+using NUnit.Framework;
+using TMPro;
+using UnityEngine;
+using UnityEngine.TestTools;
+using UnityEngine.UI;
+
+namespace CurioClerk.Tests.PlayMode
+{
+    public sealed class IncidentPresentationViewPlayModeTests
+    {
+        private GameObject _host;
+        private readonly List<UnityEngine.Object> _ownedAssets = new List<UnityEngine.Object>();
+
+        [TearDown]
+        public void TearDown()
+        {
+            if (_host != null)
+            {
+                UnityEngine.Object.DestroyImmediate(_host);
+            }
+
+            foreach (var asset in _ownedAssets)
+            {
+                if (asset != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(asset);
+                }
+            }
+
+            _ownedAssets.Clear();
+        }
+
+        [UnityTest]
+        public IEnumerator NarrativeView_ShowsKoreanFirstBeatAndAdvancesExactlyOneBeat()
+        {
+            var view = CreateView(out var speaker, out var body, out var portrait, out var cue, out var button);
+            var neutral = CreateSprite("neutral");
+            var concerned = CreateSprite("concerned");
+            var alert = CreateSprite("alert");
+            var beats = new[]
+            {
+                Beat("First", "첫 문장", SeniorClerkMood.Neutral, IncidentVisualCue.None),
+                Beat("Second", "둘째 문장", SeniorClerkMood.Concerned, IncidentVisualCue.Frost),
+                Beat("Third", "셋째 문장", SeniorClerkMood.Alert, IncidentVisualCue.None)
+            };
+
+            view.Play(
+                beats,
+                "ko",
+                mood => mood == SeniorClerkMood.Neutral
+                    ? neutral
+                    : mood == SeniorClerkMood.Concerned ? concerned : alert,
+                () => { });
+            yield return null;
+
+            Assert.That(speaker.text, Is.EqualTo("선임 관리인"));
+            Assert.That(body.text, Is.EqualTo("첫 문장"));
+            Assert.That(portrait.sprite, Is.SameAs(neutral));
+            Assert.That(portrait.enabled, Is.True);
+            Assert.That(cue.enabled, Is.False);
+
+            button.onClick.Invoke();
+            yield return null;
+
+            Assert.That(body.text, Is.EqualTo("둘째 문장"));
+            Assert.That(body.text, Is.Not.EqualTo("셋째 문장"), "One tap must advance exactly one beat.");
+            Assert.That(portrait.sprite, Is.SameAs(concerned));
+            Assert.That(cue.enabled, Is.True, "A frost beat must reveal the configured cue surface.");
+        }
+
+        [UnityTest]
+        public IEnumerator NarrativeView_UsesEnglishCopyAndChangesPortraitMood()
+        {
+            var view = CreateView(out var speaker, out var body, out var portrait, out _, out var button);
+            var neutral = CreateSprite("neutral");
+            var relieved = CreateSprite("relieved");
+            var beats = new[]
+            {
+                Beat("The ledger is open.", "장부가 열렸습니다.", SeniorClerkMood.Neutral),
+                Beat("Well handled.", "잘 처리했어요.", SeniorClerkMood.Relieved)
+            };
+
+            view.Play(beats, "en", mood => mood == SeniorClerkMood.Neutral ? neutral : relieved, () => { });
+            yield return null;
+
+            Assert.That(speaker.text, Is.EqualTo("Senior Clerk"));
+            Assert.That(body.text, Is.EqualTo("The ledger is open."));
+            Assert.That(portrait.sprite, Is.SameAs(neutral));
+
+            button.onClick.Invoke();
+            yield return null;
+
+            Assert.That(body.text, Is.EqualTo("Well handled."));
+            Assert.That(portrait.sprite, Is.SameAs(relieved));
+        }
+
+        [UnityTest]
+        public IEnumerator NarrativeView_ShowsLocalizedNamedSpeakerAndCompletesExactlyOnce()
+        {
+            var view = CreateView(out var speaker, out var body, out _, out _, out var button);
+            var completionCount = 0;
+            var beat = new NarrativeBeat(
+                new LocalizedCopy("Voice in the Rain", "빗속의 목소리"),
+                new LocalizedCopy("Which Tuesday?", "어느 화요일이지?"),
+                SeniorClerkMood.Alert,
+                IncidentVisualCue.Rain);
+
+            view.Play(new[] { beat }, "ko", _ => null, () => completionCount++);
+            yield return null;
+
+            Assert.That(speaker.text, Is.EqualTo("빗속의 목소리"));
+            Assert.That(body.text, Is.EqualTo("어느 화요일이지?"));
+
+            button.onClick.Invoke();
+            button.onClick.Invoke();
+            yield return null;
+
+            Assert.That(completionCount, Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator NarrativeView_CompletesExactlyOnceAfterFinalBeat()
+        {
+            var view = CreateView(out _, out _, out _, out _, out var button);
+            var completionCount = 0;
+            view.Play(
+                new[] { Beat("Only beat", "한 문장", SeniorClerkMood.Neutral) },
+                "ko",
+                _ => null,
+                () => completionCount++);
+            yield return null;
+
+            button.onClick.Invoke();
+            button.onClick.Invoke();
+            yield return null;
+
+            Assert.That(completionCount, Is.EqualTo(1));
+            Assert.That(button.interactable, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator NarrativeView_MissingPortraitKeepsSpeakerAndBodyReadable()
+        {
+            var view = CreateView(out var speaker, out var body, out var portrait, out _, out _);
+            view.Play(
+                new[] { Beat("Read the frost.", "서리를 읽으세요.", SeniorClerkMood.Alert) },
+                "ko",
+                _ => null,
+                () => { });
+            yield return null;
+
+            Assert.That(portrait.sprite, Is.Null);
+            Assert.That(portrait.enabled, Is.False);
+            Assert.That(speaker.gameObject.activeInHierarchy, Is.True);
+            Assert.That(body.gameObject.activeInHierarchy, Is.True);
+            Assert.That(speaker.text, Is.EqualTo("선임 관리인"));
+            Assert.That(body.text, Is.EqualTo("서리를 읽으세요."));
+        }
+
+        [UnityTest]
+        public IEnumerator NarrativeView_DisableEnablePreservesProgressWithoutDuplicateCallbacks()
+        {
+            var view = CreateView(out _, out var body, out _, out _, out var button);
+            var completionCount = 0;
+            view.Play(
+                new[]
+                {
+                    Beat("First", "첫째", SeniorClerkMood.Neutral),
+                    Beat("Second", "둘째", SeniorClerkMood.Relieved)
+                },
+                "ko",
+                _ => null,
+                () => completionCount++);
+            yield return null;
+
+            _host.SetActive(false);
+            _host.SetActive(true);
+            _host.SetActive(false);
+            _host.SetActive(true);
+            yield return null;
+
+            button.onClick.Invoke();
+            yield return null;
+            Assert.That(body.text, Is.EqualTo("둘째"));
+            Assert.That(completionCount, Is.Zero, "Re-enabling must not add duplicate button listeners.");
+
+            button.onClick.Invoke();
+            yield return null;
+            Assert.That(completionCount, Is.EqualTo(1));
+
+            _host.SetActive(false);
+            _host.SetActive(true);
+            button.onClick.Invoke();
+            yield return null;
+            Assert.That(completionCount, Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentReaction_KeyMomentOwnsCardAndKeepsAuthoredLineReadable()
+        {
+            var feedback = new RecordingFeedbackService();
+            var view = CreateReactionView(feedback, out var card, out var line, out var veil, out _, out _);
+            var restScale = card.localScale;
+            var lineRestScale = line.rectTransform.localScale;
+            var completionCount = 0;
+
+            view.PlayKeyReaction(
+                "얼음이 대답했다. 창고의 숨결이 한 박자 멎는다.",
+                IncidentVisualCue.Frost,
+                () => completionCount++);
+            yield return WaitUntilOrTimeout(
+                () => veil.color.a > 0.55f,
+                0.35f,
+                "the incident reaction veil arrival");
+
+            Assert.That(line.enabled, Is.True);
+            Assert.That(line.text, Is.EqualTo("얼음이 대답했다. 창고의 숨결이 한 박자 멎는다."));
+            Assert.That(Vector3.Distance(card.localScale, restScale), Is.GreaterThan(0.02f));
+            Assert.That(veil.enabled, Is.True,
+                "The key line needs an opaque-enough stage instead of competing with card copy and artwork.");
+            Assert.That(veil.color.a, Is.GreaterThan(0.55f));
+            Assert.That(line.rectTransform.localScale.x, Is.GreaterThan(lineRestScale.x - 0.01f),
+                "The reaction line must grow to its readable authored size.");
+            Assert.That(feedback.Cues, Is.EqualTo(new[] { PlayerFeedbackCue.KeyReaction }));
+
+            yield return new WaitForSecondsRealtime(0.76f);
+            Assert.That(completionCount, Is.Zero,
+                "A key reaction must own the card for at least one second instead of flashing past it.");
+
+            yield return new WaitForSecondsRealtime(0.46f);
+            Assert.That(completionCount, Is.EqualTo(1));
+            Assert.That(line.enabled, Is.False);
+            Assert.That(veil.enabled, Is.False);
+            Assert.That(Vector3.Distance(line.rectTransform.localScale, lineRestScale), Is.LessThan(0.001f));
+            Assert.That(Vector3.Distance(card.localScale, restScale), Is.LessThan(0.001f));
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentReaction_RainCueUsesCoolAtmosphereAndCompletesOnce()
+        {
+            var feedback = new RecordingFeedbackService();
+            var view = CreateReactionView(feedback, out _, out _, out _, out var atmosphere);
+            var completionCount = 0;
+
+            view.PlayKeyReaction(
+                "빗방울이 장부 가장자리에서 조용히 떤다.",
+                IncidentVisualCue.Rain,
+                () => completionCount++);
+            yield return new WaitForSecondsRealtime(0.24f);
+
+            Assert.That(atmosphere.enabled, Is.True);
+            Assert.That(atmosphere.color.r, Is.EqualTo(0.31f).Within(0.01f));
+            Assert.That(atmosphere.color.g, Is.EqualTo(0.48f).Within(0.01f));
+            Assert.That(atmosphere.color.b, Is.EqualTo(0.63f).Within(0.01f));
+            Assert.That(atmosphere.color.a, Is.GreaterThan(0.02f));
+            Assert.That(feedback.Cues, Is.EqualTo(new[] { PlayerFeedbackCue.KeyReaction }));
+
+            yield return new WaitForSecondsRealtime(1.25f);
+            Assert.That(completionCount, Is.EqualTo(1));
+
+            yield return new WaitForSecondsRealtime(0.25f);
+            Assert.That(completionCount, Is.EqualTo(1));
+            Assert.That(atmosphere.enabled, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentBoardTransition_RaisesCurrentCardAndExpandsRainVeilBeforeSettling()
+        {
+            _host = new GameObject("IncidentBoardTransitionHost", typeof(RectTransform));
+            var current = CreateRect("Current");
+            var resolved = CreateRect("Resolved");
+            var veil = CreateRect("RainVeil");
+            var currentGroup = current.gameObject.AddComponent<CanvasGroup>();
+            var resolvedGroup = resolved.gameObject.AddComponent<CanvasGroup>();
+            var veilGroup = veil.gameObject.AddComponent<CanvasGroup>();
+            var view = _host.AddComponent<IncidentBoardTransitionView>();
+            view.Configure(current, currentGroup, resolved, resolvedGroup, veilGroup);
+
+            view.Play(reveal: true, profile: null);
+            yield return new WaitForSecondsRealtime(0.12f);
+
+            Assert.That(current.anchoredPosition.y, Is.LessThan(-0.1f),
+                "The current card must still be rising instead of snapping directly to its settled position.");
+            Assert.That(veil.localScale.x, Is.LessThan(0.999f),
+                "The rain veil must visibly expand during the reveal.");
+            Assert.That(veilGroup.alpha, Is.GreaterThan(0f));
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentReaction_IncidentCompleteWarmsScreenAndInvokesFeedbackOnce()
+        {
+            var feedback = new RecordingFeedbackService();
+            var view = CreateReactionView(feedback, out _, out _, out _, out var warmth);
+            var completionCount = 0;
+
+            view.PlayIncidentComplete(() => completionCount++);
+            yield return new WaitForSecondsRealtime(0.24f);
+
+            Assert.That(warmth.enabled, Is.True);
+            Assert.That(warmth.color.a, Is.GreaterThan(0.08f));
+            Assert.That(feedback.Cues, Is.EqualTo(new[] { PlayerFeedbackCue.IncidentComplete }));
+
+            yield return new WaitForSecondsRealtime(1.25f);
+
+            Assert.That(completionCount, Is.EqualTo(1));
+            Assert.That(warmth.enabled, Is.False);
+            Assert.That(feedback.Cues, Has.Count.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentReaction_DisableThenEnableRestoresAndCompletesPendingMomentOnce()
+        {
+            var feedback = new RecordingFeedbackService();
+            var view = CreateReactionView(feedback, out var card, out var line, out _, out var warmth);
+            var restScale = card.localScale;
+            var completionCount = 0;
+
+            view.PlayKeyReaction("숨을 고르세요.", IncidentVisualCue.AmberWarmth, () => completionCount++);
+            yield return null;
+            _host.SetActive(false);
+
+            Assert.That(Vector3.Distance(card.localScale, restScale), Is.LessThan(0.001f));
+            Assert.That(line.enabled, Is.False);
+            Assert.That(warmth.enabled, Is.False);
+            Assert.That(completionCount, Is.Zero);
+
+            _host.SetActive(true);
+            yield return null;
+            Assert.That(completionCount, Is.EqualTo(1));
+            Assert.That(feedback.Cues, Has.Count.EqualTo(1));
+
+            _host.SetActive(false);
+            _host.SetActive(true);
+            yield return null;
+            Assert.That(completionCount, Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator IncidentReaction_FrostStateAndMistakeLineRemainAtmosphericAndReadable()
+        {
+            var view = CreateReactionView(
+                new RecordingFeedbackService(),
+                out var card,
+                out var line,
+                out var frost,
+                out _);
+            var restRotation = card.localRotation;
+
+            view.SetFrosted(true);
+            Assert.That(frost.enabled, Is.True);
+
+            view.PlayMistake("서리가 장부 가장자리까지 번진다.");
+            yield return new WaitForSecondsRealtime(0.12f);
+
+            Assert.That(line.enabled, Is.True);
+            Assert.That(line.text, Is.EqualTo("서리가 장부 가장자리까지 번진다."));
+            Assert.That(Quaternion.Angle(card.localRotation, restRotation), Is.GreaterThan(0.2f));
+
+            yield return new WaitForSecondsRealtime(0.58f);
+            Assert.That(line.enabled, Is.False);
+            Assert.That(frost.enabled, Is.True,
+                "The incident's persistent frost must survive a transient mistake reaction.");
+        }
+
+        private NarrativeSequenceView CreateView(
+            out TMP_Text speaker,
+            out TMP_Text body,
+            out Image portrait,
+            out Image cue,
+            out Button button)
+        {
+            _host = new GameObject("NarrativeHost", typeof(RectTransform));
+            var view = _host.AddComponent<NarrativeSequenceView>();
+            speaker = CreateText("Speaker");
+            body = CreateText("Body");
+            portrait = CreateImage("Portrait");
+            cue = CreateImage("Cue");
+            button = CreateButton("Continue");
+            view.Configure(speaker, body, portrait, cue, button);
+            return view;
+        }
+
+        private IncidentReactionView CreateReactionView(
+            IPlayerFeedbackService feedback,
+            out RectTransform card,
+            out TMP_Text line,
+            out Image frost,
+            out Image warmth)
+            => CreateReactionView(feedback, out card, out line, out _, out frost, out warmth);
+
+        private IncidentReactionView CreateReactionView(
+            IPlayerFeedbackService feedback,
+            out RectTransform card,
+            out TMP_Text line,
+            out Image veil,
+            out Image frost,
+            out Image warmth)
+        {
+            _host = new GameObject("IncidentReactionHost", typeof(RectTransform));
+            card = CreateRect("ArtifactCard");
+            card.localScale = new Vector3(0.96f, 1.02f, 1f);
+            card.localRotation = Quaternion.Euler(0f, 0f, 1.5f);
+            line = CreateText("ReactionLine");
+            veil = CreateImage("ReactionVeil");
+            veil.enabled = false;
+            veil.color = new Color(0.16f, 0.035f, 0.09f, 0f);
+            frost = CreateImage("FrostOverlay");
+            frost.enabled = false;
+            frost.color = new Color(0.58f, 0.82f, 0.95f, 0.38f);
+            warmth = CreateImage("WarmthOverlay");
+            warmth.enabled = false;
+            warmth.color = new Color(0.96f, 0.68f, 0.25f, 0f);
+            var view = _host.AddComponent<IncidentReactionView>();
+            view.Configure(card, line, veil, frost, warmth, feedback);
+            return view;
+        }
+
+        private TMP_Text CreateText(string name)
+        {
+            var child = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
+            child.transform.SetParent(_host.transform, false);
+            return child.GetComponent<TMP_Text>();
+        }
+
+        private Image CreateImage(string name)
+        {
+            var child = new GameObject(name, typeof(RectTransform), typeof(Image));
+            child.transform.SetParent(_host.transform, false);
+            return child.GetComponent<Image>();
+        }
+
+        private Button CreateButton(string name)
+        {
+            var child = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+            child.transform.SetParent(_host.transform, false);
+            return child.GetComponent<Button>();
+        }
+
+        private RectTransform CreateRect(string name)
+        {
+            var child = new GameObject(name, typeof(RectTransform));
+            child.transform.SetParent(_host.transform, false);
+            return child.GetComponent<RectTransform>();
+        }
+
+        private static IEnumerator WaitUntilOrTimeout(
+            Func<bool> condition,
+            float timeoutSeconds,
+            string description)
+        {
+            var deadline = Time.realtimeSinceStartup + timeoutSeconds;
+            while (!condition() && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+
+            Assert.That(condition(), Is.True, $"Timed out waiting for {description}.");
+        }
+
+        private Sprite CreateSprite(string name)
+        {
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false) { name = name + "-texture" };
+            var sprite = Sprite.Create(texture, new Rect(0, 0, 2, 2), new Vector2(0.5f, 0.5f), 2f);
+            sprite.name = name;
+            _ownedAssets.Add(sprite);
+            _ownedAssets.Add(texture);
+            return sprite;
+        }
+
+        private static NarrativeBeat Beat(
+            string english,
+            string korean,
+            SeniorClerkMood mood,
+            IncidentVisualCue cue = IncidentVisualCue.None)
+            => new NarrativeBeat(new LocalizedCopy(english, korean), mood, cue);
+
+        private sealed class RecordingFeedbackService : IPlayerFeedbackService
+        {
+            public List<PlayerFeedbackCue> Cues { get; } = new List<PlayerFeedbackCue>();
+
+            public void Configure(bool soundEnabled, bool hapticsEnabled)
+            {
+            }
+
+            public void Play(PlayerFeedbackCue cue) => Cues.Add(cue);
+
+            public void Dispose()
+            {
+            }
+        }
+    }
+}

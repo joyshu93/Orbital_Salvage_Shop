@@ -20,3 +20,6 @@ MonoBehaviour:
   descriptionEnglish: Return before sunrise. It misses its owner.
   descriptionKorean: "\uD574 \uB728\uAE30 \uC804\uC5D0 \uB3CC\uB824\uC904 \uAC83.
     \uC8FC\uC778\uC744 \uADF8\uB9AC\uC6CC\uD55C\uB2E4."
+  resolutionEnglish: It leans toward home, patient until sunrise.
+  resolutionKorean: "\uD574 \uB730 \uB54C\uAE4C\uC9C0 \uC58C\uC804\uD788 \uAE30\uB2E4\uB9AC\uBA70
+    \uC9D1 \uCABD\uC73C\uB85C \uBAB8\uC744 \uAE30\uC6B8\uC778\uB2E4."

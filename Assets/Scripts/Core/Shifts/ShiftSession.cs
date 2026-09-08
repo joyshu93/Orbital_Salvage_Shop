@@ -10,19 +10,25 @@ namespace CurioClerk.Core.Shifts
         private readonly IReadOnlyList<Artifact> _queue;
         private readonly IReadOnlyList<SortingRule> _rules;
         private readonly RuleEngine _ruleEngine = new RuleEngine();
+        private readonly List<bool> _completedDocketPristine = new List<bool>();
         private int _nextIndex;
         private bool _canHold = true;
 
         public ShiftSession(IReadOnlyList<Artifact> queue, IReadOnlyList<SortingRule> rules)
         {
-            if (queue == null || queue.Count == 0)
+            if (queue == null || queue.Count == 0 || queue.Count % 3 != 0)
             {
-                throw new ArgumentException("A shift requires at least one artifact.", nameof(queue));
+                throw new ArgumentException(
+                    "A docket shift requires a positive artifact count divisible by three.",
+                    nameof(queue));
             }
 
             _queue = queue;
             _rules = rules ?? throw new ArgumentNullException(nameof(rules));
-            CurrentArtifact = queue[0] ?? throw new ArgumentException("Artifact queues cannot contain null entries.", nameof(queue));
+            RequiredDockets = queue.Count / 3;
+            CurrentDocket = new DocketState();
+            CurrentArtifact = queue[0] ??
+                throw new ArgumentException("Artifact queues cannot contain null entries.", nameof(queue));
             _nextIndex = 1;
             Hearts = 3;
             State = ShiftState.Active;
@@ -33,8 +39,6 @@ namespace CurioClerk.Core.Shifts
         public Artifact HeldArtifact { get; private set; }
 
         public int Hearts { get; private set; }
-
-        public int Combo { get; private set; }
 
         public int Score { get; private set; }
 
@@ -48,43 +52,55 @@ namespace CurioClerk.Core.Shifts
 
         public bool RewardClaimed { get; private set; }
 
-        public SortOutcome Sort(Destination destination)
+        public DocketState CurrentDocket { get; private set; }
+
+        public int CompletedDockets { get; private set; }
+
+        public int RequiredDockets { get; }
+
+        public int PristineDocketStreak { get; private set; }
+
+        public IReadOnlyList<bool> CompletedDocketPristine => _completedDocketPristine;
+
+        public RuleResolution CurrentResolution => CurrentArtifact == null
+            ? null
+            : _ruleEngine.ResolveDetailed(CurrentArtifact, _rules);
+
+        public bool ShouldSuggestHold => CurrentResolution != null &&
+                                         CurrentDocket.IsStamped(CurrentResolution.Destination);
+
+        public bool CanHold => State == ShiftState.Active &&
+                               CurrentArtifact != null &&
+                               _canHold &&
+                               (HeldArtifact != null || _nextIndex < _queue.Count);
+
+        public bool CanSort(Destination destination)
+            => State == ShiftState.Active && !CurrentDocket.IsStamped(destination);
+
+        public Artifact PeekNextArtifact(int offset)
         {
-            EnsureActive();
-            var expected = _ruleEngine.Resolve(CurrentArtifact, _rules);
-            var wasCorrect = destination == expected;
-
-            if (wasCorrect)
+            if (offset < 0)
             {
-                Combo++;
-                CorrectSorts++;
-                Score += 100 + (Combo - 1) * 20;
-                Coins += 5 + Math.Min(Combo - 1, 5);
-            }
-            else
-            {
-                Hearts--;
-                Mistakes++;
-                Combo = 0;
+                throw new ArgumentOutOfRangeException(nameof(offset));
             }
 
-            Advance();
-            _canHold = true;
-            if (Hearts <= 0)
+            var index = _nextIndex + offset;
+            if (index < _queue.Count)
             {
-                State = ShiftState.Failed;
-            }
-            else if (CurrentArtifact == null)
-            {
-                State = ShiftState.Completed;
+                return _queue[index];
             }
 
-            return new SortOutcome(wasCorrect, expected);
+            return index == _queue.Count && HeldArtifact != null
+                ? HeldArtifact
+                : null;
         }
+
+        public SortOutcome Sort(Destination destination)
+            => SortDocket(destination);
 
         public bool Hold()
         {
-            if (State != ShiftState.Active || !_canHold || CurrentArtifact == null)
+            if (!CanHold)
             {
                 return false;
             }
@@ -137,8 +153,101 @@ namespace CurioClerk.Core.Shifts
         }
 
         public ShiftResult CreateResult()
+            => new ShiftResult(State, Score, Coins, CorrectSorts, Mistakes);
+
+        private SortOutcome SortDocket(Destination destination)
         {
-            return new ShiftResult(State, Score, Coins, CorrectSorts, Mistakes);
+            EnsureActive();
+            var resolution = _ruleEngine.ResolveDetailed(CurrentArtifact, _rules);
+            if (CurrentDocket.IsStamped(destination))
+            {
+                return Outcome(SortDisposition.Blocked, destination, resolution, false, false, 0, 0);
+            }
+
+            if (destination != resolution.Destination)
+            {
+                Hearts--;
+                Mistakes++;
+                CurrentDocket.MarkMistake();
+                PristineDocketStreak = 0;
+                if (Hearts <= 0)
+                {
+                    State = ShiftState.Failed;
+                }
+
+                return Outcome(SortDisposition.Wrong, destination, resolution, false, false, 0, 0);
+            }
+
+            var scoreDelta = 100;
+            var coinDelta = 5;
+            CorrectSorts++;
+            CurrentDocket.TryStamp(destination);
+            var completedDocket = CurrentDocket.IsComplete;
+            if (completedDocket)
+            {
+                scoreDelta += 300;
+                coinDelta += 5;
+                if (CurrentDocket.IsPristine)
+                {
+                    scoreDelta += 100;
+                    PristineDocketStreak++;
+                }
+                else
+                {
+                    PristineDocketStreak = 0;
+                }
+
+                _completedDocketPristine.Add(CurrentDocket.IsPristine);
+                CompletedDockets++;
+            }
+
+            Advance();
+            _canHold = true;
+            var completedShift = CompletedDockets == RequiredDockets;
+            if (completedShift)
+            {
+                if (_completedDocketPristine.TrueForAll(value => value))
+                {
+                    coinDelta += 20;
+                }
+
+                State = ShiftState.Completed;
+            }
+            else if (completedDocket)
+            {
+                CurrentDocket = new DocketState();
+            }
+
+            Score += scoreDelta;
+            Coins += coinDelta;
+            return Outcome(
+                SortDisposition.Correct,
+                destination,
+                resolution,
+                completedDocket,
+                completedShift,
+                scoreDelta,
+                coinDelta);
+        }
+
+        private static SortOutcome Outcome(
+            SortDisposition disposition,
+            Destination selectedDestination,
+            RuleResolution resolution,
+            bool didCompleteDocket,
+            bool didCompleteShift,
+            int scoreDelta,
+            int coinDelta)
+        {
+            return new SortOutcome(
+                disposition,
+                selectedDestination,
+                resolution.Destination,
+                resolution.RuleId,
+                didCompleteDocket,
+                didCompleteShift,
+                scoreDelta,
+                coinDelta);
         }
 
         private void EnsureActive()

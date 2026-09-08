@@ -134,7 +134,11 @@ if ($unresolvedRequiredLockEntries.Count -gt 0) {
 
 $runtimeAsmdef = Read-JsonFile 'Assets/Scripts/Runtime/CurioClerk.Runtime.asmdef'
 if ($null -ne $runtimeAsmdef) {
-    $allowedPrecompiledReferences = @('GoogleMobileAds.dll', 'GoogleMobileAds.Ump.dll')
+    $allowedPrecompiledReferences = @(
+        'GoogleMobileAds.dll',
+        'GoogleMobileAds.Core.dll',
+        'GoogleMobileAds.Ump.dll'
+    )
     $actualPrecompiledReferences = @($runtimeAsmdef.precompiledReferences)
     foreach ($reference in $actualPrecompiledReferences) {
         if ($reference -like 'Firebase.*') {

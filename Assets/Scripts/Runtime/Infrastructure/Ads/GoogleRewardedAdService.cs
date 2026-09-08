@@ -1,4 +1,4 @@
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if UNITY_ANDROID && !UNITY_EDITOR && !CURIO_OFFLINE_QA
 using System;
 using GoogleMobileAds.Api;
 

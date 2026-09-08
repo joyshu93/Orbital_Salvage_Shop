@@ -2,6 +2,7 @@
   "name": "CurioClerk.EditModeTests",
   "rootNamespace": "CurioClerk.Tests.EditMode",
   "references": [
+    "CurioClerk.Core",
     "CurioClerk.Runtime",
     "Unity.TextMeshPro"
   ],

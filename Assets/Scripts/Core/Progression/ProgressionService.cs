@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using CurioClerk.Core.Incidents;
 using CurioClerk.Core.Shifts;
 
 namespace CurioClerk.Core.Progression
@@ -122,6 +123,69 @@ namespace CurioClerk.Core.Progression
 
             save.lastDailyCompletedDate = normalizedDate;
             save.dailyBestScore = safeScore;
+        }
+
+        public void ApplyIncidentStage(PlayerSaveData save, IncidentStageCompletion completion)
+        {
+            if (save == null)
+            {
+                throw new ArgumentNullException(nameof(save));
+            }
+
+            if (completion == null)
+            {
+                throw new ArgumentNullException(nameof(completion));
+            }
+
+            if (string.IsNullOrWhiteSpace(completion.IncidentId))
+            {
+                throw new ArgumentException("Incident id is required.", nameof(completion));
+            }
+
+            if (string.IsNullOrWhiteSpace(completion.StageId))
+            {
+                throw new ArgumentException("Stage id is required.", nameof(completion));
+            }
+
+            if (!Enum.IsDefined(typeof(IncidentQuality), completion.Quality))
+            {
+                throw new ArgumentOutOfRangeException(nameof(completion));
+            }
+
+            save.Sanitize();
+            var incidentChanged = !string.Equals(save.activeIncidentId, completion.IncidentId, StringComparison.Ordinal);
+            save.activeIncidentId = completion.IncidentId;
+            save.activeIncidentStage = incidentChanged
+                ? Math.Max(0, completion.NextStageIndex)
+                : Math.Max(save.activeIncidentStage, Math.Max(0, completion.NextStageIndex));
+
+            IncidentStageRecord record = null;
+            foreach (var candidate in save.incidentStageRecords)
+            {
+                if (string.Equals(candidate.stageId, completion.StageId, StringComparison.Ordinal))
+                {
+                    record = candidate;
+                    break;
+                }
+            }
+
+            if (record == null)
+            {
+                save.incidentStageRecords.Add(new IncidentStageRecord
+                {
+                    stageId = completion.StageId,
+                    bestQuality = (int)completion.Quality
+                });
+            }
+            else
+            {
+                record.bestQuality = Math.Max(record.bestQuality, (int)completion.Quality);
+            }
+
+            if (completion.IncidentCompleted && !save.completedIncidentIds.Contains(completion.IncidentId))
+            {
+                save.completedIncidentIds.Add(completion.IncidentId);
+            }
         }
     }
 }

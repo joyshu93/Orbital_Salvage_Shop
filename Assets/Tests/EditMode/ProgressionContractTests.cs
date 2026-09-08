@@ -1,6 +1,9 @@
 using System;
 using System.Collections;
+using System.Linq;
 using System.Reflection;
+using CurioClerk.Core.Incidents;
+using CurioClerk.Core.Progression;
 using NUnit.Framework;
 
 namespace CurioClerk.Tests.EditMode
@@ -99,6 +102,48 @@ namespace CurioClerk.Tests.EditMode
 
             Assert.That(Field<string>(save, "lastDailyCompletedDate"), Is.EqualTo("2026-08-27"));
             Assert.That(Field<int>(save, "dailyBestScore"), Is.EqualTo(250));
+        }
+
+        [Test]
+        public void ApplyIncidentStage_KeepsTheBestQualityAndAdvancesOnce()
+        {
+            var save = new PlayerSaveData();
+            var service = new ProgressionService();
+
+            service.ApplyIncidentStage(save, Completion("rain-06-afterword", IncidentQuality.Precise, 6, false));
+            service.ApplyIncidentStage(save, Completion("rain-06-afterword", IncidentQuality.Stable, 6, false));
+
+            Assert.That(save.activeIncidentStage, Is.EqualTo(6));
+            Assert.That(save.incidentStageRecords.Single().bestQuality, Is.EqualTo((int)IncidentQuality.Precise));
+        }
+
+        [Test]
+        public void ApplyIncidentStage_SuppressesDuplicateCompletedIncidents()
+        {
+            var save = new PlayerSaveData();
+            var service = new ProgressionService();
+
+            service.ApplyIncidentStage(save, Completion("ice-05-farewell", IncidentQuality.Resonant, 5, true));
+            service.ApplyIncidentStage(save, Completion("ice-05-farewell", IncidentQuality.Stable, 5, true));
+
+            Assert.That(save.completedIncidentIds, Is.EqualTo(new[] { "unmelting-ice" }));
+            Assert.That(save.activeIncidentStage, Is.EqualTo(5));
+        }
+
+        private static IncidentStageCompletion Completion(string stageId, IncidentQuality quality, int nextStageIndex, bool incidentCompleted)
+        {
+            var stageIds = incidentCompleted
+                ? new[] { stageId, "next-stage", "later-stage", "fourth-stage", "fifth-stage" }
+                : new[]
+                {
+                    stageId, "next-stage", "later-stage", "fourth-stage", "fifth-stage", "sixth-stage",
+                    "seventh-stage"
+                };
+            var runner = new IncidentRunner(
+                "unmelting-ice",
+                stageIds,
+                nextStageIndex - 1);
+            return runner.CompleteCurrentStage(quality);
         }
 
         private static T Field<T>(object instance, string name)

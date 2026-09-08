@@ -32,7 +32,7 @@ namespace CurioClerk.Editor
 
         private static bool Configure(TextureImporter importer, string path)
         {
-            var maxTextureSize = path.Contains("/Desk/") ? 2048 : 512;
+            var maxTextureSize = MaximumTextureSize(path);
             var changed = importer.textureType != TextureImporterType.Sprite ||
                           importer.spriteImportMode != SpriteImportMode.Single ||
                           !importer.alphaIsTransparency ||
@@ -50,6 +50,16 @@ namespace CurioClerk.Editor
             importer.textureCompression = TextureImporterCompression.Compressed;
             importer.maxTextureSize = maxTextureSize;
             return changed;
+        }
+
+        private static int MaximumTextureSize(string path)
+        {
+            if (path.Contains("/Desk/") || path.Contains("/Effects/"))
+            {
+                return 2048;
+            }
+
+            return path.Contains("/Characters/") ? 1024 : 512;
         }
     }
 }

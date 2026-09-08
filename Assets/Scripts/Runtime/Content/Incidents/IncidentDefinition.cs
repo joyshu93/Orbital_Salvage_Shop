@@ -1,0 +1,392 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using CurioClerk.Core.Artifacts;
+using CurioClerk.Core.Incidents;
+using CurioClerk.Core.Rules;
+using CurioClerk.Core.Shifts;
+
+namespace CurioClerk.Content.Incidents
+{
+    public enum SeniorClerkMood
+    {
+        Neutral = 0,
+        Concerned = 1,
+        Alert = 2,
+        Relieved = 3
+    }
+
+    public enum IncidentVisualCue
+    {
+        None = 0,
+        Frost = 1,
+        InkSeal = 2,
+        AmberWarmth = 3,
+        Rain = 4
+    }
+
+    public sealed class LocalizedCopy
+    {
+        public LocalizedCopy(string english, string korean)
+        {
+            English = english;
+            Korean = korean;
+        }
+
+        public string English { get; }
+
+        public string Korean { get; }
+
+        public string ForLocale(string locale) => locale == "ko" ? Korean : English;
+    }
+
+    public sealed class NarrativeBeat
+    {
+        public NarrativeBeat(LocalizedCopy copy, SeniorClerkMood mood, IncidentVisualCue visualCue)
+            : this(null, copy, mood, visualCue)
+        {
+        }
+
+        public NarrativeBeat(
+            LocalizedCopy speaker,
+            LocalizedCopy copy,
+            SeniorClerkMood mood,
+            IncidentVisualCue visualCue)
+        {
+            Speaker = speaker;
+            Copy = copy;
+            Mood = mood;
+            VisualCue = visualCue;
+        }
+
+        public LocalizedCopy Speaker { get; }
+
+        public LocalizedCopy Copy { get; }
+
+        public SeniorClerkMood Mood { get; }
+
+        public IncidentVisualCue VisualCue { get; }
+    }
+
+    public sealed class IncidentDocketBeat
+    {
+        public IncidentDocketBeat(int completedDocketNumber, NarrativeBeat narrative)
+        {
+            if (completedDocketNumber < 1 || completedDocketNumber > 3)
+            {
+                throw new ArgumentOutOfRangeException(nameof(completedDocketNumber));
+            }
+
+            CompletedDocketNumber = completedDocketNumber;
+            Narrative = narrative ?? throw new ArgumentNullException(nameof(narrative));
+        }
+
+        public int CompletedDocketNumber { get; }
+
+        public NarrativeBeat Narrative { get; }
+    }
+
+    public sealed class ArtifactReaction
+    {
+        public ArtifactReaction(LocalizedCopy stable, LocalizedCopy precise, LocalizedCopy resonant)
+        {
+            Stable = stable;
+            Precise = precise;
+            Resonant = resonant;
+        }
+
+        public LocalizedCopy Stable { get; }
+
+        public LocalizedCopy Precise { get; }
+
+        public LocalizedCopy Resonant { get; }
+
+        public LocalizedCopy ForQuality(IncidentQuality quality)
+        {
+            switch (quality)
+            {
+                case IncidentQuality.Stable:
+                    return Stable;
+                case IncidentQuality.Precise:
+                    return Precise;
+                case IncidentQuality.Resonant:
+                    return Resonant;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(quality));
+            }
+        }
+    }
+
+    public sealed class IncidentArtifactEntry
+    {
+        public IncidentArtifactEntry(string artifactId, ArtifactTraits addedTraits)
+        {
+            if (string.IsNullOrWhiteSpace(artifactId))
+            {
+                throw new ArgumentException("Incident artifact IDs cannot be blank.", nameof(artifactId));
+            }
+
+            ArtifactId = artifactId;
+            AddedTraits = addedTraits;
+        }
+
+        public string ArtifactId { get; }
+
+        public ArtifactTraits AddedTraits { get; }
+    }
+
+    public sealed class IncidentStageDefinition
+    {
+        public IncidentStageDefinition(
+            string id,
+            IReadOnlyList<NarrativeBeat> introBeats,
+            IReadOnlyList<NarrativeBeat> outroBeats,
+            ArtifactReaction reactions,
+            string leadArtifactId,
+            string resonanceHoldArtifactId,
+            IReadOnlyList<IncidentArtifactEntry> queue,
+            IReadOnlyList<SortingRule> rules,
+            int minimumRequiredHolds,
+            IReadOnlyList<IncidentDocketBeat> docketBeats = null)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                throw new ArgumentException("Incident stage IDs cannot be blank.", nameof(id));
+            }
+
+            if (string.IsNullOrWhiteSpace(leadArtifactId))
+            {
+                throw new ArgumentException("A lead artifact ID is required.", nameof(leadArtifactId));
+            }
+
+            if (minimumRequiredHolds < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(minimumRequiredHolds));
+            }
+
+            Id = id;
+            IntroBeats = Copy(introBeats, nameof(introBeats));
+            OutroBeats = Copy(outroBeats, nameof(outroBeats));
+            Reactions = reactions;
+            LeadArtifactId = leadArtifactId;
+            ResonanceHoldArtifactId = string.IsNullOrWhiteSpace(resonanceHoldArtifactId)
+                ? null
+                : resonanceHoldArtifactId;
+            Queue = Copy(queue, nameof(queue));
+            Rules = Copy(rules, nameof(rules));
+            MinimumRequiredHolds = minimumRequiredHolds;
+            DocketBeats = CopyDocketBeats(docketBeats);
+        }
+
+        public string Id { get; }
+
+        public IReadOnlyList<NarrativeBeat> IntroBeats { get; }
+
+        public IReadOnlyList<NarrativeBeat> OutroBeats { get; }
+
+        public ArtifactReaction Reactions { get; }
+
+        public string LeadArtifactId { get; }
+
+        public string ResonanceHoldArtifactId { get; }
+
+        public IReadOnlyList<IncidentArtifactEntry> Queue { get; }
+
+        public IReadOnlyList<SortingRule> Rules { get; }
+
+        public int MinimumRequiredHolds { get; }
+
+        public IReadOnlyList<IncidentDocketBeat> DocketBeats { get; }
+
+        public IncidentDocketBeat FindDocketBeat(int completedDocketNumber)
+        {
+            for (var index = 0; index < DocketBeats.Count; index++)
+            {
+                var beat = DocketBeats[index];
+                if (beat.CompletedDocketNumber == completedDocketNumber)
+                {
+                    return beat;
+                }
+            }
+
+            return null;
+        }
+
+        public ShiftPlan CreateShiftPlan(IReadOnlyDictionary<string, ArtifactContent> artifacts)
+        {
+            if (artifacts == null)
+            {
+                throw new ArgumentNullException(nameof(artifacts));
+            }
+
+            if (Queue.Count != 12)
+            {
+                throw new InvalidOperationException("Incident shift queues must contain exactly twelve artifacts.");
+            }
+
+            if (Rules.Count == 0)
+            {
+                throw new InvalidOperationException("Incident shifts require at least one sorting rule.");
+            }
+
+            var seenIds = new HashSet<string>(StringComparer.Ordinal);
+            var authoredQueue = new Artifact[Queue.Count];
+            for (var index = 0; index < Queue.Count; index++)
+            {
+                var entry = Queue[index];
+                if (!seenIds.Add(entry.ArtifactId))
+                {
+                    throw new InvalidOperationException("Incident shift queues must contain unique artifact IDs.");
+                }
+
+                if (!artifacts.TryGetValue(entry.ArtifactId, out var content) || content == null)
+                {
+                    throw new KeyNotFoundException($"Incident artifact '{entry.ArtifactId}' is missing from the catalog.");
+                }
+
+                authoredQueue[index] = new Artifact(content.Id, content.Traits | entry.AddedTraits);
+            }
+
+            return new ShiftPlan(Id, Id, authoredQueue, Rules);
+        }
+
+        private static IReadOnlyList<T> Copy<T>(IReadOnlyList<T> source, string parameterName)
+            where T : class
+        {
+            if (source == null)
+            {
+                throw new ArgumentNullException(parameterName);
+            }
+
+            var copy = new T[source.Count];
+            for (var index = 0; index < source.Count; index++)
+            {
+                copy[index] = source[index] ??
+                    throw new ArgumentException("Incident content collections cannot contain null entries.", parameterName);
+            }
+
+            return Array.AsReadOnly(copy);
+        }
+
+        private static IReadOnlyList<IncidentDocketBeat> CopyDocketBeats(
+            IReadOnlyList<IncidentDocketBeat> source)
+        {
+            if (source == null)
+            {
+                return Array.AsReadOnly(Array.Empty<IncidentDocketBeat>());
+            }
+
+            var copy = new IncidentDocketBeat[source.Count];
+            var completedDockets = new HashSet<int>();
+            for (var index = 0; index < source.Count; index++)
+            {
+                var beat = source[index] ??
+                    throw new ArgumentException(
+                        "Incident docket beat collections cannot contain null entries.",
+                        nameof(source));
+                if (!completedDockets.Add(beat.CompletedDocketNumber))
+                {
+                    throw new ArgumentException(
+                        "Incident docket beat numbers must be unique.",
+                        nameof(source));
+                }
+
+                copy[index] = beat;
+            }
+
+            return Array.AsReadOnly(copy);
+        }
+    }
+
+    public sealed class IncidentDefinition
+    {
+        public IncidentDefinition(
+            string id,
+            LocalizedCopy title,
+            string leadArtifactId,
+            IncidentVisualCue boardVisualCue,
+            bool completesWhenAllStagesCompleted,
+            LocalizedCopy awaitingContentClue,
+            IReadOnlyList<IncidentStageDefinition> stages)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                throw new ArgumentException("Incident IDs cannot be blank.", nameof(id));
+            }
+
+            if (title == null)
+            {
+                throw new ArgumentNullException(nameof(title));
+            }
+
+            if (string.IsNullOrWhiteSpace(leadArtifactId))
+            {
+                throw new ArgumentException("An incident lead artifact ID is required.", nameof(leadArtifactId));
+            }
+
+            if (!completesWhenAllStagesCompleted &&
+                (awaitingContentClue == null ||
+                 string.IsNullOrWhiteSpace(awaitingContentClue.English) ||
+                 string.IsNullOrWhiteSpace(awaitingContentClue.Korean)))
+            {
+                throw new ArgumentException(
+                    "Open incidents require a bilingual awaiting-content clue.",
+                    nameof(awaitingContentClue));
+            }
+
+            if (stages == null)
+            {
+                throw new ArgumentNullException(nameof(stages));
+            }
+
+            if (completesWhenAllStagesCompleted && stages.Count == 0)
+            {
+                throw new ArgumentException(
+                    "A conclusive incident requires at least one stage.",
+                    nameof(stages));
+            }
+
+            var copiedStages = new IncidentStageDefinition[stages.Count];
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            for (var index = 0; index < stages.Count; index++)
+            {
+                var stage = stages[index] ??
+                    throw new ArgumentException("Incident stage collections cannot contain null entries.", nameof(stages));
+                if (!ids.Add(stage.Id))
+                {
+                    throw new ArgumentException("Incident stage IDs must be unique.", nameof(stages));
+                }
+
+                copiedStages[index] = stage;
+            }
+
+            Id = id;
+            Title = title;
+            LeadArtifactId = leadArtifactId;
+            BoardVisualCue = boardVisualCue;
+            CompletesWhenAllStagesCompleted = completesWhenAllStagesCompleted;
+            AwaitingContentClue = awaitingContentClue;
+            Stages = Array.AsReadOnly(copiedStages);
+        }
+
+        public string Id { get; }
+
+        public LocalizedCopy Title { get; }
+
+        public string LeadArtifactId { get; }
+
+        public IncidentVisualCue BoardVisualCue { get; }
+
+        public bool CompletesWhenAllStagesCompleted { get; }
+
+        public LocalizedCopy AwaitingContentClue { get; }
+
+        public IReadOnlyList<IncidentStageDefinition> Stages { get; }
+
+        public IncidentProgressDefinition CreateProgressDefinition()
+            => new IncidentProgressDefinition(
+                Id,
+                Stages.Select(stage => stage.Id).ToArray(),
+                CompletesWhenAllStagesCompleted);
+    }
+}

@@ -7,7 +7,9 @@ namespace CurioClerk.Infrastructure.Feedback
         Hold,
         Correct,
         Wrong,
-        ShiftComplete
+        ShiftComplete,
+        KeyReaction,
+        IncidentComplete
     }
 
     public interface IPlayerFeedbackService : IDisposable

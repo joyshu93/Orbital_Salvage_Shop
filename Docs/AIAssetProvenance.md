@@ -1,6 +1,6 @@
 # AI asset provenance and release policy
 
-Last reviewed: 2026-08-26 (KST)
+Last reviewed: 2026-09-03 (KST)
 
 This document is the release evidence ledger for AI-assisted work in **Curio Clerk: Night Shift**. It is an internal risk-control record, not legal advice. Update it whenever an AI tool creates or edits source code, art, audio, text, video, localization, or store material.
 
@@ -42,6 +42,64 @@ Do not request or accept:
 Describe visual characteristics in generic production terms instead: palette, materials, line weight, lighting, camera, composition, mood, and readability target.
 
 ## Provenance ledger
+
+### ART-NARRATIVE-001 — senior night clerk portrait set
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Assets/Resources/Art/Characters/senior-clerk-neutral.png`; `senior-clerk-concerned.png`; `senior-clerk-alert.png`; `senior-clerk-relieved.png` |
+| SHA-256 | Neutral `09259FCDB4EEA196F6689D8FACDC7F36C410D72DB21AC7B85FE5F4565951EE99`; concerned `8553D09FF755B579E75AF9BCFFB711971C35AC7A361D3EA3246ED9A1E15EB8BF`; alert `09A8193D755CFF26E3E86685DDDA4FEC490B93DFA99D08B16372FB3FC56C7411`; relieved `AB7541374EE39EBC17D4AAFA822C0D9AB97F2D1EBBD05E5A13041CF6A7BCD9DC` |
+| Dimensions | Four 768 × 1024 transparent PNGs |
+| Asset type and intended use | Four waist-up visual-novel portraits for the senior night clerk in the first incident; large Android portrait-screen silhouette and emotional state changes |
+| Tool | Built-in OpenAI ImageGen invoked through Codex |
+| Creation date | 2026-08-31 KST |
+| Prompt record | Exact normalized generation and identity-preserving edit prompts are retained in `Docs/NarrativeSlicePrompts.md`. |
+| Selected source outputs and reference inputs | Neutral source output `exec-6c165bd5-02a1-4811-9cd1-6711e3659eb2`; concerned `exec-a9024307-47c2-4743-bbc4-a76a4591be05`; alert `exec-7f60217b-816b-4e43-86cf-04f5d6ca54c5`; relieved `exec-5bd33717-6175-4ccf-a0f2-73e764fd777f`. Neutral used text only. Each expression edit used only that project-owned neutral output. No third-party image was supplied. |
+| Negative constraints | No named artist, studio, game, film, franchise, protected character, real-person likeness, modern clothing, text, logo, signature, watermark, gore, or opaque checkerboard. |
+| Human direction | The developer approved a bold but warm visual-novel presentation, a single recurring senior clerk, large readable expressions, and the plum/parchment/brass Curio Clerk palette. |
+| Technical normalization | The three expression edits arrived with a baked neutral checkerboard. After explicit developer approval, Codex removed only the connected/high-luminance neutral checker field and its edge matte, preserved the character pixels, and resized all four portraits from 1086 × 1448 to 768 × 1024 with high-quality bicubic filtering. No repaint or redraw is claimed. |
+| Human selection | The developer reviewed the four labeled expressions plus the overlay and approved this set for prototype integration on 2026-08-31 KST. Alternate opaque-background and inconsistent-identity generations were rejected. |
+| Similarity and trademark review | No visible text, logo, signature, watermark, famous likeness, or recognizable protected character was identified during prototype review. Final release similarity/trademark review remains pending. |
+| Third-party elements | None intentionally requested or supplied; no attribution currently identified. |
+| Store submission decision | Treat selected portraits and prominent screenshots containing them as AI-assisted/generated media wherever the selected store asks. Recheck current wording at submission. |
+| Release status | **Approved for first-incident prototype integration. Not yet approved as final release art.** |
+
+### ART-EFFECT-001 — incident frost-edge overlay
+
+| Field | Record |
+| --- | --- |
+| Repository file | `Assets/Resources/Art/Effects/frost-overlay.png` |
+| SHA-256 | `A583F60946BA77C2F357ED3CF6B80FBD867AFC5FCC5A56A162E276F98A9D25A2` |
+| Dimensions | 1024 × 1536 transparent PNG; sampled center alpha is 0 |
+| Asset type and intended use | Transparent 9:16 frost-edge overlay with a clear center for artifact and narrative emphasis |
+| Tool | Built-in OpenAI ImageGen invoked through Codex |
+| Creation date | 2026-08-31 KST |
+| Prompt record | Exact normalized generation prompt is retained in `Docs/NarrativeSlicePrompts.md`. |
+| Reference inputs | Text only; no third-party input or reference image. |
+| Negative constraints | No text, letters, symbols, logos, signatures, watermarks, opaque checkerboard, central obstruction, gore, or franchise imagery. |
+| Human direction | The developer approved atmosphere-preserving but visibly stronger frost/amber feedback around a readable portrait gameplay center. |
+| Human selection and technical review | The developer approved the labeled overlay preview on 2026-08-31 KST. Codex confirmed true alpha at the center and retained the original 1024 × 1536 output without repaint or redraw. |
+| Similarity and trademark review | No visible text, symbol, logo, signature, watermark, or recognizable protected imagery was identified during prototype review. Final release review remains pending. |
+| Third-party elements | None intentionally requested or supplied; no attribution currently identified. |
+| Store submission decision | Treat the selected overlay and prominent screenshots containing it as AI-assisted/generated media wherever the selected store asks. |
+| Release status | **Approved for first-incident prototype integration. Not yet approved as final release art.** |
+
+
+### DESIGN-NARRATIVE-001 — narrative occupational puzzle specification and visual board
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Docs/superpowers/specs/2026-08-28-narrative-occupational-puzzle-design.md`; `Docs/Design/NarrativeOccupationalPuzzle/curio-narrative-ux-board.html`; rendered PNG when present beside the HTML source |
+| Asset type and intended use | Internal product specification and editable visual reference for the approved narrative occupational puzzle redesign; not an in-game or store asset |
+| Tool | OpenAI Codex authored the text, layout, and CSS from the developer-approved design dialogue |
+| Creation date | 2026-08-28 KST |
+| Reference inputs | Existing Curio Clerk product constraints, repository artifact catalog, Three-Seal Docket design, and developer feedback; no third-party prose, image, or style reference supplied |
+| Human direction | The developer selected the caretaker fantasy, case-shift plus Free Shift structure, visual-novel framing, first-person clerk, one senior clerk, bold presentation, warm restrained effects, linear story with reactive outcomes, 12-incident arc, first-slice boundary, and playtest gates. |
+| Human edits | The developer repeatedly rejected or redirected shallow collection, short-campaign, weak-hook, small-screen, and restrained-feedback concepts, and explicitly approved each final design section. No claim is made that Codex output alone constitutes final shipped creative authorship. |
+| Third-party elements | None. The editable board uses repository-authored text and CSS shapes only; it does not bundle fonts, images, or copied UI assets. |
+| Intended uses | Internal reference, implementation planning, before/after product review, and future design iteration. |
+| Store submission decision | Not submitted to a store and not included in the player build. If reused in promotional material, create a separate provenance and store-media decision. |
+| Release status | **Approved as internal design documentation; game implementation and final creative assets remain subject to separate review.** |
 
 ### ART-BRAND-001 — current application icon concept
 
@@ -141,6 +199,130 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Store submission decision | Treat the selected images and prominent store screenshots containing them as AI-assisted/generated media wherever the selected store asks. Recheck live submission wording before upload. |
 | Release status | **Cosmetics prototype — not approved for RC.** In-Unity scale/composition review, similarity/trademark review, any desired direct human repaint or adjustment, and explicit developer release approval remain required. |
 
+### TEXT-GAMEPLAY-003 — Three-Seal Docket rules and curio resolutions
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Assets/Scripts/Runtime/Localization/Localizer.cs`; `Assets/Scripts/Runtime/Content/ContentCatalog.cs`; generated Unity localization tables and generated Artifact assets after `ProjectBuilder.BuildAll` |
+| Asset type and intended use | English and Korean Three-Seal Docket rules and artifact-specific resolution copy shown during gameplay and in the Casebook |
+| Tool | OpenAI Codex |
+| Creation date | 2026-08-27 KST |
+| Reference inputs | Existing project-authored artifact names and descriptions, plus the developer-approved Three-Seal Docket design; no third-party prose supplied or copied |
+| Human direction | The developer approved the core-loop redesign, its rules, and the requirement that each artifact's fiction connect to its gameplay result. |
+| Human edits | No independent human rewrite claimed at intake. Korean naturalness, English clarity, line wrapping, tone, and contextual fit require developer bilingual review in Unity. |
+| Third-party elements | None identified; no third-party prose or reference text was used. |
+| Store submission decision | Ordinary in-game gameplay copy; no separate AI-media declaration currently identified. Recheck selected-store requirements at submission time. |
+| Release status | **Prototype copy — developer bilingual review required before RC.** |
+
+### TEXT-NARRATIVE-004 — Unmelting Ice five-stage prototype script
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Assets/Scripts/Runtime/Content/Incidents/FirstIncidentCatalog.cs`; generated runtime presentation derived from this source after later integration |
+| Asset type and intended use | Five-stage English/Korean opening beats, closing hooks, and Stable/Precise/Resonant artifact reactions for the first playable incident prototype; includes the revised stage-two frost trail, stage-three temporal-priority reveal, stage-four protective Hold crisis, and stage-five mastery finale |
+| Tool | OpenAI Codex drafted and revised the bilingual narrative copy from the developer-approved incident specification and fixed implementation plan |
+| Creation date | 2026-08-31 KST; stage-two through stage-five pacing revisions 2026-09-03 KST |
+| Reference inputs | The approved Curio Clerk narrative occupational puzzle specification, fixed five-stage incident beats, existing artifact catalog fiction, and Three-Seal Docket terminology; no third-party prose supplied or copied |
+| Human direction | The developer approved the five authored shift matrix and caretaker tone, then requested stronger, larger dialogue, judgment, and reactions without breaking the warm occult atmosphere. On 2026-09-01, the first shift was revised to state the fantasy, immediate threat, three-seal/Hold job, and next-night hook more clearly. On 2026-09-03, the developer approved moving the ice reveal later in stage two, repeating visible frost-versus-time priority judgments in stage three, combining that judgment with a protective Hold crisis in stage four, and ending with a balanced Hold/priority/narrative mastery shift without adding a new system. |
+| Human edits | The opening, closing, and quality reactions remain prototype drafts. Korean naturalness, English clarity, tone, line wrapping, and contextual fit require developer bilingual review in Unity. |
+| Third-party elements | None identified. No external prose, named style, franchise text, quotation, or third-party reference material was used. |
+| Store submission decision | Ordinary in-game narrative text; no separate AI-media declaration currently identified. Recheck the selected store's current requirements at submission time. |
+| Release status | **Prototype copy — developer bilingual and in-context review required before RC.** |
+
+### DESIGN-NARRATIVE-002 — multi-incident board and Remembering Rain vertical-slice design
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Docs/superpowers/specs/2026-09-03-multi-incident-remembering-rain-design.md`; `Docs/superpowers/plans/2026-09-03-multi-incident-remembering-rain.md` |
+| Asset type and intended use | Internal product and technical specification for a reusable multi-incident progression model, the portrait incident-board menu, and the first playable shift of the second incident; not an in-game or store asset |
+| Tool | OpenAI Codex authored the specification from the developer-approved design dialogue |
+| Creation date | 2026-09-03 KST |
+| Reference inputs | Existing Curio Clerk product constraints, the approved narrative occupational puzzle specification, the Three-Seal Docket rules, current repository architecture, artifact catalog fiction, and developer playtest feedback; no third-party prose, image, audio, or style reference supplied |
+| Human direction | The developer selected the current-incident hero layout, required a genuine second incident instead of a placeholder, approved the `Remembering Rain / 기억하는 비` mystery, chose an unresolved `next shift in preparation` boundary, requested stronger visual-novel presentation, and required reusable use of appropriate Unity systems. |
+| Human edits | The developer approved the design section by section and retains authority over implementation, bilingual wording, pacing, and release. No claim is made that Codex output alone constitutes final shipped creative authorship. |
+| Third-party elements | None. The document contains project-authored prose and references only repository concepts and Unity APIs already governed by the project's existing notices. |
+| Intended uses | Internal implementation planning, save-migration review, UI review, and future incident expansion. |
+| Store submission decision | Not submitted to a store and not included in the player build. Promotional reuse requires a separate provenance and store-media decision. |
+| Release status | **Approved as internal design documentation; implementation and final creative assets require separate review.** |
+
+### DESIGN-NARRATIVE-003 — full-campaign story master blueprint
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Docs/superpowers/specs/2026-09-04-curio-clerk-story-master-design.md` |
+| Asset type and intended use | Internal long-form story bible and production storyboard covering the three-act, twelve-incident, approximately sixty-shift campaign; not an in-game or store asset |
+| Tool | OpenAI Codex authored the structure and prose from the developer-approved story direction |
+| Creation date | 2026-09-04 KST |
+| Reference inputs | Existing Curio Clerk product constraints, repository artifact catalog and fiction, implemented Unmelting Ice and Remembering Rain content, the approved narrative occupational puzzle specification, and developer playtest feedback; no third-party prose, image, audio, film, game, or style reference supplied |
+| Human direction | The developer requested a reusable campaign-scale storyboard before further scene-by-scene implementation, selected the senior clerk's broken promise as the emotional spine, approved the promise to reveal the repository's truth to the next clerk, requested exciting and absorbing pacing with fair and credible reversals, and authorized Codex to resolve remaining story choices consistently without repeated questions. |
+| Human edits | The document is a review draft. Exact dialogue, incident titles, bilingual copy, shift rules, pacing, and final canon remain subject to developer approval and later in-context revision. |
+| Third-party elements | None. The document uses only project-owned concepts, artifact names, traits, mechanics, and original prose. |
+| Intended uses | Campaign continuity source, incident planning, dialogue briefs, reveal tracking, gameplay-story alignment, production scoping, and later playtest review. |
+| Store submission decision | Internal documentation only and not included in the player build. Any direct reuse as store copy or promotional media requires a separate review and provenance decision. |
+| Release status | **Internal review draft — developer story and continuity approval required before it becomes campaign canon.** |
+
+### DESIGN-NARRATIVE-004 — Remembering Rain full-incident implementation plan
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Docs/superpowers/plans/2026-09-04-remembering-rain-full-incident.md` |
+| Asset type and intended use | Internal implementation plan that converts the approved campaign blueprint into the five-stage Remembering Rain incident, reusable three-docket narrative interludes, and a read-only third-incident teaser; not an in-game or store asset |
+| Tool | OpenAI Codex authored the technical and narrative implementation plan from the approved master story blueprint and the existing Unity architecture |
+| Creation date | 2026-09-04 KST |
+| Reference inputs | Existing repository code and tests, the approved full-campaign story master blueprint, implemented first-shift Remembering Rain content, Three-Seal Docket mechanics, and repository-owned artifact fiction only; no third-party prose, image, audio, game, film, or style reference supplied |
+| Human direction | The developer approved the campaign-scale story direction, asked Codex to make remaining detailed decisions without repeated questions, required exciting and fair reversals, and requested reusable use of Unity systems without unnecessary feature growth. |
+| Human edits | The plan fixes implementation boundaries, test checkpoints, rule matrices, and draft bilingual beats. Runtime wording and pacing remain subject to developer review in Unity before release. |
+| Third-party elements | None. The plan uses project-owned mechanics, artifact names, story concepts, and original prose. |
+| Intended uses | TDD implementation, code review, continuity checks, manual playtest instructions, and future incident reuse. |
+| Store submission decision | Internal documentation only and not included in the player build. Any direct reuse as store copy or promotional material requires separate review. |
+| Release status | **Approved planning scope only — runtime implementation and bilingual in-context review remain pending.** |
+
+### TEXT-NARRATIVE-005 — Remembering Rain first-shift prototype copy
+
+| Field | Record |
+| --- | --- |
+| Repository files | Initial approved draft in `Docs/superpowers/specs/2026-09-03-multi-incident-remembering-rain-design.md`; future runtime source under `Assets/Scripts/Runtime/Content/Incidents` after implementation approval |
+| Asset type and intended use | English/Korean incident title, opening dialogue, first clue, completion hook, and menu status copy for the first playable shift of the second incident prototype |
+| Tool | OpenAI Codex drafted the bilingual narrative copy from the developer-approved mystery and gameplay constraints |
+| Creation date | 2026-09-03 KST |
+| Reference inputs | The approved Curio Clerk caretaker fantasy, existing artifact names and traits, Three-Seal Docket terminology, first-incident ending hook, and developer direction for bold visual-novel presentation; no third-party prose supplied or copied |
+| Human direction | The developer approved `Remembering Rain / 기억하는 비`, the indoor rain that repeats owners' memories, the senior clerk connection, the Wet-over-Fragile priority judgment, and the unresolved first-clue ending. |
+| Human edits | The text remains a prototype draft. Korean naturalness, English clarity, tone, line wrapping, and contextual fit require developer bilingual review in Unity before RC. |
+| Third-party elements | None identified. No external prose, quotation, named style, franchise text, likeness, or third-party reference material was used. |
+| Store submission decision | Ordinary in-game narrative text; no separate AI-media declaration currently identified. Recheck the selected store's current requirements at submission time. |
+| Release status | **Prototype copy — developer bilingual and in-context review required before RC.** |
+
+### TEXT-NARRATIVE-006 — Remembering Rain five-stage prototype script
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Assets/Scripts/Runtime/Content/Incidents/SecondIncidentCatalog.cs`; generated runtime presentation derived from this source after catalog generation |
+| Asset type and intended use | English/Korean five-stage incident dialogue, three-docket interludes, judgment reactions, completion hook, and read-only next-incident clue for the complete Remembering Rain prototype |
+| Tool | OpenAI Codex drafted the bilingual narrative copy from the developer-approved campaign blueprint and implementation plan |
+| Creation date | 2026-09-07 KST |
+| Reference inputs | The approved Curio Clerk story master blueprint and Remembering Rain implementation plan, existing repository artifact fiction and mechanics, and the previously approved first-shift draft only; no third-party prose, quotation, image, audio, game, film, or style reference was supplied or copied |
+| Human direction | The developer approved direct implementation of all five shifts, their connected three-docket reveals, the fixed judgment matrices, and the third-incident teaser, and authorized AI-driven Unity validation and Korean play acceptance. |
+| Human edits | All English and Korean prose remains prototype copy. Naturalness, clarity, emotional pacing, line wrapping, and in-context presentation require review in the running Korean build before RC. |
+| Third-party elements | None identified. No external prose, quotation, named style, franchise text, likeness, or third-party reference material was used. |
+| Store submission decision | Ordinary in-game narrative text; no separate AI-media declaration currently identified. Recheck the selected store's current requirements at submission time. |
+| Release status | **Prototype copy — developer bilingual and in-context review required before RC.** |
+
+### FONT-UI-001 — Gowun Batang display typography
+
+| Field | Record |
+| --- | --- |
+| Repository files | `Assets/Fonts/GowunBatang/GowunBatang-Bold.ttf`; `Assets/Fonts/GowunBatang/OFL.txt`; generated `Assets/Resources/Fonts/GowunBatang-Bold-Dynamic.asset` after `ProjectBuilder.BuildAll` |
+| Asset type and intended use | Third-party open-source display font for curio names, titles, and short resolution copy in the approved Curio-First UX overhaul |
+| Source | Official Google Fonts repository: https://github.com/google/fonts/tree/main/ofl/gowunbatang |
+| Creator | Copyright 2021 The Gowun Batang Project Authors; no AI generation or modification is claimed |
+| Acquisition date | 2026-08-27 KST |
+| Reference inputs | None; the original font binary and its OFL text are copied without modification from the official source directory |
+| Human direction | The developer explicitly approved the F1 pairing: Gowun Batang for short display copy and Noto Sans KR for functional interface copy. |
+| Human edits | No glyph editing, renaming, or derivative font work is claimed. Unity TMP atlas generation is technical processing only. |
+| Third-party elements | SIL Open Font License 1.1; full text retained at `Assets/Fonts/GowunBatang/OFL.txt` and notice recorded in `Docs/ThirdPartyNotices.md` |
+| Store submission decision | Ordinary bundled open-source font; retain the copyright and OFL notice with the distributed product and re-audit the final bundle before RC. |
+| Release status | **Approved for prototype integration under OFL 1.1; final in-game readability and bundled-notice review remain required before RC.** |
+
 ### TEXT-UI-002 — casebook and cosmetics interface copy
 
 | Field | Record |
@@ -171,6 +353,23 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Human edits | No human audio edit is claimed. Final gain, pitch, duration, comfort, and device-speaker suitability require developer listening review. |
 | Third-party elements | None. Waveforms are computed at runtime from repository-owned source code and use Unity's built-in audio APIs. |
 | Store submission decision | Runtime-generated interface tones are not submitted AI-generated audio files. Recheck the selected store's current disclosure wording if these tones are later rendered into promotional media. |
+| Release status | **Prototype only — listening and device-volume review required before RC.** |
+
+### AUDIO-SYNTH-002 — incident reaction and resolution tones
+
+| Field | Record |
+| --- | --- |
+| Repository files | Runtime synthesis code under `Assets/Scripts/Runtime/Infrastructure/Feedback`; no audio binary is stored or imported |
+| Asset type and intended use | Short procedural cues for authored key reactions and the completion of an incident |
+| Tool | OpenAI Codex authored the deterministic waveform code from the developer-approved first-incident vertical-slice plan |
+| Creation date | 2026-08-31 KST |
+| Prompt summary | Strengthen decisive story moments with warm-occult chimes that remain subordinate to dialogue and readable on mobile speakers. |
+| Negative constraints | No sampled audio, voice, music, named composer or franchise imitation, external model output, trademark sound, third-party recording, jump-scare impact, or harsh alarm. |
+| Reference inputs | Existing repository-owned procedural feedback implementation only; no audio reference file was supplied. |
+| Human direction | The developer approved larger, bolder dialogue, decisions, and reactions while preserving the warm occult atmosphere. Codex limited the scope to two short procedural cues and retained independent sound disablement. |
+| Human edits | No human audio edit is claimed. Final gain, pitch, duration, comfort, dialogue balance, and device-speaker suitability require developer listening review. |
+| Third-party elements | None. Waveforms are computed at runtime from repository-owned source code and Unity's built-in audio APIs. |
+| Store submission decision | Runtime-generated feedback tones are not submitted AI-generated audio files. Recheck the selected store's current disclosure wording if rendered into promotional media. |
 | Release status | **Prototype only — listening and device-volume review required before RC.** |
 
 ### TEXT-UI-001 — Phase 3 feedback settings copy

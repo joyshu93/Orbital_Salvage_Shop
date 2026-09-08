@@ -1,6 +1,6 @@
 # AI asset provenance and release policy
 
-Last reviewed: 2026-09-03 (KST)
+Last reviewed: 2026-09-08 (KST)
 
 This document is the release evidence ledger for AI-assisted work in **Curio Clerk: Night Shift**. It is an internal risk-control record, not legal advice. Update it whenever an AI tool creates or edits source code, art, audio, text, video, localization, or store material.
 
@@ -397,6 +397,19 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Verification | Changes remain subject to Git review, automated tests, manual Unity execution, device testing, and third-party license review. AI assistance is not evidence of correctness or non-infringement. |
 | Store submission decision | The historic Google Play asset-declaration help page concerns submitted visual assets, not source-code authorship. No code declaration is identified there; recheck the selected store's current requirements at submission time. |
 | Release status | Allowed as reviewed source; each change still requires normal engineering and license gates. |
+
+### SDK-INTEGRATION-001 — Android QA and resolved Google packages
+
+| Field | Record |
+| --- | --- |
+| Date and scope | 2026-09-08 KST; completion of developer-restored Android QA/GMA integration |
+| Repository files | `Assets/GoogleMobileAds/link.xml`, generated Android Gradle templates under `Assets/Plugins/Android`, `ProjectSettings/AndroidResolverDependencies.xml`, `ProjectSettings/GvhProjectSettings.xml`; build scripts, tests and integration documentation |
+| Source and versions | Google-authored GMA Unity 11.3.0 via OpenUPM; official EDM4U archive 1.2.188 already pinned in the repository. Resolved package metadata and dependency XML were inspected locally. |
+| AI role | Codex reviewed restored code, added regression tests and scoped build-state fixes, and drafted documentation. No new art, audio, player-facing prose or external AI media was generated. |
+| Generated output | Linker configuration comes from the GMA plugin; Android dependency blocks/settings come from EDM4U and Unity 6000.3.21f1 templates. These are build support files, not a second SDK installation. |
+| Rights and notices | Preserve the package Apache 2.0 licenses in `Docs/Licenses`; native Android GMA/UMP terms and AndroidX licenses require separate distribution review. See `Docs/ThirdPartyNotices.md`. |
+| Preservation | Initial dirty assets and settings were copied with SHA-256 to ignored local validation evidence before Unity execution. Art metadata whitespace and the existing generated Korean font atlas are excluded from the integration commit. Remembering Rain source and approved narrative remain preserved. |
+| Release decision | Development APK validation only, using Google sample app/rewarded IDs and debug signing. No release AAB, real identifiers, signing secrets or store deployment are authorized by this entry. |
 
 ## New entry template
 

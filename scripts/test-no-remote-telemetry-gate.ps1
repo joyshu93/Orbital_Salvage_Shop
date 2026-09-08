@@ -19,10 +19,29 @@ function Write-FixtureFile {
 function Invoke-Gate {
     param([string]$Mode = 'Repository')
 
-    $output = @(& $pwshPath -NoProfile -File $gatePath -ProjectRoot $fixtureRoot -Mode $Mode 2>&1)
+    $outputPath = Join-Path $fixtureRoot 'gate-output.txt'
+    $errorPath = Join-Path $fixtureRoot 'gate-error.txt'
+    $runnerPath = Join-Path $fixtureRoot 'run-gate.ps1'
+    Write-FixtureFile 'run-gate.ps1' @'
+param([string]$GatePath, [string]$ProjectRoot, [string]$Mode)
+try {
+    & $GatePath -ProjectRoot $ProjectRoot -Mode $Mode 2>&1 |
+        ForEach-Object { [Console]::WriteLine($_.ToString()) }
+    exit 0
+}
+catch {
+    [Console]::Error.WriteLine($_.Exception.Message)
+    exit 1
+}
+'@
+    $process = Start-Process -FilePath $pwshPath -ArgumentList @(
+        '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+        '-File', "`"$runnerPath`"", '-GatePath', "`"$gatePath`"", '-ProjectRoot', "`"$fixtureRoot`"", '-Mode', $Mode
+    ) -RedirectStandardOutput $outputPath -RedirectStandardError $errorPath `
+        -Wait -PassThru -WindowStyle Hidden
     return [pscustomobject]@{
-        ExitCode = $LASTEXITCODE
-        Output = $output -join "`n"
+        ExitCode = $process.ExitCode
+        Output = (Get-Content -LiteralPath $outputPath -Raw) + (Get-Content -LiteralPath $errorPath -Raw)
     }
 }
 

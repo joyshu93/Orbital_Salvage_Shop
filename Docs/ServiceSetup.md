@@ -9,8 +9,8 @@ Samsung Galaxy Store v1 account, identity, financial verification, signing custo
 ## AdMob and UMP
 
 1. Register the Android app in AdMob with package `com.joyshu93.curioclerknightshift`.
-2. The official Google-authored Google Mobile Ads Unity plugin is pinned as `com.google.ads.mobile` 11.3.0 and distributed through the community OpenUPM registry configured in `Packages/manifest.json`; OpenUPM is not a Google-operated registry. Do not also import the official `.unitypackage` or copy plugin files under `Assets`.
-3. After the human package-resolution checkpoint below, open and save `Assets > Google Mobile Ads > Settings` once so the local settings asset exists. Do not commit it or put a live ID in source; the release builder injects the environment-supplied app ID into this ignored asset.
+2. The official Google-authored Google Mobile Ads Unity plugin is pinned as `com.google.ads.mobile` 11.3.0 and distributed through the community OpenUPM registry configured in `Packages/manifest.json`; OpenUPM is not a Google-operated registry. The runtime asmdef explicitly references the plugin's `GoogleMobileAds.Core.dll`, `GoogleMobileAds.dll`, and `GoogleMobileAds.Ump.dll` because it uses `overrideReferences`. Do not also import the official `.unitypackage` or copy plugin files under `Assets`.
+3. After the package-resolution validation below, the QA and release builders create the ignored Google Mobile Ads settings asset through the pinned plugin's own `LoadInstance` path when it is absent. Do not commit it or put a live ID in source; the release builder injects the environment-supplied app ID into this ignored asset.
 4. Create one rewarded unit. During development use Google's Android rewarded test unit, never a live unit.
 5. In AdMob Privacy & messaging, create the required UMP messages.
 6. On every launch, call consent `Update`, then `LoadAndShowConsentFormIfRequired`. Initialize/load ads only when `CanRequestAds()` is true. Expose `ShowPrivacyOptionsForm()` from Settings when required.
@@ -32,9 +32,11 @@ The 2026-08-21 v1 decision excludes Firebase and remote gameplay/crash telemetry
 - Run `scripts/check-no-remote-telemetry.ps1` for every release candidate. A Firebase package, assembly reference, adapter, tgz, SDK symbol, or manifest entry is a release-blocking failure.
 - Defensive `google-services.json` ignore rules remain so credentials cannot be accidentally committed, but a local file must not be added to a v1 build.
 
-## Human package-resolution checkpoint
+## Package-resolution validation
 
 `Packages/packages-lock.json` must be produced by Unity, not edited by hand to impersonate resolution:
+
+The developer authorizes automated Unity validation under `AGENTS.md`. The 2026-09-08 local audit confirmed resolved GMA 11.3.0 and EDM4U 1.2.188 and retained their package licenses in `Docs/Licenses`. The following checks also apply when reproducing the environment:
 
 1. Open the project in Unity `6000.3.21f1`.
 2. Wait for Package Manager and External Dependency Manager to finish.
@@ -55,7 +57,9 @@ $env:CURIO_ANDROID_KEY_ALIAS = '<key alias>'
 $env:CURIO_ANDROID_KEY_PASS = '<key password>'
 ```
 
-The build first verifies the pinned Unity project/editor and the editor-local Android SDK, API 36 platform, build tools, ADB, NDK, and OpenJDK without launching Unity. It then independently runs the Release-mode no-remote-telemetry gate, so invoking the Unity menu or batch entry point cannot bypass the wrapper preflight. The gate child process is hidden and receives no AdMob or signing environment values. The build then validates the live ID shapes, rejects Google's sample IDs, writes the rewarded unit only to the ignored `Assets/Resources/ServiceConfiguration.asset`, and writes the app ID only to the ignored Google Mobile Ads settings asset. Signing values are applied in memory immediately before `BuildPipeline.BuildPlayer` and cleared afterward. The committed build manifest contains exactly the approved public release metadata and the AAB SHA-256.
+The build first verifies the pinned Unity project/editor and either its bundled Android tools or the isolated personal toolchain without launching Unity. The default external locations are `%LOCALAPPDATA%\Android\Sdk` for SDK Platform 36, Build Tools 36.0.0, Command-line Tools 16.0, CMake 3.22.1, and NDK `27.2.12479018`, plus `%USERPROFILE%\UnityPersonal\OpenJDK17` for a Java 17 distribution. Custom locations can be supplied through `CURIO_ANDROID_SDK_ROOT`, `CURIO_ANDROID_NDK_ROOT`, and `CURIO_ANDROID_JDK_ROOT`; all three must be complete when any override is used. No system `PATH`, Unity Hub installation, or company project setting needs to change.
+
+The preflight and Unity builder independently select the same complete toolchain from inherited overrides, bundled tools, or the personal external locations. The wrappers do not synthesize missing overrides or change the caller environment. `ProjectBuilder` temporarily applies those paths through Unity's Android external-tool settings and restores the previous values after success or failure. The build then independently runs the Release-mode no-remote-telemetry gate, so invoking the Unity menu or batch entry point cannot bypass the wrapper preflight. The gate child process is hidden and receives no AdMob or signing environment values. The build validates the live ID shapes, rejects Google's sample IDs, writes the rewarded unit only to the ignored `Assets/Resources/ServiceConfiguration.asset`, and writes the app ID only to the ignored Google Mobile Ads settings asset. Signing values are applied in memory immediately before `BuildPipeline.BuildPlayer` and cleared afterward. The committed build manifest contains exactly the approved public release metadata and the AAB SHA-256.
 
 Run the execution-policy-free diagnostic before preparing any service IDs or signing values:
 
@@ -63,7 +67,17 @@ Run the execution-policy-free diagnostic before preparing any service IDs or sig
 .\scripts\check-android-toolchain.cmd
 ```
 
-`READY` means the exact editor installation has the components needed to attempt an Android build. `BLOCKED` lists every missing component without printing an absolute machine path. On a company-managed machine, do not modify the managed Unity installation; point the scripts at a separate personal Unity `6000.3.21f1` installation with `-UnityPath` when one is available.
+`READY` means the pinned editor plus its bundled or isolated external toolchain has the components needed to attempt an Android build. `BLOCKED` lists every missing component without printing an absolute machine path. On a company-managed machine, keep the managed Unity Hub and editor unchanged; the isolated external SDK, NDK, and JDK are sufficient for this project.
+
+## Zero-credential QA APK
+
+Before creating AdMob units or a release keystore, close the Unity Editor and run:
+
+```powershell
+.\scripts\build-android-dev.cmd
+```
+
+This creates `Builds/Android/CurioClerk-qa.apk` with Unity debug signing, `DEVELOPMENT_BUILD`, and Google's official Android sample app/rewarded identifiers. It does not read live AdMob IDs or release-signing environment variables. The builder temporarily applies the sample identifiers and debug signing, then restores the prior service, signing, app-bundle, and Android-tool settings after success or failure. The APK is for owned-device QA only and must never be submitted to a store.
 
 After Unity has resolved the pinned GMA/EDM4U packages, the human developer downloads the official `bundletool-all-1.18.3.jar` from:
 

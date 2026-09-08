@@ -82,13 +82,14 @@ namespace CurioClerk.Editor
         public static void BuildAndroid()
         {
             ReleaseEnvironment environment = null;
+            IDisposable androidToolchainScope = null;
             try
             {
                 ValidateUnityVersion();
                 RunReleaseNoRemoteTelemetryGate();
                 environment = ReadAndValidateReleaseEnvironment();
                 ConfigureServiceAssets(environment.AdMobAppId, environment.AdMobRewardedId);
-                ConfigureAndroidExternalTools();
+                androidToolchainScope = ConfigureAndroidExternalTools();
                 BuildAll();
                 EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android);
                 EditorUserBuildSettings.buildAppBundle = true;
@@ -124,18 +125,73 @@ namespace CurioClerk.Editor
             }
             finally
             {
-                ClearReleaseSecrets(environment);
+                try
+                {
+                    androidToolchainScope?.Dispose();
+                }
+                finally
+                {
+                    ClearReleaseSecrets(environment);
+                }
+            }
+        }
+
+        [MenuItem("Tools/Curio Clerk/Build Android QA APK")]
+        public static void BuildAndroidDevelopment()
+        {
+            IDisposable androidToolchainScope = null;
+            IDisposable developmentStateScope = null;
+            try
+            {
+                ValidateUnityVersion();
+                RunReleaseNoRemoteTelemetryGate();
+                androidToolchainScope = ConfigureAndroidExternalTools();
+                developmentStateScope = ConfigureAndroidDevelopmentState(BuildAll);
+                EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android);
+
+                var output = Path.GetFullPath(
+                    Path.Combine(Application.dataPath, "../Builds/Android/CurioClerk-qa.apk"));
+                Directory.CreateDirectory(Path.GetDirectoryName(output) ??
+                                          throw new InvalidOperationException("Invalid build output path."));
+
+                var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+                {
+                    scenes = new[] { "Assets/Scenes/Bootstrap.unity", "Assets/Scenes/Main.unity" },
+                    locationPathName = output,
+                    target = BuildTarget.Android,
+                    options = BuildOptions.Development
+                });
+
+                if (report.summary.result != BuildResult.Succeeded)
+                {
+                    throw new BuildFailedException(
+                        $"Android QA build failed with {report.summary.totalErrors} errors.");
+                }
+
+                Debug.Log($"Android QA APK built successfully ({report.summary.totalSize} bytes).");
+            }
+            finally
+            {
+                try
+                {
+                    developmentStateScope?.Dispose();
+                }
+                finally
+                {
+                    androidToolchainScope?.Dispose();
+                }
             }
         }
 
         [MenuItem("Tools/Curio Clerk/Build Android Offline QA APK")]
         public static void BuildAndroidOfflineQa()
         {
+            IDisposable androidToolchainScope = null;
             IDisposable offlineQaState = null;
             try
             {
                 ValidateUnityVersion();
-                ConfigureAndroidExternalTools();
+                androidToolchainScope = ConfigureAndroidExternalTools();
                 ContentValidator.ValidateOrThrow();
                 EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android);
                 offlineQaState = ConfigureOfflineQaBuildState();
@@ -168,7 +224,14 @@ namespace CurioClerk.Editor
             }
             finally
             {
-                offlineQaState?.Dispose();
+                try
+                {
+                    offlineQaState?.Dispose();
+                }
+                finally
+                {
+                    androidToolchainScope?.Dispose();
+                }
             }
         }
 
@@ -334,6 +397,9 @@ namespace CurioClerk.Editor
         private static void ConfigureServiceAssets(string appId, string rewardedId)
         {
             EnsureFolder("Assets/Resources");
+            // Plugin creation saves/imports assets. Complete it before changing the
+            // service asset so that first-time GMA setup cannot discard the unit ID.
+            var mobileAdsSettings = LoadOrCreateGoogleMobileAdsSettings();
             var serviceConfiguration = AssetDatabase.LoadAssetAtPath<ServiceConfiguration>(ServiceConfigurationPath);
             if (serviceConfiguration == null)
             {
@@ -351,12 +417,6 @@ namespace CurioClerk.Editor
             rewardedIdProperty.stringValue = rewardedId;
             serializedServiceConfiguration.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(serviceConfiguration);
-
-            var mobileAdsSettings = AssetDatabase.LoadMainAssetAtPath(GoogleMobileAdsSettingsPath);
-            if (mobileAdsSettings == null)
-            {
-                throw new BuildFailedException("Google Mobile Ads settings are missing. Resolve the package and create its settings asset.");
-            }
 
             var serializedMobileAdsSettings = new SerializedObject(mobileAdsSettings);
             var appIdProperty = serializedMobileAdsSettings.FindProperty("adMobAndroidAppId");
@@ -381,8 +441,7 @@ namespace CurioClerk.Editor
 
             var settingsType = Type.GetType(
                 "GoogleMobileAds.Editor.GoogleMobileAdsSettings, GoogleMobileAds.Editor");
-            var loadInstance = settingsType?.GetMethod(
-                "LoadInstance",
+            var loadInstance = settingsType?.GetMethod("LoadInstance",
                 BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
             if (loadInstance == null)
             {
@@ -460,6 +519,24 @@ namespace CurioClerk.Editor
             }
         }
 
+        private static IDisposable ConfigureAndroidDevelopmentState(Action generateAssets)
+        {
+            var scope = new AndroidDevelopmentStateScope();
+            try
+            {
+                generateAssets();
+                EditorUserBuildSettings.buildAppBundle = false;
+                ClearReleaseSigning();
+                ConfigureServiceAssets(GoogleSampleAppId, GoogleSampleRewardedId);
+                return scope;
+            }
+            catch
+            {
+                scope.Dispose();
+                throw;
+            }
+        }
+
         public static string[] ResolveAndroidToolchainRoots(string currentEditorAndroid)
         {
             var environmentRoots = new[]
@@ -500,7 +577,6 @@ namespace CurioClerk.Editor
             {
                 userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             }
-
             var externalSdk = Path.Combine(localApplicationData, "Android", "Sdk");
             var externalJdk = FindJdkRoot(Path.Combine(userProfile, "UnityPersonal", "OpenJDK17"));
             return ValidateAndroidToolchainRoots(new[]
@@ -511,23 +587,32 @@ namespace CurioClerk.Editor
             });
         }
 
-        private static void ConfigureAndroidExternalTools()
+        private static IDisposable ConfigureAndroidExternalTools()
         {
             var currentEditorAndroid = Path.Combine(Path.GetDirectoryName(EditorApplication.applicationPath) ?? string.Empty,
                 "Data", "PlaybackEngines", "AndroidPlayer");
             var roots = ResolveAndroidToolchainRoots(currentEditorAndroid);
-
             var settingsType = Type.GetType("UnityEditor.Android.AndroidExternalToolsSettings, UnityEditor.Android.Extensions");
             if (settingsType == null)
             {
                 throw new BuildFailedException("AndroidExternalToolsSettings API was not loaded. Verify Android Build Support for Unity 6000.3.21f1.");
             }
 
-            SetStaticProperty(settingsType, "sdkRootPath", roots[0]);
-            SetStaticProperty(settingsType, "ndkRootPath", roots[1]);
-            SetStaticProperty(settingsType, "jdkRootPath", roots[2]);
-            SetStaticProperty(settingsType, "stopGradleDaemonsOnExit", true);
-            Debug.Log("Android external tools configured for the scoped Android build.");
+            var scope = new AndroidExternalToolsScope(settingsType);
+            try
+            {
+                SetStaticProperty(settingsType, "sdkRootPath", roots[0]);
+                SetStaticProperty(settingsType, "ndkRootPath", roots[1]);
+                SetStaticProperty(settingsType, "jdkRootPath", roots[2]);
+                SetStaticProperty(settingsType, "stopGradleDaemonsOnExit", true);
+                Debug.Log("Android external tools configured for the scoped Android build.");
+                return scope;
+            }
+            catch
+            {
+                scope.Dispose();
+                throw;
+            }
         }
 
         private static string[] ValidateAndroidToolchainRoots(string[] roots)
@@ -594,6 +679,184 @@ namespace CurioClerk.Editor
             }
 
             return (bool)property.GetValue(null);
+        }
+
+        private static object GetStaticProperty(Type type, string name)
+        {
+            var property = type.GetProperty(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            if (property == null || !property.CanRead)
+            {
+                throw new BuildFailedException($"Android tooling property '{name}' is unavailable.");
+            }
+
+            return property.GetValue(null);
+        }
+
+        private sealed class AndroidExternalToolsScope : IDisposable
+        {
+            private readonly Type _settingsType;
+            private readonly AndroidRootState[] _roots;
+            private readonly object _stopGradleDaemonsOnExit;
+            private bool _disposed;
+
+            public AndroidExternalToolsScope(Type settingsType)
+            {
+                _settingsType = settingsType;
+                _roots = new[] { "AndroidSDKRoot", "AndroidNDKRoot", "AndroidJavaRoot" }
+                    .Select(name => new AndroidRootState(settingsType.Assembly, name)).ToArray();
+                _stopGradleDaemonsOnExit = GetStaticProperty(settingsType, "stopGradleDaemonsOnExit");
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+                var errors = new List<Exception>();
+                foreach (var root in _roots)
+                {
+                    try { root.Restore(); }
+                    catch (Exception error) { errors.Add(error); }
+                }
+                try { SetStaticProperty(_settingsType, "stopGradleDaemonsOnExit", _stopGradleDaemonsOnExit); }
+                catch (Exception error) { errors.Add(error); }
+                if (errors.Count != 0)
+                    throw new AggregateException("Android tool preferences could not be fully restored.", errors);
+            }
+        }
+
+        // The public path setters disable UseEmbedded and validate the old path. Restore
+        // the pinned editor's raw preferences instead, including remembered missing paths.
+        private sealed class AndroidRootState
+        {
+            private readonly object _root;
+            private readonly PropertyInfo _embeddedProperty, _directoryProperty;
+            private readonly object _embedded, _directory;
+            private readonly string _embeddedKey, _directoryKey;
+            private readonly bool _hadEmbedded, _hadDirectory;
+
+            public AndroidRootState(Assembly assembly, string name)
+            {
+                var type = assembly.GetType("UnityEditor.Android." + name, true);
+                var getInstance = type.GetMethod("GetInstance", BindingFlags.Public | BindingFlags.Static);
+                _root = getInstance?.Invoke(null, null) ??
+                    throw new BuildFailedException("The pinned Android root settings API is unavailable.");
+                _embeddedProperty = Property(type, "UseEmbedded");
+                _directoryProperty = Property(type, "CustomDirectory");
+                _embedded = _embeddedProperty.GetValue(_root);
+                _directory = _directoryProperty.GetValue(_root);
+                _embeddedKey = (string)Property(type, "EmbeddedPreferenceKey").GetValue(_root);
+                _directoryKey = (string)Property(type, "DirectoryPreferenceKey").GetValue(_root);
+                _hadEmbedded = EditorPrefs.HasKey(_embeddedKey);
+                _hadDirectory = EditorPrefs.HasKey(_directoryKey);
+            }
+
+            private static PropertyInfo Property(Type type, string name)
+                => type.GetProperty(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance) ??
+                   throw new BuildFailedException("The pinned Android root preference API is unavailable.");
+
+            public void Restore()
+            {
+                try { _directoryProperty.SetValue(_root, _directory); }
+                finally
+                {
+                    try { _embeddedProperty.SetValue(_root, _embedded); }
+                    finally
+                    {
+                        if (!_hadDirectory) EditorPrefs.DeleteKey(_directoryKey);
+                        if (!_hadEmbedded) EditorPrefs.DeleteKey(_embeddedKey);
+                    }
+                }
+            }
+        }
+
+        private sealed class AndroidDevelopmentStateScope : IDisposable
+        {
+            private readonly bool _buildAppBundle;
+            private readonly bool _useCustomKeystore;
+            private readonly string _keystoreName;
+            private readonly string _keystorePass;
+            private readonly string _keyAliasName;
+            private readonly string _keyAliasPass;
+            private readonly bool _hadServiceConfiguration;
+            private readonly string _rewardedId;
+            private readonly bool _hadMobileAdsSettings;
+            private readonly string _appId;
+            private bool _disposed;
+
+            public AndroidDevelopmentStateScope()
+            {
+                _buildAppBundle = EditorUserBuildSettings.buildAppBundle;
+                _useCustomKeystore = PlayerSettings.Android.useCustomKeystore;
+                _keystoreName = PlayerSettings.Android.keystoreName;
+                _keystorePass = PlayerSettings.Android.keystorePass;
+                _keyAliasName = PlayerSettings.Android.keyaliasName;
+                _keyAliasPass = PlayerSettings.Android.keyaliasPass;
+
+                var serviceConfiguration =
+                    AssetDatabase.LoadAssetAtPath<ServiceConfiguration>(ServiceConfigurationPath);
+                _hadServiceConfiguration = serviceConfiguration != null;
+                _rewardedId = serviceConfiguration == null
+                    ? null
+                    : ReadSerializedString(serviceConfiguration, "_androidRewardedAdUnitId",
+                        "The local service configuration schema is invalid.");
+
+                var mobileAdsSettings = AssetDatabase.LoadMainAssetAtPath(GoogleMobileAdsSettingsPath);
+                _hadMobileAdsSettings = mobileAdsSettings != null;
+                _appId = _hadMobileAdsSettings
+                    ? ReadSerializedString(mobileAdsSettings, "adMobAndroidAppId",
+                        "The Google Mobile Ads settings schema is unsupported.")
+                    : null;
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+                EditorUserBuildSettings.buildAppBundle = _buildAppBundle;
+                PlayerSettings.Android.useCustomKeystore = _useCustomKeystore;
+                PlayerSettings.Android.keystoreName = _keystoreName;
+                PlayerSettings.Android.keystorePass = _keystorePass;
+                PlayerSettings.Android.keyaliasName = _keyAliasName;
+                PlayerSettings.Android.keyaliasPass = _keyAliasPass;
+
+                if (_hadServiceConfiguration)
+                {
+                    var serviceConfiguration =
+                        AssetDatabase.LoadAssetAtPath<ServiceConfiguration>(ServiceConfigurationPath);
+                    if (serviceConfiguration != null)
+                    {
+                        WriteSerializedString(serviceConfiguration, "_androidRewardedAdUnitId", _rewardedId,
+                            "The local service configuration schema is invalid.");
+                    }
+                }
+                else
+                {
+                    AssetDatabase.DeleteAsset(ServiceConfigurationPath);
+                }
+
+                if (_hadMobileAdsSettings)
+                {
+                    var mobileAdsSettings = AssetDatabase.LoadMainAssetAtPath(GoogleMobileAdsSettingsPath);
+                    if (mobileAdsSettings == null)
+                        throw new BuildFailedException("Google Mobile Ads settings disappeared during QA cleanup.");
+                    WriteSerializedString(mobileAdsSettings, "adMobAndroidAppId", _appId,
+                        "The Google Mobile Ads settings schema is unsupported.");
+                }
+                else
+                {
+                    AssetDatabase.DeleteAsset(GoogleMobileAdsSettingsPath);
+                }
+
+                AssetDatabase.SaveAssets();
+            }
         }
 
         private static string ReadSerializedString(UnityEngine.Object target, string propertyName, string error)

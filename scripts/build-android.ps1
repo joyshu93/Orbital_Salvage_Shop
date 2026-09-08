@@ -68,7 +68,8 @@ $arguments = @(
     '-executeMethod', 'CurioClerk.Editor.ProjectBuilder.BuildAndroid',
     '-logFile', "`"$LogPath`""
 )
-$process = Start-Process -FilePath $UnityPath -ArgumentList $arguments -Wait -PassThru -WindowStyle Hidden
+$process = Start-Process -FilePath $UnityPath -ArgumentList $arguments -PassThru -WindowStyle Hidden
+$process.WaitForExit()
 if ($process.ExitCode -ne 0) {
     throw "Unity Android build exited with code $($process.ExitCode). See Logs/AndroidBuild.log."
 }

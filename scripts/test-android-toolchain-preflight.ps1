@@ -8,6 +8,12 @@ $fixtureProject = Join-Path $fixtureRoot 'project'
 $fixtureEditor = Join-Path $fixtureRoot 'Unity\Editor'
 $fixtureUnity = Join-Path $fixtureEditor 'Unity.exe'
 $pwshPath = (Get-Process -Id $PID).Path
+$toolchainEnvironmentNames = @(
+    'CURIO_ANDROID_SDK_ROOT',
+    'CURIO_ANDROID_NDK_ROOT',
+    'CURIO_ANDROID_JDK_ROOT'
+)
+$originalToolchainEnvironment = @{}
 
 function Assert-Contract {
     param(
@@ -21,16 +27,22 @@ function Assert-Contract {
 }
 
 function Invoke-Preflight {
+    param(
+        [string[]]$AdditionalArguments = @('-DisableExternalAutoDiscovery')
+    )
+
     $outputPath = Join-Path $fixtureRoot ("output-$([guid]::NewGuid().ToString('N')).txt")
     $errorPath = Join-Path $fixtureRoot ("error-$([guid]::NewGuid().ToString('N')).txt")
-    $process = Start-Process -FilePath $pwshPath -ArgumentList @(
+    $arguments = @(
         '-NoProfile',
         '-NonInteractive',
         '-ExecutionPolicy', 'Bypass',
         '-File', "`"$preflightScript`"",
         '-ProjectRoot', "`"$fixtureProject`"",
         '-UnityPath', "`"$fixtureUnity`""
-    ) -RedirectStandardOutput $outputPath -RedirectStandardError $errorPath -Wait -PassThru
+    ) + $AdditionalArguments
+    $process = Start-Process -FilePath $pwshPath -ArgumentList $arguments `
+        -RedirectStandardOutput $outputPath -RedirectStandardError $errorPath -Wait -PassThru
 
     $output = Get-Content -LiteralPath $outputPath -Raw
     if (Test-Path -LiteralPath $errorPath) {
@@ -44,6 +56,12 @@ function Invoke-Preflight {
 }
 
 try {
+    foreach ($environmentName in $toolchainEnvironmentNames) {
+        $originalToolchainEnvironment[$environmentName] =
+            [Environment]::GetEnvironmentVariable($environmentName, 'Process')
+        [Environment]::SetEnvironmentVariable($environmentName, $null, 'Process')
+    }
+
     [System.IO.Directory]::CreateDirectory((Join-Path $fixtureProject 'ProjectSettings')) | Out-Null
     [System.IO.Directory]::CreateDirectory($fixtureEditor) | Out-Null
     [System.IO.File]::WriteAllText(
@@ -56,18 +74,94 @@ try {
         'The preflight must fail when Android SDK, NDK, and OpenJDK are absent.'
     Assert-Contract ($missing.Output -match 'Android build toolchain: BLOCKED') `
         'The failure must use a single clear BLOCKED summary.'
-    foreach ($component in @('Android SDK', 'Android NDK', 'OpenJDK')) {
+    foreach ($component in @('Android SDK', 'Target API 36', 'CMake 3.22.1', 'Android NDK', 'OpenJDK')) {
         Assert-Contract ($missing.Output -match [Regex]::Escape("[MISSING] $component")) `
             "The failure must identify the missing $component component."
     }
     Assert-Contract ($missing.Output -notmatch [Regex]::Escape($fixtureRoot)) `
         'The diagnostic output must not disclose an absolute machine path.'
 
+    $externalSdk = Join-Path $fixtureRoot 'external\sdk'
+    $externalNdk = Join-Path $fixtureRoot 'external\ndk\27.2.12479018'
+    $externalJdk = Join-Path $fixtureRoot 'external\jdk17'
+    $externalFiles = @(
+        (Join-Path $externalSdk 'platforms\android-36\android.jar'),
+        (Join-Path $externalSdk 'build-tools\36.0.0\aapt2.exe'),
+        (Join-Path $externalSdk 'platform-tools\adb.exe'),
+        (Join-Path $externalSdk 'cmdline-tools\16.0\bin\sdkmanager.bat'),
+        (Join-Path $externalSdk 'cmake\3.22.1\bin\cmake.exe'),
+        (Join-Path $externalNdk 'ndk-build.cmd'),
+        (Join-Path $externalJdk 'bin\java.exe')
+    )
+    foreach ($file in $externalFiles) {
+        [System.IO.Directory]::CreateDirectory((Split-Path -Parent $file)) | Out-Null
+        [System.IO.File]::WriteAllBytes($file, [byte[]](1))
+    }
+
+    $env:CURIO_ANDROID_SDK_ROOT = $externalSdk
+    $env:CURIO_ANDROID_NDK_ROOT = $externalNdk
+    $env:CURIO_ANDROID_JDK_ROOT = $externalJdk
+    $externalReady = Invoke-Preflight
+    Assert-Contract ($externalReady.ExitCode -eq 0) `
+        "A complete external toolchain supplied through process environment must pass. Output: $($externalReady.Output)"
+    Assert-Contract ($externalReady.Output -match 'Android build toolchain: READY') `
+        'The external toolchain result must use the standard READY summary.'
+    Assert-Contract ($externalReady.Output -notmatch [Regex]::Escape($fixtureRoot)) `
+        'The external toolchain result must not disclose an absolute machine path.'
+
+    foreach ($environmentName in $toolchainEnvironmentNames) {
+        [Environment]::SetEnvironmentVariable($environmentName, $null, 'Process')
+    }
+
+    $autoLocalApplicationData = Join-Path $fixtureRoot 'auto-user\AppData\Local'
+    $autoUserProfile = Join-Path $fixtureRoot 'auto-user'
+    $autoSdk = Join-Path $autoLocalApplicationData 'Android\Sdk'
+    $autoNdk = Join-Path $autoSdk 'ndk\27.2.12479018'
+    $autoJdk = Join-Path $autoUserProfile 'UnityPersonal\OpenJDK17\jdk-17-fixture'
+    foreach ($file in @(
+        (Join-Path $autoSdk 'platforms\android-36\android.jar'),
+        (Join-Path $autoSdk 'build-tools\36.0.0\aapt2.exe'),
+        (Join-Path $autoSdk 'platform-tools\adb.exe'),
+        (Join-Path $autoSdk 'cmdline-tools\16.0\bin\sdkmanager.bat'),
+        (Join-Path $autoSdk 'cmake\3.22.1\bin\cmake.exe'),
+        (Join-Path $autoNdk 'ndk-build.cmd'),
+        (Join-Path $autoJdk 'bin\java.exe')
+    )) {
+        [System.IO.Directory]::CreateDirectory((Split-Path -Parent $file)) | Out-Null
+        [System.IO.File]::WriteAllBytes($file, [byte[]](1))
+    }
+
+    $autoReady = Invoke-Preflight -AdditionalArguments @(
+        '-LocalApplicationDataRoot', "`"$autoLocalApplicationData`"",
+        '-UserProfileRoot', "`"$autoUserProfile`""
+    )
+    Assert-Contract ($autoReady.ExitCode -eq 0 -and
+        $autoReady.Output -match 'Android build toolchain: READY') `
+        "The default external locations must be discoverable from explicit profile roots. Output: $($autoReady.Output)"
+    Assert-Contract ($autoReady.Output -notmatch [Regex]::Escape($fixtureRoot)) `
+        'Automatic external discovery must not disclose an absolute machine path.'
+
     $androidRoot = Join-Path $fixtureEditor 'Data\PlaybackEngines\AndroidPlayer'
+    [System.IO.Directory]::CreateDirectory((Join-Path $androidRoot 'SDK')) | Out-Null
+    $partialBundle = Invoke-Preflight -AdditionalArguments @(
+        '-LocalApplicationDataRoot', "`"$autoLocalApplicationData`"",
+        '-UserProfileRoot', "`"$autoUserProfile`""
+    )
+    Assert-Contract ($partialBundle.ExitCode -eq 0) `
+        'An incomplete bundled SDK must fall back to the complete external toolchain.'
+
+    $env:CURIO_ANDROID_SDK_ROOT = $externalSdk
+    $partialOverrides = Invoke-Preflight
+    Assert-Contract ($partialOverrides.ExitCode -ne 0) `
+        'A partial explicit override must be rejected, not mixed with discovered roots.'
+    $env:CURIO_ANDROID_SDK_ROOT = $null
+
     $requiredFiles = @(
         (Join-Path $androidRoot 'SDK\platforms\android-36\android.jar'),
         (Join-Path $androidRoot 'SDK\build-tools\36.0.0\aapt2.exe'),
         (Join-Path $androidRoot 'SDK\platform-tools\adb.exe'),
+        (Join-Path $androidRoot 'SDK\cmdline-tools\16.0\bin\sdkmanager.bat'),
+        (Join-Path $androidRoot 'SDK\cmake\3.22.1\bin\cmake.exe'),
         (Join-Path $androidRoot 'NDK\ndk-build.cmd'),
         (Join-Path $androidRoot 'OpenJDK\bin\java.exe')
     )
@@ -85,6 +179,18 @@ try {
         'The successful result must confirm the pinned target API platform.'
     Assert-Contract ($ready.Output -notmatch [Regex]::Escape($fixtureRoot)) `
         'The successful diagnostic output must not disclose an absolute machine path.'
+
+    foreach ($requiredMarker in @('cmdline-tools\16.0\bin\sdkmanager.bat', 'build-tools\36.0.0\aapt2.exe')) {
+        $markerPath = Join-Path (Join-Path $androidRoot 'SDK') $requiredMarker
+        $markerBytes = [System.IO.File]::ReadAllBytes($markerPath)
+        Remove-Item -LiteralPath $markerPath
+        try {
+            $incomplete = Invoke-Preflight
+            Assert-Contract ($incomplete.ExitCode -ne 0) `
+                "A toolchain missing $requiredMarker must fail before Unity starts."
+        }
+        finally { [System.IO.File]::WriteAllBytes($markerPath, $markerBytes) }
+    }
 
     $fixtureWrapperRoot = Join-Path $fixtureRoot 'wrapper'
     $fixtureScripts = Join-Path $fixtureWrapperRoot 'scripts'
@@ -121,7 +227,7 @@ try {
     $cmdWrapperPath = Join-Path $projectRoot 'scripts\check-android-toolchain.cmd'
     $cmdOutputPath = Join-Path $fixtureRoot 'cmd-output.txt'
     $cmdErrorPath = Join-Path $fixtureRoot 'cmd-error.txt'
-    $cmdLine = "$cmdWrapperPath -ProjectRoot $fixtureProject -UnityPath $fixtureUnity"
+    $cmdLine = "$cmdWrapperPath -ProjectRoot $fixtureProject -UnityPath $fixtureUnity -DisableExternalAutoDiscovery"
     $cmdProcess = Start-Process -FilePath $env:ComSpec -ArgumentList @('/d', '/c', $cmdLine) `
         -RedirectStandardOutput $cmdOutputPath -RedirectStandardError $cmdErrorPath -Wait -PassThru
     $cmdOutput = (Get-Content -LiteralPath $cmdOutputPath -Raw) +
@@ -143,6 +249,13 @@ try {
         "The release CMD entry point must bypass execution policy and preserve the toolchain failure. Output: $buildCmdOutput"
 }
 finally {
+    foreach ($environmentName in $toolchainEnvironmentNames) {
+        [Environment]::SetEnvironmentVariable(
+            $environmentName,
+            $originalToolchainEnvironment[$environmentName],
+            'Process')
+    }
+
     if (Test-Path -LiteralPath $fixtureRoot) {
         $resolvedFixtureRoot = [System.IO.Path]::GetFullPath($fixtureRoot)
         $temporaryRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())

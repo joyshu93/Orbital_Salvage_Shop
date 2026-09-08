@@ -1,6 +1,6 @@
 # Third-party notices register
 
-Last reviewed: 2026-09-04 (KST)
+Last reviewed: 2026-09-08 (KST)
 
 This is the working inventory for externally sourced material. It is not yet the final in-app notice. Before an RC build, remove unused material, resolve every open item, and make required notices easily viewable in the distributed product or its accompanying materials.
 
@@ -39,11 +39,20 @@ This is the working inventory for externally sourced material. It is not yet the
 
 No Asset Store art, stock art, commercial audio, or third-party gameplay package has been approved or recorded as of the review date.
 
+## Android QA resolution evidence (2026-09-08)
+
+GMA Unity 11.3.0 and EDM4U 1.2.188 are now resolved in Unity's package cache. This supersedes the resolution-pending status in the original intake rows above. They remain one UPM installation each; the generated linker file and Gradle templates under `Assets` do not vendor another plugin copy.
+
+- GMA package fingerprint: `d3eae59ba596620a68df5b2b2ae25fdf6f7eb20c`; upstream revision `1c594958ab28f726feae74fe88734953999f2fba`. Verbatim license: `Docs/Licenses/GoogleMobileAds-11.3.0-LICENSE.md`, SHA-256 `EB5D0724B2AE76A94AE804C44B3D6CFAACA822B7D42907AEFA9256CB93DB6FE0`.
+- EDM4U package fingerprint: `3dd580bc51c69c0bd5fa20bb03ff79da`. Verbatim license: `Docs/Licenses/EDM4U-1.2.188-LICENSE.md`, SHA-256 `F76F18185C04EC80175330572B38E40772DCCDA80F4BF0868E042E4E5B0B58A5`. The original archive hash above remains unchanged.
+- Pinned plugin dependency XML requests Android GMA `com.google.android.gms:play-services-ads:25.4.0`, UMP `com.google.android.ump:user-messaging-platform:4.0.0`, ConstraintLayout 2.1.4, Fragment 1.7.1 and Lifecycle Process 2.6.2. EDM4U's generated Gradle blocks match these requests. Inspect the final Gradle dependency graph for selected transitive versions before RC.
+- The Unity plugin and EDM4U licenses do not cover all native Google libraries. Native GMA/UMP are subject to the [Google Mobile Ads SDK terms](https://developers.google.com/admob/terms); AndroidX source is governed by its [Android open source licenses](https://source.android.com/docs/setup/about/licenses). Final native/transitive notices and human-readable distribution packaging remain RC work.
+- UMP runtime code is already integrated and is included in the ordinary Android QA player. The dedicated `CURIO_OFFLINE_QA` route excludes the Google runtime service implementations. Sample IDs do not disable SDK networking or replace the consent/privacy review.
+
 ## Planned but not installed
 
 The following services are planned. They are not yet part of the repository or player, so their notices, versions, data behavior, and licenses are not claimed as complete:
 
-- User Messaging Platform runtime integration and consent UI;
 - any purchased music, sound effects, illustration, icon, or font package.
 
 Firebase App, Analytics, and Crashlytics were evaluated and then removed under the dated 2026-08-21 v1 no-remote-telemetry decision. They are not included, vendored, resolved, or approved for the v1 player. Reintroduction requires a new privacy decision, notices, declarations, tests, and removal of the repository exclusion gate.

@@ -19,15 +19,71 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(type, Is.Not.Null);
             Assert.That(type.GetMethod("BuildAll", BindingFlags.Public | BindingFlags.Static), Is.Not.Null);
             Assert.That(type.GetMethod("BuildAndroid", BindingFlags.Public | BindingFlags.Static), Is.Not.Null);
+            Assert.That(type.GetMethod("BuildAndroidDevelopment", BindingFlags.Public | BindingFlags.Static),
+                Is.Not.Null);
             Assert.That(type.GetMethod("BuildAndroidOfflineQa", BindingFlags.Public | BindingFlags.Static),
                 Is.Not.Null);
             Assert.That(type.GetMethod("GetOfflineQaGraphicsApis", BindingFlags.Public | BindingFlags.Static),
                 Is.Not.Null);
-            Assert.That(type.GetMethod("ResolveAndroidToolchainRoots", BindingFlags.Public | BindingFlags.Static),
-                Is.Not.Null);
             Assert.That(type.GetMethod("ValidateReleaseEnvironment", BindingFlags.Public | BindingFlags.Static),
                 Is.Not.Null);
             Assert.That(type.GetMethod("ValidateServiceIds", BindingFlags.Public | BindingFlags.Static), Is.Not.Null);
+            Assert.That(type.GetMethod("ResolveAndroidToolchainRoots", BindingFlags.Public | BindingFlags.Static),
+                Is.Not.Null);
+        }
+
+        [Test]
+        public void ProjectBuilder_ResolveAndroidToolchainRoots_UsesCompleteEnvironmentOverrides()
+        {
+            var directory = Path.Combine(Path.GetTempPath(), "curio-android-roots-" + Guid.NewGuid().ToString("N"));
+            var sdk = Path.Combine(directory, "sdk");
+            var ndk = Path.Combine(directory, "ndk", "27.2.12479018");
+            var jdk = Path.Combine(directory, "jdk17");
+            var environmentNames = new[]
+            {
+                "CURIO_ANDROID_SDK_ROOT",
+                "CURIO_ANDROID_NDK_ROOT",
+                "CURIO_ANDROID_JDK_ROOT"
+            };
+            var originalValues = new string[environmentNames.Length];
+
+            try
+            {
+                WriteFixtureFile(Path.Combine(sdk, "platforms", "android-36", "android.jar"));
+                WriteFixtureFile(Path.Combine(sdk, "build-tools", "36.0.0", "aapt2.exe"));
+                WriteFixtureFile(Path.Combine(sdk, "platform-tools", "adb.exe"));
+                WriteFixtureFile(Path.Combine(sdk, "cmdline-tools", "16.0", "bin", "sdkmanager.bat"));
+                WriteFixtureFile(Path.Combine(sdk, "cmake", "3.22.1", "bin", "cmake.exe"));
+                WriteFixtureFile(Path.Combine(ndk, "ndk-build.cmd"));
+                WriteFixtureFile(Path.Combine(jdk, "bin", "java.exe"));
+
+                var values = new[] { sdk, ndk, jdk };
+                for (var index = 0; index < environmentNames.Length; index++)
+                {
+                    originalValues[index] = Environment.GetEnvironmentVariable(environmentNames[index]);
+                    Environment.SetEnvironmentVariable(environmentNames[index], values[index]);
+                }
+
+                var type = FindType("CurioClerk.Editor.ProjectBuilder");
+                Assert.That(type, Is.Not.Null);
+                var method = type.GetMethod("ResolveAndroidToolchainRoots", BindingFlags.Public | BindingFlags.Static);
+                Assert.That(method, Is.Not.Null);
+                var roots = method.Invoke(null, new object[] { Path.Combine(directory, "missing-bundled") }) as string[];
+
+                Assert.That(roots, Is.EqualTo(values));
+            }
+            finally
+            {
+                for (var index = 0; index < environmentNames.Length; index++)
+                {
+                    Environment.SetEnvironmentVariable(environmentNames[index], originalValues[index]);
+                }
+
+                if (Directory.Exists(directory))
+                {
+                    Directory.Delete(directory, true);
+                }
+            }
         }
 
         [Test]
@@ -111,6 +167,8 @@ namespace CurioClerk.Tests.EditMode
             var asmdef = JsonUtility.FromJson<AssemblyDefinitionContract>(File.ReadAllText(asmdefPath));
 
             Assert.That(asmdef.overrideReferences, Is.True);
+            Assert.That(asmdef.precompiledReferences, Is.Unique,
+                "Duplicate explicit references must not reach Unity's assembly compiler.");
             Assert.That(
                 asmdef.precompiledReferences,
                 Does.Contain("GoogleMobileAds.Core.dll"),

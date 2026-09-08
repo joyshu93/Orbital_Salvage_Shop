@@ -50,6 +50,16 @@ Assert-Contract ($projectBuilder -match 'startInfo\.EnvironmentVariables\.Remove
     'The release privacy-gate child process must not inherit release IDs or signing secrets.'
 Assert-Contract ($projectBuilder -match '(?s)ClearReleaseSecrets\(ReleaseEnvironment environment\).*?if \(environment == null\).*?return;') `
     'A Unity-version or privacy-gate failure must not mutate signing settings before release state exists.'
+foreach ($environmentName in @(
+    'CURIO_ANDROID_SDK_ROOT',
+    'CURIO_ANDROID_NDK_ROOT',
+    'CURIO_ANDROID_JDK_ROOT'
+)) {
+    Assert-Contract ($projectBuilder.Contains("Environment.GetEnvironmentVariable(`"$environmentName`")")) `
+        "ProjectBuilder must accept the external Android toolchain variable $environmentName."
+}
+Assert-Contract ($projectBuilder -match '(?s)IDisposable\s+androidToolchainScope\s*=\s*null;.*?androidToolchainScope\s*=\s*ConfigureAndroidExternalTools\(\);.*?finally\s*\{.*?androidToolchainScope\?\.Dispose\(\);') `
+    'BuildAndroid must restore the previous Unity Android tooling settings in its outer finally block.'
 
 $releaseManifest = Get-Content -LiteralPath $releaseManifestPath -Raw
 Assert-Contract ($releaseManifest -match 'unityVersion\s*=\s*ReleaseConfiguration\.UnityVersion') `
@@ -99,6 +109,17 @@ $fakeJavaPath = Join-Path $fixtureBin 'java.cmd'
 $pwshPath = (Get-Process -Id $PID).Path
 $originalPath = $env:PATH
 
+function Invoke-InspectionFixture {
+    $process = Start-Process -FilePath $pwshPath -ArgumentList @(
+        '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+        '-File', "`"$copiedInspectScript`"", '-AabPath', "`"$fakeAabPath`"",
+        '-BundletoolPath', "`"$fakeJarPath`""
+    ) -RedirectStandardOutput (Join-Path $fixtureRoot 'inspection-output.txt') `
+        -RedirectStandardError (Join-Path $fixtureRoot 'inspection-error.txt') `
+        -Wait -PassThru -WindowStyle Hidden
+    return $process.ExitCode
+}
+
 try {
     foreach ($directory in @($fixtureScripts, $fixtureTools, $fixtureBuilds, $fixtureBin)) {
         [System.IO.Directory]::CreateDirectory($directory) | Out-Null
@@ -107,6 +128,7 @@ try {
     [System.IO.File]::Copy($inspectScriptPath, $copiedInspectScript, $true)
     [System.IO.File]::WriteAllBytes($fakeJarPath, [byte[]](1))
 
+    Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $archive = [System.IO.Compression.ZipFile]::Open($fakeAabPath, [System.IO.Compression.ZipArchiveMode]::Create)
     try {
@@ -170,22 +192,19 @@ exit /b 2
 
     [System.IO.File]::WriteAllText($inspectionPath, 'stale PASS report')
     $env:CURIO_FAKE_BUNDLETOOL_VERSION = '1.18.2'
-    & $pwshPath -NoProfile -File $copiedInspectScript -AabPath $fakeAabPath -BundletoolPath $fakeJarPath 2>&1 | Out-Null
-    Assert-Contract ($LASTEXITCODE -ne 0) 'A wrong actual bundletool version must fail.'
+    Assert-Contract ((Invoke-InspectionFixture) -ne 0) 'A wrong actual bundletool version must fail.'
     Assert-Contract (-not (Test-Path -LiteralPath $inspectionPath)) `
         'A wrong bundletool version must remove the stale report and leave no PASS report.'
 
     [System.IO.File]::WriteAllText($inspectionPath, 'stale PASS report')
     $env:CURIO_FAKE_BUNDLETOOL_VERSION = '1.18.3'
     $env:CURIO_FAKE_VALIDATE_EXIT = '1'
-    & $pwshPath -NoProfile -File $copiedInspectScript -AabPath $fakeAabPath -BundletoolPath $fakeJarPath 2>&1 | Out-Null
-    Assert-Contract ($LASTEXITCODE -ne 0) 'A bundletool validation failure must fail.'
+    Assert-Contract ((Invoke-InspectionFixture) -ne 0) 'A bundletool validation failure must fail.'
     Assert-Contract (-not (Test-Path -LiteralPath $inspectionPath)) `
         'A validation failure must remove the stale report and leave no PASS report.'
 
     $env:CURIO_FAKE_VALIDATE_EXIT = '0'
-    & $pwshPath -NoProfile -File $copiedInspectScript -AabPath $fakeAabPath -BundletoolPath $fakeJarPath 2>&1 | Out-Null
-    Assert-Contract ($LASTEXITCODE -eq 0) 'The exact bundletool 1.18.3 fixture must pass.'
+    Assert-Contract ((Invoke-InspectionFixture) -eq 0) 'The exact bundletool 1.18.3 fixture must pass.'
     Assert-Contract (Test-Path -LiteralPath $inspectionPath -PathType Leaf) `
         'A complete successful inspection must atomically publish a report.'
     $report = Get-Content -LiteralPath $inspectionPath -Raw

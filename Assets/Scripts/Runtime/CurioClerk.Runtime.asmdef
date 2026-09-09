@@ -11,6 +11,7 @@
   "overrideReferences": true,
   "precompiledReferences": [
     "GoogleMobileAds.dll",
+    "GoogleMobileAds.Common.dll",
     "GoogleMobileAds.Core.dll",
     "GoogleMobileAds.Ump.dll"
   ],

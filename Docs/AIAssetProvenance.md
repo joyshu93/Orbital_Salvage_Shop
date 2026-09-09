@@ -459,3 +459,7 @@ For store screenshots, also record which in-game assets are visible. A screensho
 - Korea Copyright Commission, AI/copyright guide collection: https://www.copyright.or.kr/notify/notice/view.do?brdctsno=55402
 - Korea Copyright Commission, AI-assisted work registration guide: https://www.copyright.or.kr/information-materials/publication/research-report/view.do?brdctsno=54253
 - OpenAI Terms of Use: https://openai.com/policies/row-terms-of-use/
+
+## TEXT-QA-20260909 — Native SDK validation
+
+Original Codex-authored functional English/Korean labels for the QA-only advertising/consent panel and technical validation report. No new art, audio, story prose, or external assets. Reuses repository TMP fonts. QA labels describe in-memory rewards and SDK state; they are excluded from release players.

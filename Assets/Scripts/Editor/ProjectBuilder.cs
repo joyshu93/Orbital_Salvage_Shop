@@ -159,7 +159,8 @@ namespace CurioClerk.Editor
                     scenes = new[] { "Assets/Scenes/Bootstrap.unity", "Assets/Scenes/Main.unity" },
                     locationPathName = output,
                     target = BuildTarget.Android,
-                    options = BuildOptions.Development
+                    options = BuildOptions.Development,
+                    extraScriptingDefines = new[] { "CURIO_NATIVE_ADS_QA" }
                 });
 
                 if (report.summary.result != BuildResult.Succeeded)

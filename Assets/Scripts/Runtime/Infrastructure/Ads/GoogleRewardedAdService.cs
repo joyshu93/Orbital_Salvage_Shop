@@ -30,10 +30,7 @@ namespace CurioClerk.Infrastructure.Ads
 
         private static void ConfigureMainThreadCallbacks()
         {
-            // Pinned GMA 11.3.0 routes RaiseAction callbacks through Unity's update executor when true.
-#pragma warning disable 0618
-            MobileAds.RaiseAdEventsOnUnityMainThread = true;
-#pragma warning restore 0618
+            GoogleAdsCallbackDispatcher.Initialize();
         }
 
         private sealed class GoogleRewardedAdClient : IRewardedAdClient
@@ -93,6 +90,7 @@ namespace CurioClerk.Infrastructure.Ads
                 _initializationPending = true;
                 MobileAds.Initialize(_ =>
                 {
+                    NativeAdsQaTrace.Record("GMA initialized");
                     _initializationPending = false;
                     _initialized = true;
                     LoadIfNeeded();
@@ -108,16 +106,23 @@ namespace CurioClerk.Infrastructure.Ads
                 }
 
                 var ad = _rewardedAd;
+                NativeAdsQaTrace.Record($"GMA show generation={_loadGeneration}");
                 _activeRequest = completed;
                 _rewardEarned = false;
+                ad.OnAdFullScreenContentOpened += () => NativeAdsQaTrace.Record("GMA fullscreen opened");
                 ad.OnAdFullScreenContentClosed += () => Complete(
                     ad,
                     _rewardEarned ? RewardedAdResult.Earned : RewardedAdResult.Dismissed);
-                ad.OnAdFullScreenContentFailed += _ => Complete(ad, RewardedAdResult.Failed);
+                ad.OnAdFullScreenContentFailed += error =>
+                {
+                    NativeAdsQaTrace.Record($"GMA fullscreen failed {error}");
+                    Complete(ad, RewardedAdResult.Failed);
+                };
                 try
                 {
-                    ad.Show(_ =>
+                    ad.Show(reward =>
                     {
+                        NativeAdsQaTrace.Record($"GMA earned callback amount={reward.Amount} type={reward.Type}");
                         if (ReferenceEquals(_rewardedAd, ad) && _activeRequest != null)
                         {
                             _rewardEarned = true;
@@ -145,10 +150,12 @@ namespace CurioClerk.Infrastructure.Ads
                 DestroyLoadedAd();
                 _loadPending = true;
                 var generation = ++_loadGeneration;
+                NativeAdsQaTrace.Record($"GMA load begin generation={generation}");
                 try
                 {
                     RewardedAd.Load(_rewardedAdUnitId, new AdRequest(), (ad, error) =>
                     {
+                        NativeAdsQaTrace.Record($"GMA load callback generation={generation} success={ad != null && error == null} error={error}");
                         if (generation != _loadGeneration || !_requestAllowed)
                         {
                             ad?.Destroy();
@@ -181,6 +188,7 @@ namespace CurioClerk.Infrastructure.Ads
 
             private void Complete(RewardedAd source, RewardedAdResult result)
             {
+                NativeAdsQaTrace.Record($"GMA terminal={result} current={ReferenceEquals(_rewardedAd, source)} active={_activeRequest != null}");
                 if (!ReferenceEquals(_rewardedAd, source) || _activeRequest == null)
                 {
                     return;

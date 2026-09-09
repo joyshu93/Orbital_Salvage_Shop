@@ -28,6 +28,75 @@ namespace CurioClerk.Tests.PlayMode
 {
     public sealed class GameAppPlayModeTests
     {
+        [UnityTest]
+        public IEnumerator NativeAdsQa_UsesIsolatedCoinsAndReturnsToUnchangedSave()
+        {
+            var ad = new DeferredAdService();
+            var app = CreateApp(ad, new ControllablePrivacyService());
+            yield return null;
+            var before = JsonUtility.ToJson(app.SaveData);
+            var entry = typeof(GameApp).GetMethod("ShowNativeAdsQa");
+            Assert.That(entry, Is.Not.Null, "A QA-only SDK validation screen is required.");
+            entry.Invoke(app, null);
+            yield return null;
+            Assert.That(GameObject.Find("NativeAdsQaScreen"), Is.Not.Null);
+            Assert.That(GameObject.Find("QaShowAdButton"), Is.Not.Null);
+            Assert.That(GameObject.Find("QaEeaConsentButton"), Is.Not.Null);
+            Assert.That(GameObject.Find("QaPrivacyButton"), Is.Not.Null);
+            Assert.That(ObjectText("QaScopeNote"), Does.Contain("QA"));
+            var session = (CurioClerk.Qa.NativeAdsQaSession)typeof(GameApp)
+                .GetField("_nativeQa", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(app);
+            GameObject.Find("QaShowAdButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            ad.Emit(RewardedAdResult.Earned);
+            ad.Emit(RewardedAdResult.Earned);
+            Assert.That(session.Coins, Is.EqualTo(80));
+            Assert.That(session.Awards, Is.EqualTo(1));
+            Assert.That(JsonUtility.ToJson(app.SaveData), Is.EqualTo(before));
+            GameObject.Find("QaReviveSessionButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            GameObject.Find("QaShowAdButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            ad.Emit(RewardedAdResult.Earned);
+            ad.Emit(RewardedAdResult.Earned);
+            Assert.That(session.Hearts, Is.EqualTo(1));
+            Assert.That(session.Awards, Is.EqualTo(1));
+            GameObject.Find("QaCompletedSessionButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            Assert.That(JsonUtility.ToJson(app.SaveData), Is.EqualTo(before));
+            GameObject.Find("QaBackButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return null;
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Menu));
+            Assert.That(JsonUtility.ToJson(app.SaveData), Is.EqualTo(before));
+        }
+
+        [UnityTest]
+        public IEnumerator NativeAdsQa_StartupConsentCannotBeOverlappedByQaConsent()
+        {
+            var privacy = new DeferredConsentPrivacyService();
+            var app = CreateApp(new DeferredAdService(), privacy);
+            yield return null;
+            app.ShowNativeAdsQa();
+            GameObject.Find("QaEeaConsentButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            Assert.That(privacy.RequestCalls, Is.EqualTo(1), "QA must not issue another UMP update during startup.");
+            Assert.That(GameObject.Find("QaConsentButton").GetComponent<UnityEngine.UI.Button>().interactable, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator NativeAdsQa_StartupCompletionEnablesTheAlreadyOpenQaSession()
+        {
+            var privacy = new DeferredConsentPrivacyService();
+            var ad = new DeferredAdService();
+            var app = CreateApp(ad, privacy);
+            yield return null;
+            app.ShowNativeAdsQa();
+            privacy.CanRequestAds = true;
+            privacy.CompleteConsent();
+            yield return new WaitForSecondsRealtime(.3f);
+            GameObject.Find("QaShowAdButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            Assert.That(ad.LastPlacement, Is.EqualTo("shift_complete_double"));
+            ad.Emit(RewardedAdResult.Earned);
+            var session = (CurioClerk.Qa.NativeAdsQaSession)typeof(GameApp)
+                .GetField("_nativeQa", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(app);
+            Assert.That(session.Coins, Is.EqualTo(80));
+        }
+
         [SetUp]
         public void SetUp()
         {
@@ -3939,6 +4008,7 @@ namespace CurioClerk.Tests.PlayMode
         private sealed class DeferredConsentPrivacyService : IPrivacyService
         {
             private Action<bool> _consentCompleted;
+            public int RequestCalls { get; private set; }
 
             public bool CanRequestAds { get; set; }
 
@@ -3946,6 +4016,7 @@ namespace CurioClerk.Tests.PlayMode
 
             public void RequestConsent(Action<bool> completed)
             {
+                RequestCalls++;
                 _consentCompleted = completed;
             }
 

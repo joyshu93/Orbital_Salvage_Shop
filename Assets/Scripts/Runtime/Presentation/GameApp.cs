@@ -25,7 +25,7 @@ using UnityEngine.UI;
 
 namespace CurioClerk.Presentation
 {
-    public sealed class GameApp : MonoBehaviour
+    public sealed partial class GameApp : MonoBehaviour
     {
         private enum TutorialStage
         {
@@ -250,6 +250,9 @@ namespace CurioClerk.Presentation
             CreateButton(page, "CollectionButton", _localizer.Get("collection"), new Vector2(0.08f, 0.27f), new Vector2(0.46f, 0.35f), Wine, Paper, ShowCollection, 24);
             CreateButton(page, "FreeShiftButton", _localizer.Get("free_shift"), new Vector2(0.54f, 0.27f), new Vector2(0.92f, 0.35f), Wine, Paper, OnStartPressed, 24);
             CreateButton(page, "SettingsButton", _localizer.Get("settings"), new Vector2(0.28f, 0.13f), new Vector2(0.72f, 0.21f), Paper, Ink, ShowSettings, 25);
+#if UNITY_ANDROID && DEVELOPMENT_BUILD && CURIO_NATIVE_ADS_QA && !CURIO_OFFLINE_QA
+            CreateButton(page, "NativeAdsQaButton", _localizer.Locale == "ko" ? "QA · 광고 / 동의" : "QA · Ads / Consent", new Vector2(0.28f, 0.035f), new Vector2(0.72f, 0.095f), Wine, Paper, ShowNativeAdsQa, 22);
+#endif
 
             var equipped = ContentCatalog.CreateCosmetics()
                 .FirstOrDefault(item => item.Id == _save.equippedCosmeticId);
@@ -2657,6 +2660,9 @@ namespace CurioClerk.Presentation
                 _adConsentResolved = true;
                 _canRequestAds = canRequestAds && _privacy.CanRequestAds;
                 _adService?.SetRequestPermission(_canRequestAds);
+#if UNITY_EDITOR || (UNITY_ANDROID && DEVELOPMENT_BUILD && CURIO_NATIVE_ADS_QA && !CURIO_OFFLINE_QA)
+                _nativeQa?.SetPermission(_canRequestAds);
+#endif
                 if (_screenRoot != null && ActiveScreen == AppScreen.Results)
                 {
                     ShowResults();

@@ -25,7 +25,7 @@ using UnityEngine.UI;
 
 namespace CurioClerk.Presentation
 {
-    public sealed class GameApp : MonoBehaviour
+    public sealed partial class GameApp : MonoBehaviour
     {
         private enum TutorialStage
         {
@@ -215,7 +215,8 @@ namespace CurioClerk.Presentation
             CreateText(page, "Title", _localizer.Get("title"), 58, Paper, TextAlignmentOptions.Center, new Vector2(0.08f, 0.80f), new Vector2(0.92f, 0.90f), true, TextRole.Display);
             var boardState = _incidentBoardPresenter.Build(_incidents, _incidentProgress, _localizer);
             var board = page.gameObject.AddComponent<IncidentBoardView>();
-            var current = CreateIncidentCard(page, "CurrentIncidentCard", new Vector2(0.08f, 0.48f), new Vector2(0.92f, 0.78f), false);
+            var extraResolvedHeight = Mathf.Max(0, boardState.Resolved.Count - 1) * 0.075f;
+            var current = CreateIncidentCard(page, "CurrentIncidentCard", new Vector2(0.08f, 0.48f + extraResolvedHeight), new Vector2(0.92f, 0.78f), false);
             var resolved = new List<IncidentCardView>();
             for (var index = 0; index < boardState.Resolved.Count; index++)
             {
@@ -223,8 +224,8 @@ namespace CurioClerk.Presentation
                 resolved.Add(CreateIncidentCard(
                     page,
                     "ResolvedIncidentCard_" + id,
-                    new Vector2(0.08f, 0.38f - index * 0.075f),
-                    new Vector2(0.92f, 0.455f - index * 0.075f),
+                    new Vector2(0.08f, 0.38f + extraResolvedHeight - index * 0.075f),
+                    new Vector2(0.92f, 0.455f + extraResolvedHeight - index * 0.075f),
                     true));
             }
             board.Configure(current, resolved);
@@ -249,6 +250,9 @@ namespace CurioClerk.Presentation
             CreateButton(page, "CollectionButton", _localizer.Get("collection"), new Vector2(0.08f, 0.27f), new Vector2(0.46f, 0.35f), Wine, Paper, ShowCollection, 24);
             CreateButton(page, "FreeShiftButton", _localizer.Get("free_shift"), new Vector2(0.54f, 0.27f), new Vector2(0.92f, 0.35f), Wine, Paper, OnStartPressed, 24);
             CreateButton(page, "SettingsButton", _localizer.Get("settings"), new Vector2(0.28f, 0.13f), new Vector2(0.72f, 0.21f), Paper, Ink, ShowSettings, 25);
+#if UNITY_ANDROID && DEVELOPMENT_BUILD && CURIO_NATIVE_ADS_QA && !CURIO_OFFLINE_QA
+            CreateButton(page, "NativeAdsQaButton", _localizer.Locale == "ko" ? "QA · 광고 / 동의" : "QA · Ads / Consent", new Vector2(0.28f, 0.035f), new Vector2(0.72f, 0.095f), Wine, Paper, ShowNativeAdsQa, 22);
+#endif
 
             var equipped = ContentCatalog.CreateCosmetics()
                 .FirstOrDefault(item => item.Id == _save.equippedCosmeticId);
@@ -793,8 +797,10 @@ namespace CurioClerk.Presentation
             {
                 CreateText(page, "DailyChallengeBadge", _localizer.Get("daily_badge", _dailyDateKey), 18, Amber, TextAlignmentOptions.Left, new Vector2(0.03f, 0.945f), new Vector2(0.31f, 0.985f), true);
             }
+            // Later incidents add rules; reserve their reading space without shrinking the type.
+            var extraRuleHeight = _isIncidentShift ? Mathf.Max(0, _activeRules.Count - 4) * 0.035f : 0f;
             var rulesPanelMinimum = _isIncidentShift
-                ? new Vector2(0.045f, 0.73f)
+                ? new Vector2(0.045f, 0.73f - extraRuleHeight)
                 : new Vector2(0.045f, 0.70f);
             var rulesPanel = CreatePanel(page, "RulesPanel", new Color(Wine.r, Wine.g, Wine.b, 0.82f), rulesPanelMinimum, new Vector2(0.955f, 0.84f));
             AddSurfaceChrome(rulesPanel, Amber, 2f, 0.28f);
@@ -806,8 +812,8 @@ namespace CurioClerk.Presentation
             }
 
             _docketProgress = null;
-            var previewBottom = _isIncidentShift ? 0.66f : 0.625f;
-            var previewTop = _isIncidentShift ? 0.72f : 0.69f;
+            var previewBottom = _isIncidentShift ? 0.66f - extraRuleHeight : 0.625f;
+            var previewTop = _isIncidentShift ? 0.72f - extraRuleHeight : 0.69f;
             BuildDocketProgress(page);
 
             _nextIllustrations[0] = CreateArtifactPreview(page, "NextPreviewCard0", "NextPreviewArtwork0", "NextPreview0", Paper, new Vector2(0.05f, previewBottom), new Vector2(0.34f, previewTop), out _nextTexts[0]);
@@ -826,7 +832,7 @@ namespace CurioClerk.Presentation
                 ? new Vector2(0.06f, 0.26f)
                 : new Vector2(0.08f, 0.305f);
             var cardMaximum = _isIncidentShift
-                ? new Vector2(0.94f, 0.65f)
+                ? new Vector2(0.94f, 0.65f - extraRuleHeight)
                 : new Vector2(0.92f, 0.615f);
             var card = CreatePanel(page, "CurrentArtifactCard", Paper, cardMinimum, cardMaximum);
             _artifactCardSurface = card.GetComponent<Image>();
@@ -2341,6 +2347,18 @@ namespace CurioClerk.Presentation
 
         private void BuildIncidentEndingPresentation(RectTransform page)
         {
+            if (_activeIncident.Id != "unmelting-ice")
+            {
+                CreateText(page, "IncidentEndingTitle", _localizer.Get("incident_resolved"), 37, Amber,
+                    TextAlignmentOptions.Center, new Vector2(0.10f, 0.71f), new Vector2(0.90f, 0.78f), true, TextRole.Display);
+                var leadArtwork = CreateArtworkImage(page, "IncidentResultArtifact",
+                    new Vector2(0.27f, 0.54f), new Vector2(0.73f, 0.70f));
+                leadArtwork.sprite = VisualAssetLibrary.Artifact(_incidentStage.LeadArtifactId);
+                CreateText(page, "IncidentEndingHook", _activeIncident.Title.ForLocale(_localizer.Locale), 24, Paper,
+                    TextAlignmentOptions.Center, new Vector2(0.10f, 0.49f), new Vector2(0.90f, 0.54f), true);
+                return;
+            }
+
             var warmth = CreateArtworkImage(page, "IncidentEndingWarmth", Vector2.zero, Vector2.one);
             warmth.preserveAspect = false;
             warmth.color = new Color(0.98f, 0.68f, 0.27f, 0.02f);
@@ -2642,6 +2660,9 @@ namespace CurioClerk.Presentation
                 _adConsentResolved = true;
                 _canRequestAds = canRequestAds && _privacy.CanRequestAds;
                 _adService?.SetRequestPermission(_canRequestAds);
+#if UNITY_EDITOR || (UNITY_ANDROID && DEVELOPMENT_BUILD && CURIO_NATIVE_ADS_QA && !CURIO_OFFLINE_QA)
+                _nativeQa?.SetPermission(_canRequestAds);
+#endif
                 if (_screenRoot != null && ActiveScreen == AppScreen.Results)
                 {
                     ShowResults();
@@ -3210,7 +3231,7 @@ namespace CurioClerk.Presentation
                 var rule = _activeRules[index];
                 if (rule.IsFallback)
                 {
-                    var fallbackLine = $"{index + 1}. {_localizer.Get("fallback")}";
+                    var fallbackLine = $"{index + 1}. {_localizer.Get("fallback", DestinationName(rule.Destination))}";
                     lines.Add(index == highlightedRule ? HighlightRule(fallbackLine) : fallbackLine);
                     continue;
                 }

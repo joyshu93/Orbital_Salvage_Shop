@@ -1,5 +1,7 @@
 # Third-party notices register
 
+Emulator QA note (2026-09-08): validation reports, regression tests, the bilingual fallback-destination label correction, case-specific ending presentation using existing artwork/copy, and local screenshots/logs use the existing project and installed SDKs. No new third-party assets, packages, or licenses are introduced. Local evidence is not store media; existing SDK and art notices continue to apply.
+
 Last reviewed: 2026-09-08 (KST)
 
 This is the working inventory for externally sourced material. It is not yet the final in-app notice. Before an RC build, remove unused material, resolve every open item, and make required notices easily viewable in the distributed product or its accompanying materials.
@@ -84,3 +86,7 @@ Before adding third-party material:
 - SIL Open Font License 1.1: https://openfontlicense.org/open-font-license-official-text/
 - Unity Terms of Service: https://unity.com/legal/terms-of-service
 - Unity legal information: https://unity.com/legal
+
+## Native SDK QA — 2026-09-09
+
+QA-only English/Korean diagnostic labels are original project functional text (TEXT-QA-20260909). No additional third-party asset or dependency is introduced. Existing pinned GMA/UMP and font notices continue to apply. Google sample ad creatives and UMP forms are fetched by their native SDKs, are not project-authored content, and are retained only as local QA evidence.

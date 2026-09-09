@@ -43,6 +43,14 @@ Describe visual characteristics in generic production terms instead: palette, ma
 
 ## Provenance ledger
 
+### QA-ANDROID-20260908 — emulator validation and callback regressions
+
+- Tool/date: Codex, 2026-09-08 KST.
+- Human instruction: validate the existing QA APK on the existing Android emulator, preserve saves and unrelated work, fix evidenced defects with failing tests, and record actual results and limitations.
+- Scope: QA report, local ADB screenshots/logs, and narrowly scoped regression tests and fixes. Rules-panel sizing and request callback isolation are code changes. The existing English/Korean fallback label is corrected to format the rule's actual destination (Otherwise → {0} / 그 외 → {0}); no narrative, art, audio, or third-party assets are added. Screenshots are unaltered captures of the project, not generated art or store media.
+- Evidence is retained locally under ignored `Logs/EmulatorQa-20260908`; existing app data and 22 dirty files were backed up before installation. This work does not grant release approval.
+- Final-scene correction: later cases reuse their existing localized case title, CASE RESOLVED / 사건 해결 label, and authored final-stage lead artwork. The ice/umbrella ending remains specific to Unmelting Ice; no new story copy or visual asset is generated.
+
 ### ART-NARRATIVE-001 — senior night clerk portrait set
 
 | Field | Record |
@@ -451,3 +459,7 @@ For store screenshots, also record which in-game assets are visible. A screensho
 - Korea Copyright Commission, AI/copyright guide collection: https://www.copyright.or.kr/notify/notice/view.do?brdctsno=55402
 - Korea Copyright Commission, AI-assisted work registration guide: https://www.copyright.or.kr/information-materials/publication/research-report/view.do?brdctsno=54253
 - OpenAI Terms of Use: https://openai.com/policies/row-terms-of-use/
+
+## TEXT-QA-20260909 — Native SDK validation
+
+Original Codex-authored functional English/Korean labels for the QA-only advertising/consent panel and technical validation report. No new art, audio, story prose, or external assets. Reuses repository TMP fonts. QA labels describe in-memory rewards and SDK state; they are excluded from release players.

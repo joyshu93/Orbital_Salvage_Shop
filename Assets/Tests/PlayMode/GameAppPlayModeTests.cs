@@ -28,6 +28,77 @@ namespace CurioClerk.Tests.PlayMode
 {
     public sealed class GameAppPlayModeTests
     {
+#if UNITY_EDITOR || (UNITY_ANDROID && DEVELOPMENT_BUILD && CURIO_NATIVE_ADS_QA && !CURIO_OFFLINE_QA)
+        [UnityTest]
+        public IEnumerator NativeAdsQa_UsesIsolatedCoinsAndReturnsToUnchangedSave()
+        {
+            var ad = new DeferredAdService();
+            var app = CreateApp(ad, new ControllablePrivacyService());
+            yield return null;
+            var before = JsonUtility.ToJson(app.SaveData);
+            var entry = typeof(GameApp).GetMethod("ShowNativeAdsQa");
+            Assert.That(entry, Is.Not.Null, "A QA-only SDK validation screen is required.");
+            entry.Invoke(app, null);
+            yield return null;
+            Assert.That(GameObject.Find("NativeAdsQaScreen"), Is.Not.Null);
+            Assert.That(GameObject.Find("QaShowAdButton"), Is.Not.Null);
+            Assert.That(GameObject.Find("QaEeaConsentButton"), Is.Not.Null);
+            Assert.That(GameObject.Find("QaPrivacyButton"), Is.Not.Null);
+            Assert.That(ObjectText("QaScopeNote"), Does.Contain("QA"));
+            var session = (CurioClerk.Qa.NativeAdsQaSession)typeof(GameApp)
+                .GetField("_nativeQa", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(app);
+            GameObject.Find("QaShowAdButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            ad.Emit(RewardedAdResult.Earned);
+            ad.Emit(RewardedAdResult.Earned);
+            Assert.That(session.Coins, Is.EqualTo(80));
+            Assert.That(session.Awards, Is.EqualTo(1));
+            Assert.That(JsonUtility.ToJson(app.SaveData), Is.EqualTo(before));
+            GameObject.Find("QaReviveSessionButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            GameObject.Find("QaShowAdButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            ad.Emit(RewardedAdResult.Earned);
+            ad.Emit(RewardedAdResult.Earned);
+            Assert.That(session.Hearts, Is.EqualTo(1));
+            Assert.That(session.Awards, Is.EqualTo(1));
+            GameObject.Find("QaCompletedSessionButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            Assert.That(JsonUtility.ToJson(app.SaveData), Is.EqualTo(before));
+            GameObject.Find("QaBackButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            yield return null;
+            Assert.That(app.ActiveScreen, Is.EqualTo(AppScreen.Menu));
+            Assert.That(JsonUtility.ToJson(app.SaveData), Is.EqualTo(before));
+        }
+
+        [UnityTest]
+        public IEnumerator NativeAdsQa_StartupConsentCannotBeOverlappedByQaConsent()
+        {
+            var privacy = new DeferredConsentPrivacyService();
+            var app = CreateApp(new DeferredAdService(), privacy);
+            yield return null;
+            app.ShowNativeAdsQa();
+            GameObject.Find("QaEeaConsentButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            Assert.That(privacy.RequestCalls, Is.EqualTo(1), "QA must not issue another UMP update during startup.");
+            Assert.That(GameObject.Find("QaConsentButton").GetComponent<UnityEngine.UI.Button>().interactable, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator NativeAdsQa_StartupCompletionEnablesTheAlreadyOpenQaSession()
+        {
+            var privacy = new DeferredConsentPrivacyService();
+            var ad = new DeferredAdService();
+            var app = CreateApp(ad, privacy);
+            yield return null;
+            app.ShowNativeAdsQa();
+            privacy.CanRequestAds = true;
+            privacy.CompleteConsent();
+            yield return new WaitForSecondsRealtime(.3f);
+            GameObject.Find("QaShowAdButton").GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+            Assert.That(ad.LastPlacement, Is.EqualTo("shift_complete_double"));
+            ad.Emit(RewardedAdResult.Earned);
+            var session = (CurioClerk.Qa.NativeAdsQaSession)typeof(GameApp)
+                .GetField("_nativeQa", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(app);
+            Assert.That(session.Coins, Is.EqualTo(80));
+        }
+#endif
+
         [SetUp]
         public void SetUp()
         {
@@ -389,6 +460,61 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(GameObject.Find("IncidentWaitingState"), Is.Not.Null);
             Assert.That(GameObject.Find("ReplayIncident_remembering-rain"), Is.Not.Null);
             Assert.That(GameObject.Find("ResolvedIncidentCard_remembering-rain"), Is.Not.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator RememberingRain_EnglishEndingShowsTheCompletedCase()
+        {
+            yield return AssertRememberingRainEndingShowsCompletedCase("en", "CASE RESOLVED", "The Remembering Rain");
+        }
+
+        [UnityTest]
+        public IEnumerator Menu_TwoCompletedCasesRemainAboveUtilityButtons()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetRememberingRainProgress(app, 5, true);
+            foreach (var locale in new[] { "en", "ko" })
+            {
+                SetLocale(app, locale);
+                app.ShowMenu();
+                yield return null;
+                foreach (var id in new[] { "unmelting-ice", "remembering-rain" })
+                {
+                    var card = FindRect("ResolvedIncidentCard_" + id);
+                    foreach (var buttonName in new[] { "CollectionButton", "FreeShiftButton", "SettingsButton" })
+                    {
+                        Assert.That(card.anchorMin.y, Is.GreaterThan(FindRect(buttonName).anchorMax.y),
+                            $"{locale}: {id} and its replay action must not be covered by {buttonName}.");
+                    }
+                }
+                Assert.That(FindRect("CurrentIncidentCard").anchorMin.y,
+                    Is.GreaterThan(FindRect("ResolvedIncidentCard_unmelting-ice").anchorMax.y));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator RememberingRain_KoreanEndingShowsTheCompletedCase()
+        {
+            yield return AssertRememberingRainEndingShowsCompletedCase("ko", "사건 해결", "기억하는 비");
+        }
+
+        private static IEnumerator AssertRememberingRainEndingShowsCompletedCase(string locale, string resolved, string title)
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            yield return BeginRememberingRainShift(app, 4, locale);
+            yield return CompleteActiveShift(app);
+
+            Assert.That(ObjectText("IncidentEndingTitle"), Is.EqualTo(resolved));
+            Assert.That(ObjectText("IncidentEndingHook"), Is.EqualTo(title));
+            Assert.That(GameObject.Find("IncidentResultArtifact").GetComponent<UnityEngine.UI.Image>().sprite.name,
+                Is.EqualTo("paper-fish"));
+            Assert.That(GameObject.Find("IncidentEndingIce"), Is.Null);
+            Assert.That(GameObject.Find("IncidentEndingUmbrella"), Is.Null);
+            yield return AdvanceIncidentOutroToNextAction();
+            Assert.That(ObjectText("NextStageButton"),
+                Is.EqualTo(locale == "ko" ? "사건 보드로 돌아가기" : "Return to Incident Board"));
         }
 
         [UnityTest]
@@ -1585,6 +1711,71 @@ namespace CurioClerk.Tests.PlayMode
                 Is.GreaterThan(FindRect("RulesPanel").rect.height));
             Assert.That(FindText("ArtifactName").font.name, Does.StartWith("GowunBatang-Bold"));
             Assert.That(FindText("RuleList").font.name, Does.StartWith("NotoSansKR"));
+        }
+
+        [UnityTest]
+        public IEnumerator EnglishIncidentRules_FitPortraitPanels()
+        {
+            yield return AssertIncidentRulesFitPortraitPanels("en");
+        }
+
+        [UnityTest]
+        public IEnumerator EnglishFallbackRule_ShowsAuthoredDestination()
+        {
+            yield return AssertFallbackRuleShowsAuthoredDestination("en", "Otherwise → VAULT", "Otherwise → REPAIR");
+        }
+
+        [UnityTest]
+        public IEnumerator KoreanFallbackRule_ShowsAuthoredDestination()
+        {
+            yield return AssertFallbackRuleShowsAuthoredDestination("ko", "그 외 → 봉인고", "그 외 → 수리실");
+        }
+
+        private static IEnumerator AssertFallbackRuleShowsAuthoredDestination(string locale, string vaultRule, string repairRule)
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            yield return BeginRememberingRainShift(app, 2, locale);
+            Assert.That(ObjectText("RuleList"), Does.Contain(vaultRule),
+                "Stage 3 fallback artifacts are accepted by the vault, so the visible instruction must name it.");
+            yield return BeginRememberingRainShift(app, 3, locale);
+            Assert.That(ObjectText("RuleList"), Does.Contain(repairRule),
+                "Stage 4 fallback artifacts are accepted by repair, so the visible instruction must name it.");
+        }
+
+        [UnityTest]
+        public IEnumerator KoreanIncidentRules_FitPortraitPanels()
+        {
+            yield return AssertIncidentRulesFitPortraitPanels("ko");
+        }
+
+        private static IEnumerator AssertIncidentRulesFitPortraitPanels(string locale)
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            foreach (var stageIndex in new[] { 1, 4 })
+            {
+                yield return BeginRememberingRainShift(app, stageIndex, locale);
+                var root = FindRect("ScreenRoot");
+                root.anchorMin = root.anchorMax = new Vector2(0.5f, 0.5f);
+                foreach (var height in new[] { 1920f, 2400f })
+                {
+                    root.sizeDelta = new Vector2(1080f, height);
+                    Canvas.ForceUpdateCanvases();
+                    var rules = FindText("RuleList");
+                    rules.ForceMeshUpdate();
+                    Assert.That(rules.preferredHeight, Is.LessThanOrEqualTo(rules.rectTransform.rect.height),
+                        $"{locale} stage {stageIndex + 1}, 1080x{height}: every rule must fit its panel.");
+                    Assert.That(rules.isTextOverflowing, Is.False);
+                    Assert.That(rules.fontSize, Is.GreaterThanOrEqualTo(24f));
+                    Assert.That(FindRect("RulesPanel").anchorMin.y,
+                        Is.GreaterThan(FindRect("NextPreviewCard0").anchorMax.y));
+                    Assert.That(FindRect("NextPreviewCard0").anchorMin.y,
+                        Is.GreaterThan(FindRect("CurrentArtifactCard").anchorMax.y));
+                    Assert.That(FindRect("CurrentArtifactCard").rect.height,
+                        Is.GreaterThan(FindRect("RulesPanel").rect.height));
+                }
+            }
         }
 
         [UnityTest]
@@ -3819,6 +4010,7 @@ namespace CurioClerk.Tests.PlayMode
         private sealed class DeferredConsentPrivacyService : IPrivacyService
         {
             private Action<bool> _consentCompleted;
+            public int RequestCalls { get; private set; }
 
             public bool CanRequestAds { get; set; }
 
@@ -3826,6 +4018,7 @@ namespace CurioClerk.Tests.PlayMode
 
             public void RequestConsent(Action<bool> completed)
             {
+                RequestCalls++;
                 _consentCompleted = completed;
             }
 

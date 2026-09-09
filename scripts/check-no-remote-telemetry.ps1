@@ -136,6 +136,7 @@ $runtimeAsmdef = Read-JsonFile 'Assets/Scripts/Runtime/CurioClerk.Runtime.asmdef
 if ($null -ne $runtimeAsmdef) {
     $allowedPrecompiledReferences = @(
         'GoogleMobileAds.dll',
+        'GoogleMobileAds.Common.dll',
         'GoogleMobileAds.Core.dll',
         'GoogleMobileAds.Ump.dll'
     )

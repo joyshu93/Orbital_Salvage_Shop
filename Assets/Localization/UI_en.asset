@@ -75,7 +75,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1602203660
-    m_Localized: "Otherwise \u2192 Storage"
+    m_Localized: "Otherwise \u2192 {0}"
     m_Metadata:
       m_Items: []
   - m_Id: 1602203661

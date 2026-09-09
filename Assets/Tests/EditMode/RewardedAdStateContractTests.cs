@@ -48,6 +48,42 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(results, Is.EqualTo(new[] { RewardedAdResult.Unavailable }));
         }
 
+        [TestCase(false, RewardedAdResult.Earned)]
+        [TestCase(false, RewardedAdResult.Failed)]
+        [TestCase(true, RewardedAdResult.Earned)]
+        public void PreviousRequestCallback_CannotCompleteTheNextRequest(
+            bool withdrawPermission, RewardedAdResult lateResult)
+        {
+            var fake = new FakeRewardedClient();
+            var service = ReadyService(fake);
+            var first = new List<RewardedAdResult>();
+            var second = new List<RewardedAdResult>();
+            service.ShowRewarded("shift_complete_double", first.Add);
+            var previousCallback = fake.PendingCallback;
+            if (withdrawPermission)
+            {
+                service.SetRequestPermission(false);
+                service.SetRequestPermission(true);
+            }
+            else
+            {
+                fake.Emit(RewardedAdResult.Dismissed);
+            }
+
+            service.ShowRewarded("shift_failed_revive", second.Add);
+            previousCallback(lateResult);
+
+            Assert.That(second, Is.Empty,
+                "An earlier ad must never reward or terminate a later ad request.");
+            Assert.That(first, Is.EqualTo(new[]
+            {
+                withdrawPermission ? RewardedAdResult.Unavailable : RewardedAdResult.Dismissed
+            }));
+            fake.Emit(RewardedAdResult.Earned);
+            fake.Emit(RewardedAdResult.Earned);
+            Assert.That(second, Is.EqualTo(new[] { RewardedAdResult.Earned }));
+        }
+
         [Test]
         public void InvalidPlacement_ReturnsUnavailableWithoutShowing()
         {
@@ -179,6 +215,8 @@ namespace CurioClerk.Tests.EditMode
             public int LoadRequests { get; private set; }
 
             public int ShowRequests { get; private set; }
+
+            public Action<RewardedAdResult> PendingCallback => _completed;
 
             public void SetRequestPermission(bool allowed)
             {

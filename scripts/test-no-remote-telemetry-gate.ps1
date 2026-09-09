@@ -60,6 +60,7 @@ try {
   "name": "CurioClerk.Runtime",
   "precompiledReferences": [
     "GoogleMobileAds.dll",
+    "GoogleMobileAds.Common.dll",
     "GoogleMobileAds.Core.dll",
     "GoogleMobileAds.Ump.dll"
   ]

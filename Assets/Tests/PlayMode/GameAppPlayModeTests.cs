@@ -28,6 +28,73 @@ namespace CurioClerk.Tests.PlayMode
 {
     public sealed class GameAppPlayModeTests
     {
+        [UnityTest]
+        public IEnumerator UnsafeHold_ShowsWhyItWaitsAndPreservesThePlayableCurioInBothLanguages()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            foreach (var locale in new[] { "en", "ko" })
+            {
+                SetIncidentProgress(app, 0, false);
+                SetLocale(app, locale);
+                app.StartIncident();
+                yield return AdvanceNarrativeToShift(app);
+                app.ChooseDestination(Destination.Repair);
+                yield return WaitForFilingTransition(app);
+                app.HoldCurrent();
+                yield return WaitForFilingTransition(app);
+                app.ChooseDestination(Destination.Storage);
+                yield return WaitForFilingTransition(app);
+
+                var hold = GameObject.Find("HoldButton").GetComponent<UnityEngine.UI.Button>();
+                Assert.That(hold.interactable, Is.False,
+                    "Hold must not offer a swap that makes both filing and another Hold impossible.");
+                Assert.That(ObjectText("SortFeedback"), Does.Contain(locale == "ko" ? "현재 물건" : "current curio"));
+                app.HoldCurrent();
+                Assert.That(((ShiftSession)Session(app)).CurrentArtifact.Id, Is.EqualTo("mossy-watch"));
+                Assert.That(((ShiftSession)Session(app)).Hearts, Is.EqualTo(3));
+                app.ChooseDestination(Destination.Vault);
+                yield return WaitForFilingTransition(app);
+                Assert.That(((ShiftSession)Session(app)).CompletedDockets, Is.EqualTo(1));
+                Assert.That(hold.interactable, Is.True);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator CurrentIncidentCard_SeparatesArtworkFromBilingualTitleAndClue()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            foreach (var locale in new[] { "en", "ko" })
+            foreach (var completed in new[] { 0, 1, 2 })
+            {
+                SetIncidentProgress(app, 0, completed > 0);
+                if (completed > 1) app.SaveData.completedIncidentIds.Add("remembering-rain");
+                SetLocale(app, locale);
+                app.ShowMenu();
+                var root = FindRect("ScreenRoot");
+                root.anchorMin = root.anchorMax = new Vector2(0.5f, 0.5f);
+                foreach (var height in new[] { 1920f, 2400f })
+                {
+                    // Match the production 1080x1920 CanvasScaler's equal width/height weighting.
+                    var scale = Mathf.Sqrt(height / 1920f);
+                    root.sizeDelta = new Vector2(1080f / scale, height / scale);
+                    Canvas.ForceUpdateCanvases();
+                    var card = GameObject.Find("CurrentIncidentCard").transform;
+                    var artwork = card.Find("IncidentArtwork").GetComponent<RectTransform>();
+                    foreach (var name in new[] { "IncidentTitle", "IncidentClue" })
+                    {
+                        var label = card.Find(name).GetComponent<TMP_Text>();
+                        label.ForceMeshUpdate();
+                        Assert.That(label.rectTransform.anchorMin.x, Is.GreaterThan(artwork.anchorMax.x),
+                            $"{locale}, completed={completed}: {name} must have its own readable column.");
+                        Assert.That(label.isTextOverflowing, Is.False, $"{locale}, {height}: {name}");
+                        Assert.That(label.preferredHeight, Is.LessThanOrEqualTo(label.rectTransform.rect.height + 1f));
+                    }
+                }
+            }
+        }
+
 #if UNITY_EDITOR || (UNITY_ANDROID && DEVELOPMENT_BUILD && CURIO_NATIVE_ADS_QA && !CURIO_OFFLINE_QA)
         [UnityTest]
         public IEnumerator NativeAdsQa_UsesIsolatedCoinsAndReturnsToUnchangedSave()
@@ -1835,6 +1902,7 @@ namespace CurioClerk.Tests.PlayMode
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService(), feedback);
             yield return null;
             SetEnglishLocale(app);
+            app.SaveData.completedShifts = 0;
             app.StartNewShift(4242);
 
             var first = ExpectedDestination(app);

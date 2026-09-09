@@ -13,6 +13,42 @@ namespace CurioClerk.Tests.EditMode
 {
     public sealed class IncidentContentContractTests
     {
+        [Test]
+        public void AuthoredIncidents_AllReachableFilingAndHoldChoicesRetainAPathForward()
+        {
+            foreach (var incident in new[] { FirstIncidentCatalog.Create(), SecondIncidentCatalog.Create() })
+            foreach (var stage in incident.Stages)
+            {
+                var plan = stage.CreateShiftPlan(ArtifactDictionary());
+                var routes = new Queue<string>();
+                var visited = new HashSet<string>();
+                routes.Enqueue(string.Empty);
+                while (routes.Count > 0)
+                {
+                    var route = routes.Dequeue();
+                    var session = new ShiftSession(plan.Queue, plan.Rules);
+                    foreach (var step in route)
+                    {
+                        if (step == 'H') Assert.That(session.Hold(), Is.True);
+                        else session.Sort((Destination)(step - '0'));
+                    }
+                    if (session.State == ShiftState.Completed) continue;
+                    var key = string.Join("|", session.CurrentArtifact.Id, session.HeldArtifact?.Id,
+                        session.CorrectSorts, session.CompletedDockets, session.CanHold,
+                        session.CanSort(Destination.Repair), session.CanSort(Destination.Storage),
+                        session.CanSort(Destination.Vault),
+                        string.Join(",", Enumerable.Range(0, 12).Select(i => session.PeekNextArtifact(i)?.Id)));
+                    if (!visited.Add(key)) continue;
+                    var expected = session.CurrentResolution.Destination;
+                    var canFile = session.CanSort(expected);
+                    Assert.That(canFile || session.CanHold, Is.True,
+                        $"{stage.Id}: legal route '{route}' must not leave only heart-losing inputs.");
+                    if (canFile) routes.Enqueue(route + (char)('0' + (int)expected));
+                    if (session.CanHold) routes.Enqueue(route + 'H');
+                }
+            }
+        }
+
         private static readonly StageExpectation[] ExpectedStages =
         {
             new StageExpectation(

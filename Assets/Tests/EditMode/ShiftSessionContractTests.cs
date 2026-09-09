@@ -9,6 +9,42 @@ namespace CurioClerk.Tests.EditMode
     public sealed class ShiftSessionContractTests
     {
         [Test]
+        public void Hold_DoesNotSwapAStampedCurioBackOntoTheDesk()
+        {
+            var session = CreateSession("RRSVRSVRSVSV");
+            session.Sort(Destination.Repair);
+            session.Hold();
+            session.Sort(Destination.Storage);
+
+            Assert.That(session.CanHold, Is.False,
+                "Returning the held Repair curio would strand it behind a used seal and the Hold cooldown.");
+            Assert.That(session.Hold(), Is.False);
+            Assert.That(session.CurrentArtifact.Id, Is.EqualTo("artifact-3"));
+            Assert.That(session.HeldArtifact.Id, Is.EqualTo("artifact-1"));
+            Assert.That(session.Hearts, Is.EqualTo(3));
+            Assert.That(session.CurrentDocket.StampCount, Is.EqualTo(2));
+            Assert.That(session.Sort(Destination.Vault).DidCompleteDocket, Is.True);
+            Assert.That(session.CanHold, Is.True, "A fresh docket must reopen the held curio's desk.");
+            Assert.That(session.Hold(), Is.True);
+            Assert.That(session.Sort(Destination.Repair).Disposition, Is.EqualTo(SortDisposition.Correct));
+        }
+
+        [Test]
+        public void Hold_DoesNotExposeAStampedQueueHeadWhenTheSlotIsEmpty()
+        {
+            var session = CreateSession("RSRVSV");
+            session.Sort(Destination.Repair);
+
+            Assert.That(session.CanHold, Is.False);
+            Assert.That(session.Hold(), Is.False);
+            Assert.That(session.CurrentArtifact.Id, Is.EqualTo("artifact-1"));
+            Assert.That(session.HeldArtifact, Is.Null);
+            Assert.That(session.Hearts, Is.EqualTo(3));
+            Assert.That(session.Sort(Destination.Storage).Disposition, Is.EqualTo(SortDisposition.Correct));
+            Assert.That(session.CanHold, Is.True, "The blocked Repair curio can now be held to reach Vault.");
+        }
+
+        [Test]
         public void DuplicateCorrectDestination_IsBlockedWithoutAdvancingOrChargingAHeart()
         {
             var session = CreateReferenceSession();

@@ -1901,10 +1901,11 @@ namespace CurioClerk.Presentation
         private void RefreshDecisionMessage()
         {
             var holdRequired = _session?.ShouldSuggestHold == true;
-            _sortFeedbackPanel.color = holdRequired ? Wine : Color.clear;
-            _statusText.text = holdRequired
-                ? IncidentHoldExplanation()
-                : _localizer.Get("decision_prompt");
+            var holdBlocked = _session?.HoldBlockedByStamp == true;
+            _sortFeedbackPanel.color = holdRequired || holdBlocked ? Wine : Color.clear;
+            _statusText.text = holdBlocked
+                ? _localizer.Get("hold_blocked_by_stamp")
+                : holdRequired ? IncidentHoldExplanation() : _localizer.Get("decision_prompt");
             _statusText.color = Paper;
             SetHoldPresentation(holdRequired);
             for (var index = 0; index < _destinationHighlights.Length; index++)
@@ -1916,10 +1917,12 @@ namespace CurioClerk.Presentation
         private void SetHoldPresentation(bool required)
         {
             _holdButtonLabel.text = _localizer.Get(
-                _isIncidentShift
+                _session?.HoldBlockedByStamp == true
+                    ? "hold_wait_for_seal"
+                    : _isIncidentShift
                     ? "incident_hold_protect"
                     : required ? "hold_for_next" : "hold");
-            _holdHighlight.enabled = required;
+            _holdHighlight.enabled = required && _session?.CanHold == true;
         }
 
         private string IncidentHoldExplanation()
@@ -2926,11 +2929,17 @@ namespace CurioClerk.Presentation
                 string.Empty,
                 compact ? 25 : 46,
                 Paper,
-                compact ? TextAlignmentOptions.Left : TextAlignmentOptions.Center,
-                compact ? new Vector2(0.25f, 0.20f) : new Vector2(0.08f, 0.43f),
-                compact ? new Vector2(0.66f, 0.58f) : new Vector2(0.92f, 0.78f),
+                TextAlignmentOptions.Left,
+                compact ? new Vector2(0.25f, 0.20f) : new Vector2(0.38f, 0.46f),
+                compact ? new Vector2(0.66f, 0.58f) : new Vector2(0.94f, 0.78f),
                 true,
                 TextRole.Display);
+            if (!compact)
+            {
+                title.enableAutoSizing = true;
+                title.fontSizeMin = 34f;
+                title.fontSizeMax = 46f;
+            }
             var clue = CreateText(
                 card,
                 "IncidentClue",
@@ -2938,8 +2947,8 @@ namespace CurioClerk.Presentation
                 compact ? 14 : 20,
                 Paper,
                 TextAlignmentOptions.Center,
-                compact ? new Vector2(0.25f, 0.08f) : new Vector2(0.08f, 0.25f),
-                compact ? new Vector2(0.66f, 0.22f) : new Vector2(0.92f, 0.42f));
+                compact ? new Vector2(0.25f, 0.08f) : new Vector2(0.38f, 0.25f),
+                compact ? new Vector2(0.66f, 0.22f) : new Vector2(0.94f, 0.44f));
             var actionName = compact ? "ReplayIncident_" + name.Substring("ResolvedIncidentCard_".Length) : "IncidentButton";
             var button = CreateButton(
                 card,

@@ -463,3 +463,7 @@ For store screenshots, also record which in-game assets are visible. A screensho
 ## TEXT-QA-20260909 — Native SDK validation
 
 Original Codex-authored functional English/Korean labels for the QA-only advertising/consent panel and technical validation report. No new art, audio, story prose, or external assets. Reuses repository TMP fonts. QA labels describe in-memory rewards and SDK state; they are excluded from release players.
+
+## TEXT-PLAYTEST-20260909 — Internal playtest integration
+
+Recorded before authoring: Codex will supply original English/Korean functional Hold-availability guidance, the internal integration QA report, and a bilingual human playtest guide with an anonymous response form. The request is to make the existing two-incident build ready for internal human testing without changing story identity or adding incidents. Existing project art and licensed fonts are reused; no new artwork, audio, external asset, or story prose is introduced. The board layout separates existing artwork from existing titles. Technical agent validation is not human playtest evidence. Human assessment of comprehension, enjoyment, and release suitability remains pending; these materials are for internal testing, not store submission.

@@ -28,6 +28,7 @@ namespace CurioClerk.Tests.PlayMode
 {
     public sealed class GameAppPlayModeTests
     {
+#if UNITY_EDITOR || (UNITY_ANDROID && DEVELOPMENT_BUILD && CURIO_NATIVE_ADS_QA && !CURIO_OFFLINE_QA)
         [UnityTest]
         public IEnumerator NativeAdsQa_UsesIsolatedCoinsAndReturnsToUnchangedSave()
         {
@@ -96,6 +97,7 @@ namespace CurioClerk.Tests.PlayMode
                 .GetField("_nativeQa", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(app);
             Assert.That(session.Coins, Is.EqualTo(80));
         }
+#endif
 
         [SetUp]
         public void SetUp()

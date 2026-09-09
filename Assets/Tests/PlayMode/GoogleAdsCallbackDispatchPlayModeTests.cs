@@ -1,3 +1,4 @@
+#if UNITY_EDITOR || (UNITY_ANDROID && !CURIO_OFFLINE_QA)
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -85,3 +86,4 @@ namespace CurioClerk.Tests.PlayMode
         }
     }
 }
+#endif

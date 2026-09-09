@@ -76,7 +76,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1602203660
-    m_Localized: "\uADF8 \uC678 \u2192 \uBCF4\uAD00\uC2E4"
+    m_Localized: "\uADF8 \uC678 \u2192 {0}"
     m_Metadata:
       m_Items: []
   - m_Id: 1602203661

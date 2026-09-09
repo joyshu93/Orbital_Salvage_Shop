@@ -16,6 +16,7 @@ namespace CurioClerk.Infrastructure.Ads
         private bool _requestAllowed;
         private bool _requestActive;
         private Action<RewardedAdResult> _activeRequest;
+        private long _requestVersion;
 
         public RewardedAdService(IRewardedAdClient client, string rewardedAdUnitId)
         {
@@ -79,18 +80,24 @@ namespace CurioClerk.Infrastructure.Ads
 
             _requestActive = true;
             _activeRequest = completed;
+            var requestVersion = ++_requestVersion;
             try
             {
-                _client.Show(CompleteActiveRequest);
+                _client.Show(result => CompleteActiveRequest(requestVersion, result));
             }
             catch
             {
-                CompleteActiveRequest(RewardedAdResult.Failed);
+                CompleteActiveRequest(requestVersion, RewardedAdResult.Failed);
             }
         }
 
-        private void CompleteActiveRequest(RewardedAdResult result)
+        private void CompleteActiveRequest(long requestVersion, RewardedAdResult result)
         {
+            if (requestVersion != _requestVersion)
+            {
+                return;
+            }
+
             var completed = TakeActiveRequest();
             if (completed == null)
             {

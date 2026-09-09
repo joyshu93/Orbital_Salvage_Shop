@@ -1,5 +1,7 @@
 # Third-party notices register
 
+Emulator QA note (2026-09-08): validation reports, regression tests, the bilingual fallback-destination label correction, case-specific ending presentation using existing artwork/copy, and local screenshots/logs use the existing project and installed SDKs. No new third-party assets, packages, or licenses are introduced. Local evidence is not store media; existing SDK and art notices continue to apply.
+
 Last reviewed: 2026-09-08 (KST)
 
 This is the working inventory for externally sourced material. It is not yet the final in-app notice. Before an RC build, remove unused material, resolve every open item, and make required notices easily viewable in the distributed product or its accompanying materials.

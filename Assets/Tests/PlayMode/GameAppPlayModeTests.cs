@@ -392,6 +392,61 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator RememberingRain_EnglishEndingShowsTheCompletedCase()
+        {
+            yield return AssertRememberingRainEndingShowsCompletedCase("en", "CASE RESOLVED", "The Remembering Rain");
+        }
+
+        [UnityTest]
+        public IEnumerator Menu_TwoCompletedCasesRemainAboveUtilityButtons()
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            SetRememberingRainProgress(app, 5, true);
+            foreach (var locale in new[] { "en", "ko" })
+            {
+                SetLocale(app, locale);
+                app.ShowMenu();
+                yield return null;
+                foreach (var id in new[] { "unmelting-ice", "remembering-rain" })
+                {
+                    var card = FindRect("ResolvedIncidentCard_" + id);
+                    foreach (var buttonName in new[] { "CollectionButton", "FreeShiftButton", "SettingsButton" })
+                    {
+                        Assert.That(card.anchorMin.y, Is.GreaterThan(FindRect(buttonName).anchorMax.y),
+                            $"{locale}: {id} and its replay action must not be covered by {buttonName}.");
+                    }
+                }
+                Assert.That(FindRect("CurrentIncidentCard").anchorMin.y,
+                    Is.GreaterThan(FindRect("ResolvedIncidentCard_unmelting-ice").anchorMax.y));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator RememberingRain_KoreanEndingShowsTheCompletedCase()
+        {
+            yield return AssertRememberingRainEndingShowsCompletedCase("ko", "사건 해결", "기억하는 비");
+        }
+
+        private static IEnumerator AssertRememberingRainEndingShowsCompletedCase(string locale, string resolved, string title)
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            yield return BeginRememberingRainShift(app, 4, locale);
+            yield return CompleteActiveShift(app);
+
+            Assert.That(ObjectText("IncidentEndingTitle"), Is.EqualTo(resolved));
+            Assert.That(ObjectText("IncidentEndingHook"), Is.EqualTo(title));
+            Assert.That(GameObject.Find("IncidentResultArtifact").GetComponent<UnityEngine.UI.Image>().sprite.name,
+                Is.EqualTo("paper-fish"));
+            Assert.That(GameObject.Find("IncidentEndingIce"), Is.Null);
+            Assert.That(GameObject.Find("IncidentEndingUmbrella"), Is.Null);
+            yield return AdvanceIncidentOutroToNextAction();
+            Assert.That(ObjectText("NextStageButton"),
+                Is.EqualTo(locale == "ko" ? "사건 보드로 돌아가기" : "Return to Incident Board"));
+        }
+
+        [UnityTest]
         public IEnumerator RememberingRain_KoreanAcceptanceRouteConnectsAllFiveShifts()
         {
             var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
@@ -1585,6 +1640,71 @@ namespace CurioClerk.Tests.PlayMode
                 Is.GreaterThan(FindRect("RulesPanel").rect.height));
             Assert.That(FindText("ArtifactName").font.name, Does.StartWith("GowunBatang-Bold"));
             Assert.That(FindText("RuleList").font.name, Does.StartWith("NotoSansKR"));
+        }
+
+        [UnityTest]
+        public IEnumerator EnglishIncidentRules_FitPortraitPanels()
+        {
+            yield return AssertIncidentRulesFitPortraitPanels("en");
+        }
+
+        [UnityTest]
+        public IEnumerator EnglishFallbackRule_ShowsAuthoredDestination()
+        {
+            yield return AssertFallbackRuleShowsAuthoredDestination("en", "Otherwise → VAULT", "Otherwise → REPAIR");
+        }
+
+        [UnityTest]
+        public IEnumerator KoreanFallbackRule_ShowsAuthoredDestination()
+        {
+            yield return AssertFallbackRuleShowsAuthoredDestination("ko", "그 외 → 봉인고", "그 외 → 수리실");
+        }
+
+        private static IEnumerator AssertFallbackRuleShowsAuthoredDestination(string locale, string vaultRule, string repairRule)
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            yield return BeginRememberingRainShift(app, 2, locale);
+            Assert.That(ObjectText("RuleList"), Does.Contain(vaultRule),
+                "Stage 3 fallback artifacts are accepted by the vault, so the visible instruction must name it.");
+            yield return BeginRememberingRainShift(app, 3, locale);
+            Assert.That(ObjectText("RuleList"), Does.Contain(repairRule),
+                "Stage 4 fallback artifacts are accepted by repair, so the visible instruction must name it.");
+        }
+
+        [UnityTest]
+        public IEnumerator KoreanIncidentRules_FitPortraitPanels()
+        {
+            yield return AssertIncidentRulesFitPortraitPanels("ko");
+        }
+
+        private static IEnumerator AssertIncidentRulesFitPortraitPanels(string locale)
+        {
+            var app = CreateApp(new DeferredAdService(), new ControllablePrivacyService());
+            yield return null;
+            foreach (var stageIndex in new[] { 1, 4 })
+            {
+                yield return BeginRememberingRainShift(app, stageIndex, locale);
+                var root = FindRect("ScreenRoot");
+                root.anchorMin = root.anchorMax = new Vector2(0.5f, 0.5f);
+                foreach (var height in new[] { 1920f, 2400f })
+                {
+                    root.sizeDelta = new Vector2(1080f, height);
+                    Canvas.ForceUpdateCanvases();
+                    var rules = FindText("RuleList");
+                    rules.ForceMeshUpdate();
+                    Assert.That(rules.preferredHeight, Is.LessThanOrEqualTo(rules.rectTransform.rect.height),
+                        $"{locale} stage {stageIndex + 1}, 1080x{height}: every rule must fit its panel.");
+                    Assert.That(rules.isTextOverflowing, Is.False);
+                    Assert.That(rules.fontSize, Is.GreaterThanOrEqualTo(24f));
+                    Assert.That(FindRect("RulesPanel").anchorMin.y,
+                        Is.GreaterThan(FindRect("NextPreviewCard0").anchorMax.y));
+                    Assert.That(FindRect("NextPreviewCard0").anchorMin.y,
+                        Is.GreaterThan(FindRect("CurrentArtifactCard").anchorMax.y));
+                    Assert.That(FindRect("CurrentArtifactCard").rect.height,
+                        Is.GreaterThan(FindRect("RulesPanel").rect.height));
+                }
+            }
         }
 
         [UnityTest]

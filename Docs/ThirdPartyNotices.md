@@ -90,3 +90,7 @@ Before adding third-party material:
 ## Native SDK QA — 2026-09-09
 
 QA-only English/Korean diagnostic labels are original project functional text (TEXT-QA-20260909). No additional third-party asset or dependency is introduced. Existing pinned GMA/UMP and font notices continue to apply. Google sample ad creatives and UMP forms are fetched by their native SDKs, are not project-authored content, and are retained only as local QA evidence.
+
+## Internal playtest integration — 2026-09-09
+
+TEXT-PLAYTEST-20260909 covers original functional English/Korean Hold guidance and internal QA/playtest documents. Layout adjustments reuse existing art and fonts. No new third-party dependency, media, or license is added; existing artwork, font, GMA/UMP, and package notices remain applicable. Captured device screens and SDK logs are local validation evidence and are not bundled as new game assets.

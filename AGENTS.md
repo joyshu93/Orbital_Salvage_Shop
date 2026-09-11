@@ -21,6 +21,8 @@ Read this file before changing the project.
 
 ## Workflow
 
+For gameplay, narrative, UI and playtest work, read [Docs/QualityReview.md](Docs/QualityReview.md) before implementation. Run its player-experience review as well as technical validation before handoff. Proactively find and fix reproducible issues within the user's authorized scope; do not wait for the user to enumerate defects or decide routine design details. Test counts and a source-aware playthrough alone do not establish game quality. Keep unresolved findings, their evidence and next acceptance checks in that document. These instructions apply during authorized work; they do not start or authorize scheduled background runs.
+
 1. Write a failing EditMode or PlayMode test for behavior changes.
 2. Make the smallest implementation that passes it.
 3. Run `scripts/test-unity.ps1` for in-scope validation and diagnose its output.

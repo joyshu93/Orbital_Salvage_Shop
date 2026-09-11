@@ -1,6 +1,6 @@
 # 손으로 다루는 사건 전환 QA — 2026-09-11
 
-상태: **Candidate 2 기술 QA 완료, 사용자용 에뮬레이터 인계 준비 중**. EditMode **226/226**, PlayMode **127/127**, 조건별 컴파일 **15/15**를 통과했고, 최종 APK에서 영어 열 장면·28개 행동과 한국어 첫 장면을 직접 확인했다. 저장·기존 작업 보존도 확인했다. 소스 커밋은 `5f3857be83b38f683ebd8e01de387b3834505fc2`다. 아래의 아트 표현·실기기·광고 미검증 범위와 사람의 재미 평가는 별도로 남는다.
+상태: **Candidate 2 기술 QA와 사용자용 설치·한국어 시작 화면 확인 완료**. EditMode **226/226**, PlayMode **127/127**, 조건별 컴파일 **15/15**를 통과했고, 최종 APK에서 영어 열 장면·28개 행동과 한국어 첫 장면을 직접 확인했다. 저장·기존 작업 보존도 확인했다. 소스 커밋은 `5f3857be83b38f683ebd8e01de387b3834505fc2`다. 아래의 아트 표현·실기기·광고 미검증 범위와 사람의 재미 평가는 별도로 남는다.
 
 ## Candidate 2 현재 검증 결과
 
@@ -13,7 +13,7 @@
 | 소스·APK·QA 설치 | 빌드 exit **0**, 소스·생성물 대조와 APK 검사 통과. 전용 QA AVD 업데이트 후 기존 저장 해시 유지. 아래 산출물 표 참조. |
 | Candidate 2 직접 실행 | 영어 두 사건 **10장면·28행동** 완료, 한국어 첫 장면 완료. 재시작·다시보기 저장 유지, 앱 예외 패턴 0개. |
 | 기존 작업·개인 저장 보존 | 원래 파일 **2,283개 변경 0**, 보존 상태 플래그 모두 true. 기존 개인 AVD 저장 재확인 해시 동일. |
-| 사용자 인계 | **PENDING** — 별도 사용자용 에뮬레이터 부팅 중, 설치·시작 화면 확인 대기. |
+| 사용자 인계 | 별도 사용자 AVD에 최종 APK 설치·해시 확인. 한국어 **첫 출근** 화면과 진행 기록 0개를 확인하고 게임 입력을 멈췄다. |
 
 최종 XML과 정상 종료 로그는 원래 프로젝트의 `Logs/ImmersiveCases-20260911/Candidate2/final-*.xml` 및 `final-AndroidDevelopmentBuild.log`로 보관했다. 산출물·설치 근거는 같은 폴더의 `apk-verification.json`, `source-to-apk.json`, `qa-install-verification.json`, `build-summary.json`이다.
 
@@ -98,7 +98,7 @@ Candidate 1 실제 화면 일곱 장을 검토해 텍스트 잘림·버튼 겹�
 | 완료 후 누런 사각형이 남고 새 물건에도 이전 자국이 붙음 | 완료·물건 교체 시 효과 정리. Editor 회귀 통과. |
 | Rain04에서 카드·봉투를 다루지만 화면에는 상자만 보임 | 열린 편지 칸에 카드·봉투와 작성·포장 상태 표시. Editor 회귀 통과. |
 
-별도로 한영 문구 세 문제를 수정했다. 물건을 보호하는 시계 목표, 편지를 찢지 않는 종이 물고기 목표를 자연스럽게 바꾸고, 실제 그림에 없는 상자 그림 참조를 편지의 답장 지시 문장으로 교체했다. Candidate 2 영어 전체 경로와 한국어 첫 장면을 확인했으며, 한국어 전체 재실행 결과와 혼합하지 않는다.
+별도로 한영 문구 세 문제를 수정했다. 물건을 보호하는 시계 목표, 편지를 찢지 않는 종이 물고기 목표를 자연스럽게 바꾸고, 실제 그림에 없는 상자 그림 참조를 편지의 답장 지시 문장으로 교체했다. Candidate 2의 영어 전체 경로·한국어 첫 장면과 스크린샷 43장을 확인했다. 이는 한국어 전체 재실행이나 모든 행동의 그림 일관성 통과를 뜻하지 않으며, 남은 아트 한계는 아래에 기록했다.
 
 ## Candidate 2 APK와 소스·QA 설치
 
@@ -111,7 +111,7 @@ Candidate 1 실제 화면 일곱 장을 검토해 텍스트 잘림·버튼 겹�
 | 개발 서명 / 샘플 광고 ID | `Android Debug`. App ID `ca-app-pub-3940256099942544~3347511713`, 보상형 ID `ca-app-pub-3940256099942544/5224354917`는 Google 공식 샘플이다. SDK dex의 all-zero 예시 문자열은 별도로 허용·기록했다. |
 | 빌드 정상 종료·입력 안정성 | `build-summary.json`: **exit 0**, 빌드 중 소스 해시 동일. **03:50:55–04:02:15 UTC**. APK 확인 **05:20:16 UTC**, 최종 소스 연결 확인 **05:30:14 UTC**. |
 | QA 설치·기존 저장 보존 | **05:20:42 UTC**, `CurioClerk_WorkbenchQA_20260911`, `127.0.0.1:5597`, Android user **0**에 위 해시의 APK 업데이트. `savePreserved=true`, 저장 SHA-256 `3C0F6E95B9C7E7ED9215B0EA5C0C1AD95A25A780815036D346C62B265CB020C9` 유지. |
-| Candidate 2 전체 실제 실행 / 사용자 플레이 환경 | 영어 열 장면 기술 QA 완료. 별도 사용자 플레이 환경의 설치·시작 화면 인계만 **PENDING**. |
+| Candidate 2 전체 실제 실행 / 사용자 플레이 환경 | 영어 열 장면 기술 QA 완료. 별도 사용자 AVD 설치·한국어 첫 출근 화면 확인 완료. |
 
 소스 대조는 기록된 C# 및 `Assets/Localization`, `Assets/Resources/Content`, `Assets/Scenes` 범위의 동일성 검증이다. atlas PNG·임포터 설정은 별도로 확인했으며, 임시 Editor 저장 보호 스크립트와 검증 중 생긴 폰트 캐시·기존 아트 임포터·일부 설정의 보관·복원은 `validation-cleanup.json`에 기록했다. 비트 단위 재빌드 검증은 수행하지 않았다.
 
@@ -149,19 +149,23 @@ Candidate 1은 `Builds/Android/Candidate1-20260911/CurioClerk-qa.apk`에 보관�
 
 이는 소스와 해결 경로를 아는 에이전트의 기술 QA다. 이전 분류 방식 APK의 완료 기록이나 사람의 자연 플레이 평가를 대신하지 않는다.
 
-## 사용자 전달과 변경 검토 — PENDING
+## 사용자 전달과 변경 검토
 
 | 항목 | 최종 증거 |
 |---|---|
-| 사용자 재플레이용 별도 AVD / 실행 화면 | **PENDING** — 새 개인 플레이용 `127.0.0.1:5599` 환경 부팅 중. 설치·시작 화면은 아직 확인하지 않았다. |
+| 사용자 재플레이용 별도 AVD / 실행 화면 | `CurioClerk_HandsOnPlay_20260911`, 콘솔 `5598` / ADB `127.0.0.1:5599`, 서버 `5062`, Android user **0**. **05:55:30 UTC** 최종 APK 신규 설치·해시 일치 확인. **05:59:52 UTC** 한국어 첫 출근 화면, 진행 단계 **0**, 기록·완료 사건·발견·coins **0**, 동의 두 항목 **false**, Wi-Fi·mobile data **0** 확인. |
 | 기존 개인 AVD 진행 유지 | 확인 완료 — `127.0.0.1:5595` 저장 SHA-256 `F8447C4B7E3B9E19EA8DDB100844FF97AB06DD1E3D55CB9D27DD728E0A3D2B5A` 재확인, 이전 값과 동일. |
-| 제품·QA 커밋 / 변경 PR / 최종 검토 | **PENDING** — PR #4/#5는 미병합 기준, 새 PR 결과는 아직 없음 |
+| 제품·QA 커밋 / 변경 PR | [제품 소스 `5f3857b`](https://github.com/joyshu93/Orbital_Salvage_Shop/commit/5f3857be83b38f683ebd8e01de387b3834505fc2), [통합 QA·안내서 `68ec4e7`](https://github.com/joyshu93/Orbital_Salvage_Shop/commit/68ec4e7cc896a7011130c5ad5e9e32458296db42), [개선 PR #6](https://github.com/joyshu93/Orbital_Salvage_Shop/pull/6). PR #5 브랜치 위에 쌓은 개선이며 생성 확인 시 열림·미병합, 본문·base/head 일치를 확인했다. 이번 인계 기록 보완은 문서만 변경하며 APK 제품 소스는 동일하다. |
+
+로컬 증거는 `Candidate2/personal-install-verification.json`, `Candidate2/personal-handoff.json`, `personal-ready-ko.png`다. 새 저장 SHA-256은 `9BF349B1B4B1AA44ED64B621CF5DF49BC8CFB4C28EC75D5653E75B8DBB84BEDE`다. 이 값은 인계 당시의 기록이며 이후 사용자 플레이로 달라질 수 있다. 새 AVD는 화면이 있는 창으로 실행했고, APK 설치·언어 설정 뒤 사건은 시작하지 않았다. 마지막 Windows 창 선택 중 사용자가 Esc로 Computer Use를 중단해 추가 화면 제어를 멈췄다. Android 시작 화면은 확인했지만 Windows 최상단 창 확인이나 사람의 실제 플레이 결과로 확대하지 않는다.
+
+첫 부팅 지연과 System UI ANR은 게임 설치 전에 발생한 에뮬레이터 시스템 문제다. 부팅 완료 후 설치했고 Android 전체 화면 안내를 닫은 뒤 게임 메뉴 진입을 확인했다. 이 과정을 실제 휴대전화 시작 성능 통과로 기록하지 않는다.
 
 ## 보존과 미검증 경계
 
 시작 보존 기록 `preservation-baseline.json`은 01:17:17 UTC에 작성됐다. 최종 `preserve.ps1 -Verify`와 `preservation-latest.json`에서 기록 파일 **2,283개 중 변경 0개**, 원래 dirty **22개**의 status 동일, index 비어 있음, 기존 브랜치·stash·worktree 보존, story·이전 QA worktree status 동일을 모두 확인했다. 새 소스·생성물은 전용 worktree에서 작업했다. APK와 원시 로그·스크린샷·저장은 로컬 증거로 남긴다.
 
-개인 AVD의 유효한 `personal-external-save-before-update.json`은 `activeIncidentId=unmelting-ice`, `activeIncidentStage=2`, 완료 단계 기록 2개와 사건 완료 0개를 담고 있다. 개인 AVD의 게임 진행에는 입력하지 않았으며 별도 플레이 AVD로 전달할 예정이다. `personal-save-before-update.json`은 내부 파일 경로를 찾지 못한 명령 오류이므로 저장 JSON 증거로 사용하지 않는다.
+개인 AVD의 유효한 `personal-external-save-before-update.json`은 `activeIncidentId=unmelting-ice`, `activeIncidentStage=2`, 완료 단계 기록 2개와 사건 완료 0개를 담고 있다. 기존 개인 AVD의 게임 진행에는 입력하지 않았으며 새 플레이 AVD로 전달했다. `personal-internal-path-probe.txt`는 내부 파일 경로를 찾지 못한 명령 오류이므로 저장 JSON 증거로 사용하지 않는다.
 
 사용자가 이전 버전을 실제로 플레이하며 전달한 피드백은 이번 방향 변경의 입력이다. 새 버전에서 역할·행동을 이해하는지, 다음 물건이 궁금한지, 반복이 지루한지, 소연과 선임의 사연이 전달되는지는 **사람 재플레이 전까지 미검증**이다. 에이전트의 소스 기반 QA는 이 평가를 대신하지 않는다. 사람 모집·외부 메시지 발송·응답 수집은 하지 않았다.
 

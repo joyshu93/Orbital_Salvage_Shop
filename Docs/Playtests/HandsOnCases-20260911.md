@@ -1,18 +1,22 @@
 # Curio Clerk 직접 조사 플레이테스트 / Hands-on case playtest
 
-**준비 상태: Candidate 2 기술 QA 완료, 사용자용 에뮬레이터 인계 준비 중.** EditMode 226/226, PlayMode 127/127, 조건별 컴파일 15/15를 통과했습니다. 최종 APK에서 영어 열 장면·28개 행동과 한국어 첫 장면, 저장·다시보기를 확인했습니다. 별도 사용자 환경은 부팅 중이며 설치·시작 화면 확인 후 인계합니다. 이는 에이전트 검증이며 사람의 재미 평가는 아직 수집하지 않았습니다.
+**준비 상태: Candidate 2 기술 QA와 사용자용 설치·한국어 시작 화면 확인 완료.** EditMode 226/226, PlayMode 127/127, 조건별 컴파일 15/15를 통과했습니다. 최종 APK에서 영어 열 장면·28개 행동과 한국어 첫 장면, 저장·다시보기를 확인했습니다. 별도 사용자 환경에 최종 APK를 설치하고 한국어 **첫 출근** 화면에서 게임 입력을 멈췄습니다. 이는 에이전트 검증이며 사람의 재미 평가는 아직 수집하지 않았습니다.
 
-**Preparation status: Candidate 2 technical QA is complete; the personal emulator handoff is being prepared.** EditMode passed 226/226, PlayMode 127/127 and the compile matrix 15/15. The final APK was exercised through all ten English scenes and 28 actions, the first Korean scene, saves and replay. The separate player emulator is booting; installation and the starting screen must be checked before handoff. These are agent checks; no human enjoyment assessment has been collected.
+**Preparation status: Candidate 2 technical QA, personal installation and Korean starting-screen checks are complete.** EditMode passed 226/226, PlayMode 127/127 and the compile matrix 15/15. The final APK was exercised through all ten English scenes and 28 actions, the first Korean scene, saves and replay. It was installed in a separate player environment and left at **첫 출근 / Start your first night** with no case started. These are agent checks; no human enjoyment assessment has been collected.
 
 | 인계 항목 / Handoff item | 상태 / Value |
 | --- | --- |
 | 검증한 APK / Verified APK | `C:\Users\D-\Documents\Codex_Project\Orbital_Salvage_Shop\.worktrees\immersive-cases-20260911\Builds\Android\CurioClerk-qa.apk` · 105,247,879 bytes |
 | 소스 커밋 / Source commit | `5f3857be83b38f683ebd8e01de387b3834505fc2` — 기록한 빌드 입력과 동일성 확인 / Matched to the recorded build inputs |
 | APK SHA-256 | `5D8DF9FA112C539ED66685A6ADA395CBC23F18C641AD5530421B6783A0039831` |
-| QA 기록 / QA record | [후보별 검증 현황 / Candidate validation record](../QA/HandsOnCases-20260911.md) — 최종 인계 대기 / Final handoff pending |
+| QA 기록 / QA record | [후보별 검증 현황 / Candidate validation record](../QA/HandsOnCases-20260911.md) · [개선 PR #6 / Improvement PR #6](https://github.com/joyshu93/Orbital_Salvage_Shop/pull/6) |
 | QA 설치 환경 / QA installation | `CurioClerk_WorkbenchQA_20260911`, Android user 0 — 업데이트 후 기존 저장 유지 확인 / Existing save preserved after update |
-| 사용자 플레이 환경 / Player environment | 별도 에뮬레이터와 시작 화면 확인 대기 / Separate emulator and starting screen pending verification |
+| 사용자 플레이 환경 / Player environment | `CurioClerk_HandsOnPlay_20260911:5598` — 최종 APK 해시 일치, 한국어 첫 출근, 진행 기록 0개 / Matching final APK hash, Korean starting screen, no progress records |
 | 사람 평가 / Human evaluation | 이 새 버전의 사람 평가 아직 수집하지 않음 / No human evaluation of this new version collected |
+
+인계 확인은 2026-09-11 05:59:52 UTC 기준입니다. 새 에뮬레이터 창에서 **첫 출근**으로 시작합니다. 마지막 Windows 창 선택 중 Esc로 화면 제어가 중단되어 추가 조작을 멈췄습니다. Android 게임 화면은 확인했으나 Windows 최상단 표시 확인은 마치지 않았습니다. 이후 사용자가 진행한 상태는 이 기록에 포함하지 않습니다.
+
+The handoff check was recorded at 2026-09-11 05:59:52 UTC. Choose **첫 출근 / Start your first night** in the new emulator window. Esc stopped Computer Use during final Windows window selection, and no further control was performed. The Android game screen was verified; Windows foreground placement was not. Later player progress is outside this record.
 
 ## 플레이어에게 먼저 보여줄 안내 / Read this first
 

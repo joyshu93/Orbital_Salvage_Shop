@@ -9,6 +9,7 @@ namespace CurioClerk.Presentation
         Collection = 4,
         Settings = 5,
         Narrative = 6,
-        IncidentResults = 7
+        IncidentResults = 7,
+        Workbench = 8
     }
 }

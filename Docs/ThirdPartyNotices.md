@@ -51,6 +51,16 @@ GMA Unity 11.3.0 and EDM4U 1.2.188 are now resolved in Unity's package cache. Th
 - The Unity plugin and EDM4U licenses do not cover all native Google libraries. Native GMA/UMP are subject to the [Google Mobile Ads SDK terms](https://developers.google.com/admob/terms); AndroidX source is governed by its [Android open source licenses](https://source.android.com/docs/setup/about/licenses). Final native/transitive notices and human-readable distribution packaging remain RC work.
 - UMP runtime code is already integrated and is included in the ordinary Android QA player. The dedicated `CURIO_OFFLINE_QA` route excludes the Google runtime service implementations. Sample IDs do not disable SDK networking or replace the consent/privacy review.
 
+## Hands-on investigations — 2026-09-11
+
+TEXT-WORKBENCH-20260911 adds original project English/Korean functional and narrative copy. Existing licensed fonts, project artwork, portraits, sound and pinned SDK notices continue to apply. No new external assets, packages, copied dialogue or third-party content are introduced.
+
+The 2026-09-11 native readability follow-up adds an explicit bilingual case/stage counter, original procedural physical-tool symbols, and reply-card/envelope shapes with writing/packing states; it strengthens existing cream-panel text and clears temporary intervention marks from resolved objects. It uses the existing licensed font and uGUI drawing code; no third-party asset, package, audio, bitmap or additional attribution is introduced.
+
+## Workbench object state atlas — 2026-09-11
+
+`ART-WORKBENCH-20260911` records the original ImageGen atlas at `Assets/Resources/Art/Workbench/workbench-states.png`, derived exclusively from four existing project-owned generated curio sprites. It adds visible repaired/opened/unfolded object states for internal play. No external image, copied character, third-party style reference, font, package, or audio is introduced by this atlas. No additional third-party attribution has been identified; the original sprite provenance, existing font/SDK notices, and prototype-only release limitations remain applicable. Exact prompts, selected output hash, reference hashes, opaque-background and runtime-slicing limitations are recorded in `Docs/AIAssetProvenance.md`.
+
 ## Planned but not installed
 
 The following services are planned. They are not yet part of the repository or player, so their notices, versions, data behavior, and licenses are not claimed as complete:
@@ -94,3 +104,11 @@ QA-only English/Korean diagnostic labels are original project functional text (T
 ## Internal playtest integration — 2026-09-09
 
 TEXT-PLAYTEST-20260909 covers original functional English/Korean Hold guidance and internal QA/playtest documents. Layout adjustments reuse existing art and fonts. No new third-party dependency, media, or license is added; existing artwork, font, GMA/UMP, and package notices remain applicable. Captured device screens and SDK logs are local validation evidence and are not bundled as new game assets.
+
+## Workbench Candidate 2 copy corrections — 2026-09-11
+
+The Candidate 2 correction entry under `TEXT-WORKBENCH-20260911` covers original English/Korean objective wording and a letter clue aligned with the existing artwork. It introduces no external prose, image, audio, dependency, or new attribution requirement. Existing project asset and font notices remain applicable.
+
+## Optional workbench hints — 2026-09-11
+
+Recorded before authoring: `TEXT-WORKBENCH-HINT-20260911` covers the original English/Korean hint button labels and formatted contextual help requested after the user became stuck in the second ice scene. It reuses the project's existing action hints and tool/target labels, fonts and UI shapes. No new artwork, audio, third-party prose, package, dependency or attribution requirement is introduced. Existing project asset and font notices remain applicable.

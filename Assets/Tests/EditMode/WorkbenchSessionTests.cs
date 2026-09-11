@@ -147,6 +147,62 @@ namespace CurioClerk.Tests.EditMode
         }
 
         [Test]
+        public void GetNextStep_SkipsUnavailableDependenciesInUnorderedDefinitions()
+        {
+            var read = new WorkbenchStep("read", "lens", "page", requiredSteps: new[] { "dry", "brush" });
+            var dry = new WorkbenchStep("dry", "cloth", "page");
+            var brush = new WorkbenchStep("brush", "brush", "page");
+            var session = new WorkbenchSession(new WorkbenchPuzzle("letter", new[] { "page" },
+                new[] { read, dry, brush }));
+
+            Assert.That(session.GetNextStep(), Is.SameAs(dry));
+            session.Apply("cloth", "page");
+            Assert.That(session.GetNextStep(), Is.SameAs(brush),
+                "Every dependency must be complete before suggesting the earlier read step.");
+            session.Apply("brush", "page");
+            Assert.That(session.GetNextStep(), Is.SameAs(read));
+        }
+
+        [Test]
+        public void GetNextStep_IncludesUnobservedActionsWithoutChangingFactsOrProgress()
+        {
+            var puzzle = IcePuzzle();
+            var session = new WorkbenchSession(puzzle);
+
+            Assert.That(session.GetNextStep(), Is.SameAs(puzzle.Steps[0]));
+            Assert.That(session.GetNextStep(), Is.SameAs(puzzle.Steps[0]));
+            Assert.That(session.ObservedTargets, Is.Empty);
+            Assert.That(session.CompletedSteps, Is.Empty);
+            Assert.That(session.Apply("cloth", "crack").Kind, Is.EqualTo(WorkbenchOutcomeKind.NeedsObservation));
+
+            session.Observe("crack");
+            session.Apply("cloth", "crack");
+            Assert.That(session.GetNextStep(), Is.SameAs(puzzle.Steps[1]));
+            Assert.That(session.GetNextStep(), Is.SameAs(puzzle.Steps[1]));
+            Assert.That(session.ObservedTargets, Is.EquivalentTo(new[] { "crack" }));
+            Assert.That(session.CompletedSteps, Is.EquivalentTo(new[] { "seal-cold" }));
+            Assert.That(session.IsComplete, Is.False);
+        }
+
+        [Test]
+        public void GetNextStep_ReturnsNullAfterTheLastActionCompletes()
+        {
+            var puzzle = IcePuzzle();
+            var session = new WorkbenchSession(puzzle);
+            session.Observe("crack");
+            session.Observe("drawer");
+            session.Apply("cloth", "crack");
+
+            Assert.That(session.GetNextStep(), Is.SameAs(puzzle.Steps[1]));
+            session.Apply("handle", "drawer");
+            Assert.That(session.IsComplete, Is.True);
+            Assert.That(session.GetNextStep(), Is.Null);
+            Assert.That(session.GetNextStep(), Is.Null);
+            Assert.That(session.ObservedTargets, Is.EquivalentTo(new[] { "crack", "drawer" }));
+            Assert.That(session.CompletedSteps, Is.EquivalentTo(new[] { "seal-cold", "open-drawer" }));
+        }
+
+        [Test]
         public void NewSession_StartsFreshWithoutChangingACompletedSession()
         {
             var puzzle = IcePuzzle();

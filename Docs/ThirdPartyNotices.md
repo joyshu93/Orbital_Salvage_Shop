@@ -108,3 +108,7 @@ TEXT-PLAYTEST-20260909 covers original functional English/Korean Hold guidance a
 ## Workbench Candidate 2 copy corrections — 2026-09-11
 
 The Candidate 2 correction entry under `TEXT-WORKBENCH-20260911` covers original English/Korean objective wording and a letter clue aligned with the existing artwork. It introduces no external prose, image, audio, dependency, or new attribution requirement. Existing project asset and font notices remain applicable.
+
+## Optional workbench hints — 2026-09-11
+
+Recorded before authoring: `TEXT-WORKBENCH-HINT-20260911` covers the original English/Korean hint button labels and formatted contextual help requested after the user became stuck in the second ice scene. It reuses the project's existing action hints and tool/target labels, fonts and UI shapes. No new artwork, audio, third-party prose, package, dependency or attribution requirement is introduced. Existing project asset and font notices remain applicable.

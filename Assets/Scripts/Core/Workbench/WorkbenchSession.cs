@@ -188,6 +188,34 @@ namespace CurioClerk.Core.Workbench
         public bool HasObserved(string targetId) => _observedTargets.Contains(targetId);
         public bool HasCompleted(string stepId) => _completedSteps.Contains(stepId);
 
+        public WorkbenchStep GetNextStep()
+        {
+            foreach (var step in Puzzle.Steps)
+            {
+                if (HasCompleted(step.Id))
+                {
+                    continue;
+                }
+
+                var available = true;
+                foreach (var previous in step.RequiredSteps)
+                {
+                    if (!HasCompleted(previous))
+                    {
+                        available = false;
+                        break;
+                    }
+                }
+
+                if (available)
+                {
+                    return step;
+                }
+            }
+
+            return null;
+        }
+
         public WorkbenchOutcome Apply(string toolId, string targetId)
         {
             foreach (var step in Puzzle.Steps)

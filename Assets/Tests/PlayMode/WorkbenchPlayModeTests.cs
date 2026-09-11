@@ -711,6 +711,92 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(_app.ActiveWorkbench.IsComplete, Is.True);
         }
 
+        [UnityTest]
+        public IEnumerator Hint_OffersDirectionThenMissingObservationWithoutApplyingAnAction()
+        {
+            _app = CreateApp(SaveAt("unmelting-ice", 1, "ko"));
+            _app.StartIncident();
+            _app.BeginIncidentStage();
+            yield return null;
+            var saveBefore = JsonUtility.ToJson(_app.SaveData);
+            var savesBefore = _store.SaveCalls;
+            Click("WorkbenchTool_wooden-wedge");
+            Click("WorkbenchHintButton");
+            Assert.That(Text("WorkbenchObservation"), Does.Contain(Scene.Actions[0].Hint.Korean));
+            Assert.That(Text("WorkbenchHintButton"), Is.EqualTo("더 자세히"));
+            Click("WorkbenchHintButton");
+            Assert.That(Text("WorkbenchObservation"), Does.Contain("얼어붙은 테두리"));
+            Assert.That(Text("WorkbenchObservation"), Does.Contain("살펴보세요"));
+            Assert.That(_app.ActiveWorkbench.ObservedTargets, Is.Empty);
+            Assert.That(_app.ActiveWorkbench.CompletedSteps, Is.Empty);
+            Assert.That(JsonUtility.ToJson(_app.SaveData), Is.EqualTo(saveBefore));
+            Assert.That(_store.SaveCalls, Is.EqualTo(savesBefore));
+            Click("WorkbenchTarget_frozen-rim");
+            Assert.That(_app.ActiveWorkbench.HasObserved("frozen-rim"), Is.True,
+                "The observation hint must leave the player able to inspect, even after choosing a tool.");
+            Click("WorkbenchHintButton");
+            Assert.That(Text("WorkbenchObservation"), Does.Contain("따뜻한 찜질팩"));
+            Assert.That(Text("WorkbenchObservation"), Does.Contain("얼어붙은 테두리"));
+            Assert.That(_app.ActiveWorkbench.CompletedSteps, Is.Empty);
+            AssertReadable(FindText("WorkbenchObservation"), "Korean explicit tool hint");
+        }
+
+        [UnityTest]
+        public IEnumerator Hint_FollowsTheBaseRepairAndRevealsOnlyTheCurrentStep()
+        {
+            _app = CreateApp(SaveAt("unmelting-ice", 1, "en"));
+            _app.StartIncident();
+            _app.BeginIncidentStage();
+            yield return null;
+            var scene = Scene;
+            Assert.That(GameObject.Find("WorkbenchTarget_watch-chain"), Is.Null);
+            foreach (var action in scene.Actions)
+            {
+                Click("WorkbenchHintButton");
+                Assert.That(Text("WorkbenchObservation"), Does.Contain(action.Hint.English), action.Step.Id);
+                Click("WorkbenchHintButton");
+                foreach (var id in action.Step.RequiredObservations)
+                {
+                    var target = scene.Targets.Single(t => t.Id == id);
+                    Assert.That(Text("WorkbenchObservation"), Does.Contain(target.Label.English));
+                    Assert.That(GameObject.Find("WorkbenchTarget_" + id).GetComponent<Image>().color.a,
+                        Is.GreaterThan(.5f), "The requested part must stand out on the actual object.");
+                    Click("WorkbenchTarget_" + id);
+                }
+                Click("WorkbenchHintButton");
+                Assert.That(Text("WorkbenchObservation"), Does.Contain(scene.Tools.Single(t => t.Id == action.Step.ToolId).Label.English));
+                AssertReadable(FindText("WorkbenchObservation"), action.Step.Id + " explicit hint");
+                Click("WorkbenchTool_" + action.Step.ToolId);
+                Click("WorkbenchTarget_" + action.Step.TargetId);
+                yield return null;
+                Assert.That(_app.ActiveWorkbench.HasCompleted(action.Step.Id), Is.True);
+                if (!_app.ActiveWorkbench.IsComplete)
+                    Assert.That(Text("WorkbenchHintButton"), Is.EqualTo("Hint"), "A new action starts with a gentle hint.");
+            }
+            Assert.That(GameObject.Find("WorkbenchHintButton"), Is.Null, "A solved scene must show its ending, not stale help.");
+        }
+
+        [UnityTest]
+        public IEnumerator Hint_HandlesTheOtherRequiredObservationAndResetsOnRestart()
+        {
+            yield return BeginFirst();
+            Inspect("crack");
+            Click("WorkbenchTool_dry-cloth");
+            Click("WorkbenchTarget_crack");
+            Click("WorkbenchHintButton");
+            Click("WorkbenchHintButton");
+            Assert.That(Text("WorkbenchObservation"), Does.Contain(Scene.Targets.Single(t => t.Id == "leaf").Label.English));
+            Assert.That(GameObject.Find("WorkbenchTarget_leaf").GetComponent<Image>().color.a, Is.GreaterThan(.5f));
+            Assert.That(_app.ActiveWorkbench.HasObserved("leaf"), Is.False);
+            Click("WorkbenchRestartButton");
+            yield return null;
+            Assert.That(Text("WorkbenchHintButton"), Is.EqualTo("Hint"));
+            Click("WorkbenchHintButton");
+            Assert.That(Text("WorkbenchObservation"), Does.Contain(Scene.Actions[0].Hint.English));
+            Assert.That(_app.ActiveWorkbench.CompletedSteps, Is.Empty);
+            Assert.That(_app.ActiveWorkbench.ObservedTargets, Is.Empty);
+        }
+
         private static void AssertReadableCreamText(string name)
         {
             var text = GameObject.Find(name).GetComponent<TMP_Text>();

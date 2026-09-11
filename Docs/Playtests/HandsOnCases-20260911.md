@@ -1,8 +1,8 @@
 # Curio Clerk 직접 조사 플레이테스트 / Hands-on case playtest
 
-**준비 상태: Candidate 2 기술 QA와 사용자용 설치·한국어 시작 화면 확인 완료.** EditMode 226/226, PlayMode 127/127, 조건별 컴파일 15/15를 통과했습니다. 최종 APK에서 영어 열 장면·28개 행동과 한국어 첫 장면, 저장·다시보기를 확인했습니다. 별도 사용자 환경에 최종 APK를 설치하고 한국어 **첫 출근** 화면에서 게임 입력을 멈췄습니다. 이는 에이전트 검증이며 사람의 재미 평가는 아직 수집하지 않았습니다.
+**이전 인계 기록: Candidate 2 기술 QA와 사용자용 설치·한국어 시작 화면 확인 완료.** EditMode 226/226, PlayMode 127/127, 조건별 컴파일 15/15를 통과했습니다. 당시 APK에서 영어 열 장면·28개 행동과 한국어 첫 장면, 저장·다시보기를 확인했습니다. 별도 사용자 환경에 설치하고 한국어 **첫 출근** 화면에서 게임 입력을 멈췄습니다. 이는 2026-09-11 05:59:52 UTC 인계 시점의 에이전트 검증이며, 그때까지 사람의 재미 평가는 수집하지 않았습니다.
 
-**Preparation status: Candidate 2 technical QA, personal installation and Korean starting-screen checks are complete.** EditMode passed 226/226, PlayMode 127/127 and the compile matrix 15/15. The final APK was exercised through all ten English scenes and 28 actions, the first Korean scene, saves and replay. It was installed in a separate player environment and left at **첫 출근 / Start your first night** with no case started. These are agent checks; no human enjoyment assessment has been collected.
+**Historical handoff record: Candidate 2 technical QA, personal installation and Korean starting-screen checks were completed.** EditMode passed 226/226, PlayMode 127/127 and the compile matrix 15/15. That APK was exercised through all ten English scenes and 28 actions, the first Korean scene, saves and replay. It was installed in a separate player environment and left at **첫 출근 / Start your first night** with no case started. These agent checks describe the handoff at 2026-09-11 05:59:52 UTC; no human enjoyment assessment had been collected at that time.
 
 | 인계 항목 / Handoff item | 상태 / Value |
 | --- | --- |
@@ -12,11 +12,30 @@
 | QA 기록 / QA record | [후보별 검증 현황 / Candidate validation record](../QA/HandsOnCases-20260911.md) · [개선 PR #6 / Improvement PR #6](https://github.com/joyshu93/Orbital_Salvage_Shop/pull/6) |
 | QA 설치 환경 / QA installation | `CurioClerk_WorkbenchQA_20260911`, Android user 0 — 업데이트 후 기존 저장 유지 확인 / Existing save preserved after update |
 | 사용자 플레이 환경 / Player environment | `CurioClerk_HandsOnPlay_20260911:5598` — 최종 APK 해시 일치, 한국어 첫 출근, 진행 기록 0개 / Matching final APK hash, Korean starting screen, no progress records |
-| 사람 평가 / Human evaluation | 이 새 버전의 사람 평가 아직 수집하지 않음 / No human evaluation of this new version collected |
+| 당시 사람 평가 / Human evaluation at handoff | 05:59:52 UTC 인계 시점까지 미수집. 이후 피드백은 아래 별도 기록 / None collected by the 05:59:52 UTC handoff; subsequent feedback is recorded below |
 
-인계 확인은 2026-09-11 05:59:52 UTC 기준입니다. 새 에뮬레이터 창에서 **첫 출근**으로 시작합니다. 마지막 Windows 창 선택 중 Esc로 화면 제어가 중단되어 추가 조작을 멈췄습니다. Android 게임 화면은 확인했으나 Windows 최상단 표시 확인은 마치지 않았습니다. 이후 사용자가 진행한 상태는 이 기록에 포함하지 않습니다.
+위 표의 인계 확인은 2026-09-11 05:59:52 UTC 기준입니다. 당시 새 에뮬레이터는 **첫 출근**으로 시작할 상태였습니다. 마지막 Windows 창 선택 중 Esc로 화면 제어가 중단되어 추가 조작을 멈췄습니다. Android 게임 화면은 확인했으나 Windows 최상단 표시 확인은 마치지 않았습니다. 이후 사용자의 진행 상태는 위 표에 포함하지 않습니다.
 
-The handoff check was recorded at 2026-09-11 05:59:52 UTC. Choose **첫 출근 / Start your first night** in the new emulator window. Esc stopped Computer Use during final Windows window selection, and no further control was performed. The Android game screen was verified; Windows foreground placement was not. Later player progress is outside this record.
+The table records the handoff at 2026-09-11 05:59:52 UTC. The new emulator was then ready to begin through **첫 출근 / Start your first night**. Esc stopped Computer Use during final Windows window selection, and no further control was performed. The Android game screen was verified; Windows foreground placement was not. Later player progress is outside that table.
+
+## 인계 후 피드백과 힌트 수정판 / Feedback and hint revision
+
+인계 후 재방문 개발자 한 명은 퍼즐을 푸는 재미가 일부 생겼지만 얼음 두 번째 장면에서 막혔고 힌트를 찾을 수 없었다고 했습니다. 처음 접한 사람의 이해도나 폭넓은 재미 검증 결과는 아닙니다. 이 피드백을 바탕으로 선택형 **힌트 / Hint**와 **더 자세히 / More help**를 추가한 **힌트 수정판**을 만들었습니다. 위 표의 Candidate 2에는 이 버튼이 없습니다. 수정판 APK 빌드·기본 설정 검사·전용 QA 설치, 한국어 Ice02의 힌트 복구, 영어 Ice01 관찰 안내와 재시작 초기화·최종 저장 유지를 확인했습니다. 최종 소스 커밋의 C# 124개가 기록한 빌드 입력과 일치합니다. 사용자용 업데이트는 진행 중인 사람 플레이를 보존하려고 실행하지 않았습니다. 소스·APK·검증 결과는 [힌트 후속 QA](../QA/WorkbenchHints-20260911.md)에 구분해 기록합니다.
+
+After handoff, one returning developer reported some improvement in puzzle-solving enjoyment but became stuck in the second ice scene and could not find hints. This does not establish first-time comprehension or broader enjoyment. That feedback led to the **Hint revision**, adding optional **Hint** and **More help** controls. Candidate 2 in the historical table does not have these buttons. The revision's build, package settings, dedicated QA installation, Korean Ice02 hint recovery, English Ice01 observation help, restart reset and final save preservation are verified. All 124 C# files in the final source commit match the recorded build inputs. Personal installation was intentionally not run to preserve the human's active play. Its source, APK and checks are tracked separately in the [hint follow-up QA](../QA/WorkbenchHints-20260911.md).
+
+| 힌트 수정판 산출물 / Hint revision output | 현재 확인 / Current verification |
+|---|---|
+| 새 APK / New APK | `C:\Users\D-\Documents\Codex_Project\Orbital_Salvage_Shop\.worktrees\immersive-cases-20260911\Builds\Android\WorkbenchHints-20260911\CurioClerk-qa.apk` · **105,252,170 bytes** |
+| SHA-256 | `948F28C6D8E37600F0A1D66AED81259EBB17AC8F15C2F275DD5FFFDB43B3E79C` |
+| 빌드 / Build | **06:40:36–06:53:39 UTC**, exit **0**. 빌드 중 소스 동일·기존 Candidate 2 출력 복원 확인 / Stable build inputs and original Candidate 2 outputs restored |
+| APK 설정 검사 / Package inspection | API **29/36**, **arm64-v8a** 전용, portrait, Android Debug, version **1.0.0 / 10000** 확인 / Verified |
+| 전용 QA 설치·한국어 / Dedicated QA installation and Korean | **06:54:40 UTC**, `CurioClerk_WorkbenchQA_20260911`에 설치된 해시 일치. 한국어 Ice02 관찰 안내로 막힘 복구·완료, 저장 해시 유지 / Matching installed hash; Korean Ice02 hint recovery/completion and unchanged save hash |
+| 영어·재시작·최종 저장 / English, restart and final save | Ice01 낙엽 관찰 안내·처음부터 초기화 확인 후 한국어 보관소 복귀, 최종 저장 해시 유지 / Verified Ice01 leaf guidance and restart reset; returned to the Korean office with unchanged final save hash |
+| 최종 소스 / Final source | **`6437d57f642b77ca05a2904600439199a88782a3`** — C# 124개 목록·해시가 빌드 입력과 일치 / All 124 C# paths and hashes match the build inputs |
+| 사용자용 설치 / Personal installation | **미실행 / NOT RUN** — 진행 중인 사람 플레이를 보존하려고 기존 Candidate 2 유지. 새 수정판은 별도 QA AVD에서 확인 / Original Candidate 2 retained to preserve active human play; the revision was checked on the separate QA AVD |
+
+힌트 수정판의 네이티브 QA는 위 경로에 한정되며 두 사건 전체 재완주는 아닙니다. 지정한 앱 예외 패턴은 발견하지 못했지만 언어 저장 시 SELinux 파일 링크 거부 경고가 남았습니다. / Native QA of the Hint revision covers the routes above, not a complete replay of both cases. The specified app exception patterns were absent, but SELinux file-link denial warnings occurred during locale saves.
 
 ## 플레이어에게 먼저 보여줄 안내 / Read this first
 
@@ -56,6 +75,7 @@ A new game follows **Start your first night → a short request from the senior 
 - **도구 드래그:** 도구를 물건의 사용할 부분까지 끌어 놓습니다. 에뮬레이터에서는 마우스 왼쪽 버튼을 누른 채 끕니다. / Drag a tool onto the part where you want to use it; in the emulator, hold the left mouse button while dragging.
 - **탭으로 사용:** 도구를 한 번 누르고 사용할 부분을 누릅니다. / Tap a tool, then the part where you want to use it.
 - **다른 시도:** 맞지 않는 도구나 아직 준비되지 않은 동작을 시도해도 목숨·재화를 잃지 않습니다. 반응을 읽고 다른 시도를 할 수 있습니다. 광고나 대기가 필요하지 않습니다. / An unsuitable or premature action does not cost lives or currency. Read the response and try something else; no ad or wait is required.
+- **힌트 수정판 — 힌트 / Hint revision — Hint:** 막히면 눌러 현재 단계의 도움을 볼 수 있습니다. **더 자세히 / More help**를 누르면 먼저 살펴볼 부분이나 사용할 도구·부분을 표시합니다. 재화·광고·대기는 필요하지 않습니다. / In the Hint revision, choose **Hint** for guidance on the current step. Choose **More help** to mark a part to examine, or a tool and where to use it. No currency, ad or wait is required.
 - **처음부터 / Start over:** 아직 완료하지 않은 현재 작업대의 시도를 다시 시작합니다. 이미 완료한 장면과 사건 기록을 지우는 버튼이 아닙니다. / Restart the current unfinished workbench; completed scenes and case records remain.
 - **보관소 / Office:** 메뉴로 돌아갑니다. 완료한 장면은 저장됩니다. / Return to the menu; completed scenes remain saved.
 
@@ -155,10 +175,10 @@ Use an arbitrary record ID such as P01. Do not collect names, contact details, a
 
 ## 결과를 해석할 때 / Interpreting results
 
-자동 테스트와 소스를 아는 에이전트의 완주 기록은 조작·진행·저장 경로의 기술적 근거입니다. 처음 접한 사람이 목적을 이해했거나 재미와 몰입을 느꼈다는 근거로 대체하지 않습니다. 완료율만으로 재미를 판정하지 않고, 스스로 한 선택·멈춘 지점·발언을 함께 봅니다. 개선 여부는 실제 새 버전 플레이 이후에 판단합니다.
+자동 테스트와 소스를 아는 에이전트의 완주 기록은 조작·진행·저장 경로의 기술적 근거입니다. 처음 접한 사람이 목적을 이해했거나 재미와 몰입을 느꼈다는 근거로 대체하지 않습니다. 완료율만으로 재미를 판정하지 않고, 스스로 한 선택·멈춘 지점·발언을 함께 봅니다. 현재 일부 개선을 느꼈다는 피드백은 재방문 개발자 한 명의 평가입니다. 힌트 추가가 막힘을 해결하는지는 수정판의 실제 플레이 이후에 판단합니다.
 
-Automated tests and source-aware agent playthroughs provide technical evidence about controls, progression and saves. They do not establish first-time comprehension, enjoyment or immersion. Consider voluntary choices, stopping points and comments alongside completion. Assess improvement only after people play this revision.
+Automated tests and source-aware agent playthroughs provide technical evidence about controls, progression and saves. They do not establish first-time comprehension, enjoyment or immersion. Consider voluntary choices, stopping points and comments alongside completion. The current report of some improvement comes from one returning developer. Assess whether hints resolve the difficulty after the Hint revision is played.
 
-이 문서는 준비 자료입니다. 작성 과정에서 사람을 모집하거나 메시지를 보내거나 응답을 수집하지 않았습니다.
+이 문서는 준비 자료입니다. 별도 참가자 모집이나 외부 메시지 발송은 하지 않았습니다. 위 개발자의 자발적인 후속 피드백을 반영했으며, 처음 접한 참가자의 응답은 수집하지 않았습니다.
 
-This is preparation material. No participants were recruited, messages sent or responses collected while writing it.
+This is preparation material. No separate participants were recruited and no external messages were sent. It incorporates the developer's voluntary follow-up feedback; no responses from first-time participants have been collected.

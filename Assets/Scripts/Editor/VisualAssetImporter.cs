@@ -54,7 +54,7 @@ namespace CurioClerk.Editor
 
         private static int MaximumTextureSize(string path)
         {
-            if (path.Contains("/Desk/") || path.Contains("/Effects/"))
+            if (path.Contains("/Desk/") || path.Contains("/Effects/") || path.Contains("/Workbench/"))
             {
                 return 2048;
             }

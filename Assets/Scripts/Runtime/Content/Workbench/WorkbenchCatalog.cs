@@ -143,7 +143,7 @@ namespace CurioClerk.Content.Workbench
             => new WorkbenchSceneDefinition(
                 "ice-04-frozen-seal", "mossy-watch",
                 C("Under the frozen seal", "얼어붙은 봉인 아래"),
-                C("Open the watch's back without damaging what is inside.", "안쪽 물건을 다치게 하지 않고 시계 뒷면을 여세요."),
+                C("Open the watch's back without damaging the object inside.", "안에 든 물건을 망가뜨리지 않고 시계 뒷면을 여세요."),
                 C("The crescent seal is holding the back shut. Warm the seal gently; I'll keep the watch steady.",
                     "초승달 봉인이 뒷뚜껑을 붙잡고 있어요. 봉인만 살짝 데워 주세요. 시계는 제가 잡고 있을게요."),
                 C("This key has the same crescent. It must belong to that locked umbrella strap.",
@@ -306,13 +306,13 @@ namespace CurioClerk.Content.Workbench
             => new WorkbenchSceneDefinition(
                 "rain-03-unsent-letter", "paper-fish",
                 C("A letter with fins", "지느러미 달린 편지"),
-                C("Unfold the fish without tearing the message.", "메시지가 찢어지지 않게 종이 물고기를 펼치세요."),
+                C("Unfold the paper fish without tearing the letter.", "편지가 찢어지지 않게 종이 물고기를 펼치세요."),
                 C("That's Soyeon's handwriting between the folds. The paper has gone stiff. Let's soften the crease before we open it.",
                     "접힌 틈에 소연 선배의 글씨가 보여요. 종이가 뻣뻣해졌네요. 접힌 자국부터 부드럽게 풀어 줘요."),
                 C("'To the next night clerk: leave one dry place for anyone who comes in.' She left this for us.",
                     "'다음 야간 직원에게. 찾아오는 누구에게든 비를 피할 자리 하나는 남겨 주세요.' 우리에게 남긴 편지였어요."),
-                C("A little drawing points to the voice box: 'Leave your reply here. I'd like to know it arrived.'",
-                    "웅얼거림 상자 그림 옆에 적혀 있습니다. '답장은 여기에. 잘 도착했는지 알고 싶어요.'"),
+                C("The letter ends: 'Leave your reply in the voice box. I'd like to know this reached you.'",
+                    "편지 끝에 적혀 있습니다. '답장은 웅얼거림 상자에 넣어 주세요. 이 편지가 잘 도착했는지 알고 싶어요.'"),
                 new[]
                 {
                     T("stiff-crease", .43f, .55f, "Stiff crease", "굳은 접힌 자국",
@@ -339,8 +339,8 @@ namespace CurioClerk.Content.Workbench
                     A("unfold-fish", "paper-folder", "folded-fin", "The fin lifts, then the fish opens into a single page. No corners tear.",
                         "지느러미가 들리며 물고기가 편지 한 장으로 펼쳐집니다. 찢어진 곳은 없습니다.",
                         "Soften the crease first, then slide the folder beneath the fin.", "접힌 선을 부드럽게 만든 뒤 지느러미 밑에 주걱을 넣으세요.", "reveal", new[] { "folded-fin" }, new[] { "soften-crease" }),
-                    A("dry-letter", "blotting-paper", "letter-lines", "The damp page lies flat. Soyeon's message and a drawing of the voice box become readable.",
-                        "젖은 편지가 반듯하게 펴집니다. 소연 선배의 메시지와 웅얼거림 상자 그림을 읽을 수 있습니다.",
+                    A("dry-letter", "blotting-paper", "letter-lines", "The damp letter lies flat. Soyeon's message is clear, including where to leave a reply.",
+                        "젖은 편지가 반듯하게 펴집니다. 소연 선배의 글이 선명해지고, 답장을 남길 곳도 읽을 수 있습니다.",
                         "Unfold the fish, inspect its writing, and press the damp page with blotting paper.", "물고기를 펼쳐 글씨를 살펴보고 젖은 종이를 흡수지로 누르세요.", "repair", new[] { "letter-lines" }, new[] { "unfold-fish" })
                 });
 

@@ -1058,6 +1058,10 @@ namespace CurioClerk.Editor
             importer.ReadTextureSettings(settings);
             settings.spriteMeshType = SpriteMeshType.FullRect;
             importer.SetTextureSettings(settings);
+            // Inherited platforms use this limit even when maxTextureSize was set above.
+            var defaults = importer.GetDefaultPlatformTextureSettings();
+            defaults.maxTextureSize = 2048;
+            importer.SetPlatformTextureSettings(defaults);
             importer.SaveAndReimport();
         }
 

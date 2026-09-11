@@ -55,6 +55,8 @@ GMA Unity 11.3.0 and EDM4U 1.2.188 are now resolved in Unity's package cache. Th
 
 TEXT-WORKBENCH-20260911 adds original project English/Korean functional and narrative copy. Existing licensed fonts, project artwork, portraits, sound and pinned SDK notices continue to apply. No new external assets, packages, copied dialogue or third-party content are introduced.
 
+The 2026-09-11 native readability follow-up adds an explicit bilingual case/stage counter, original procedural physical-tool symbols, and reply-card/envelope shapes with writing/packing states; it strengthens existing cream-panel text and clears temporary intervention marks from resolved objects. It uses the existing licensed font and uGUI drawing code; no third-party asset, package, audio, bitmap or additional attribution is introduced.
+
 ## Workbench object state atlas — 2026-09-11
 
 `ART-WORKBENCH-20260911` records the original ImageGen atlas at `Assets/Resources/Art/Workbench/workbench-states.png`, derived exclusively from four existing project-owned generated curio sprites. It adds visible repaired/opened/unfolded object states for internal play. No external image, copied character, third-party style reference, font, package, or audio is introduced by this atlas. No additional third-party attribution has been identified; the original sprite provenance, existing font/SDK notices, and prototype-only release limitations remain applicable. Exact prompts, selected output hash, reference hashes, opaque-background and runtime-slicing limitations are recorded in `Docs/AIAssetProvenance.md`.
@@ -102,3 +104,7 @@ QA-only English/Korean diagnostic labels are original project functional text (T
 ## Internal playtest integration — 2026-09-09
 
 TEXT-PLAYTEST-20260909 covers original functional English/Korean Hold guidance and internal QA/playtest documents. Layout adjustments reuse existing art and fonts. No new third-party dependency, media, or license is added; existing artwork, font, GMA/UMP, and package notices remain applicable. Captured device screens and SDK logs are local validation evidence and are not bundled as new game assets.
+
+## Workbench Candidate 2 copy corrections — 2026-09-11
+
+The Candidate 2 correction entry under `TEXT-WORKBENCH-20260911` covers original English/Korean objective wording and a letter clue aligned with the existing artwork. It introduces no external prose, image, audio, dependency, or new attribution requirement. Existing project asset and font notices remain applicable.

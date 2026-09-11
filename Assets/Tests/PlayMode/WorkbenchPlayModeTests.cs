@@ -576,6 +576,151 @@ namespace CurioClerk.Tests.PlayMode
             yield return AdvanceIntro();
         }
 
+        [UnityTest]
+        public IEnumerator ProgressLabel_DistinguishesCaseNumberFromStageAndTotalInBothLanguages()
+        {
+            _app = CreateApp(new PlayerSaveData { locale = "en" });
+            Click("IncidentButton");
+            yield return AdvanceIntro();
+            Assert.That(Text("WorkbenchChapter"), Is.EqualTo("CASE 1 · 1/5"));
+            UnityEngine.Object.DestroyImmediate(_app.gameObject);
+            _app = CreateApp(SaveAt("remembering-rain", 3, "ko"));
+            Click("IncidentButton");
+            yield return AdvanceIntro();
+            Assert.That(Text("WorkbenchChapter"), Is.EqualTo("사건 2 · 4/5"));
+        }
+
+        [UnityTest]
+        public IEnumerator FirstTools_HaveDistinctRenderedSilhouettesWithoutInterceptingInput()
+        {
+            yield return BeginFirst();
+            Canvas.ForceUpdateCanvases();
+            var cloth = GameObject.Find("WorkbenchTool_dry-cloth").GetComponentInChildren<WorkbenchToolIcon>();
+            var putty = GameObject.Find("WorkbenchTool_insulating-putty").GetComponentInChildren<WorkbenchToolIcon>();
+            Assert.That(cloth.raycastTarget, Is.False);
+            Assert.That(putty.raycastTarget, Is.False);
+            var clothGeometry = ReadIconGeometry(cloth);
+            var puttyGeometry = ReadIconGeometry(putty);
+            Assert.That(clothGeometry.Length, Is.GreaterThan(0));
+            Assert.That(puttyGeometry.Length, Is.GreaterThan(0));
+            Assert.That(clothGeometry.SequenceEqual(puttyGeometry), Is.False,
+                "The first two physical tools must not render as the same generic paper outline.");
+            putty.Configure("blotting-paper");
+            var paperGeometry = ReadIconGeometry(putty);
+            foreach (var id in new[] { "dry-cloth", "insulating-putty", "warm-pad", "rubber-grip",
+                "wooden-wedge", "thin-lever", "paper-folder", "brass-lid", "glass-dropper", "soft-ribbon", "sealed-reply" })
+            {
+                cloth.Configure(id);
+                Assert.That(ReadIconGeometry(cloth).SequenceEqual(paperGeometry), Is.False,
+                    id + " must show its physical tool family rather than a generic paper sheet.");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator CreamPanelCopy_MatchesObjectiveInkAndStrokeWeightInBothLanguages()
+        {
+            foreach (var locale in new[] { "en", "ko" })
+            {
+                if (_app != null) UnityEngine.Object.DestroyImmediate(_app.gameObject);
+                _app = CreateApp(new PlayerSaveData { locale = locale });
+                Click("IncidentButton");
+                yield return null;
+                AssertReadableCreamText("NarrativeBody");
+                yield return AdvanceIntro();
+                AssertReadableCreamText("WorkbenchObjective");
+                AssertReadableCreamText("WorkbenchObservation");
+                Inspect("crack");
+                AssertReadableCreamText("WorkbenchObservation");
+                yield return CompleteThroughButtons();
+                AssertReadableCreamText("WorkbenchActionResult");
+                AssertReadableCreamText("WorkbenchEndingText");
+                AssertReadableCreamText("WorkbenchDiscovery");
+                Assert.That(GameObject.Find("WorkbenchTitle").GetComponent<TMP_Text>().color.grayscale,
+                    Is.GreaterThan(.7f), "The plum-background title must keep its light color.");
+            }
+        }
+
+        private static Vector3[] ReadIconGeometry(WorkbenchToolIcon icon)
+        {
+            using (var helper = new VertexHelper())
+            {
+                typeof(WorkbenchToolIcon).GetMethod("OnPopulateMesh",
+                    BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly,
+                    null, new[] { typeof(VertexHelper) }, null)
+                    .Invoke(icon, new object[] { helper });
+                var stream = new System.Collections.Generic.List<UIVertex>();
+                helper.GetUIVertexStream(stream);
+                return stream.Select(vertex => vertex.position).ToArray();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ResolvedObjects_ClearTemporaryMarksForBothRevealedAndOriginalArtwork()
+        {
+            foreach (var start in new[] { (incident: "unmelting-ice", stage: 3), (incident: "remembering-rain", stage: 3) })
+            {
+                if (_app != null) UnityEngine.Object.DestroyImmediate(_app.gameObject);
+                _app = CreateApp(SaveAt(start.incident, start.stage, "en"));
+                Click("IncidentButton");
+                yield return AdvanceIntro();
+                var originalSprite = GameObject.Find("WorkbenchArtifact").GetComponent<Image>().sprite;
+                yield return CompleteThroughButtons();
+                if (start.incident == "unmelting-ice")
+                    Assert.That(GameObject.Find("WorkbenchArtifact").GetComponent<Image>().sprite, Is.Not.SameAs(originalSprite));
+                var marks = GameObject.Find("WorkbenchImageFrame").GetComponentsInChildren<Image>(true)
+                    .Where(image => image.name.StartsWith("WorkbenchEffect_", StringComparison.Ordinal)).ToArray();
+                Assert.That(marks.Length, Is.GreaterThan(0));
+                foreach (var mark in marks)
+                    Assert.That(mark.isActiveAndEnabled && mark.color.a > .001f, Is.False,
+                        "A resolved " + start.incident + " object must not retain floating intervention rectangles.");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ReplyCompartment_ShowsPaperAndEnvelopeThenWrittenAndPackedStates()
+        {
+            _app = CreateApp(SaveAt("remembering-rain", 3, "ko"));
+            Click("IncidentButton");
+            yield return AdvanceIntro();
+            Assert.That(GameObject.Find("WorkbenchReplyCard"), Is.Null);
+            Inspect("letter-lock");
+            Click("WorkbenchTool_crescent-key");
+            Click("WorkbenchTarget_letter-lock");
+            yield return null;
+            var card = GameObject.Find("WorkbenchReplyCard");
+            var envelope = GameObject.Find("WorkbenchReplyEnvelope");
+            Assert.That(card, Is.Not.Null, "Opening the compartment must reveal a card the pencil can visibly write on.");
+            Assert.That(envelope, Is.Not.Null, "The paper must have a visible envelope to go into.");
+            Assert.That(Vector3.Distance(card.transform.position, GameObject.Find("WorkbenchTarget_reply-sheet").transform.position), Is.LessThan(1));
+            Assert.That(Vector3.Distance(envelope.transform.position, GameObject.Find("WorkbenchTarget_envelope").transform.position), Is.LessThan(1));
+            foreach (var image in card.GetComponentsInChildren<Image>(true).Concat(envelope.GetComponentsInChildren<Image>(true)))
+                Assert.That(image.raycastTarget, Is.False, "Object drawing must leave its real hotspot usable.");
+            Assert.That(GameObject.Find("WorkbenchReplyWriting"), Is.Null);
+            Inspect("reply-sheet");
+            Click("WorkbenchTool_soft-pencil");
+            Click("WorkbenchTarget_reply-sheet");
+            yield return null;
+            Assert.That(GameObject.Find("WorkbenchReplyWriting"), Is.Not.Null, "Writing must visibly mark the card.");
+            Inspect("envelope");
+            Click("WorkbenchTool_reply-card");
+            Click("WorkbenchTarget_envelope");
+            yield return null;
+            Assert.That(GameObject.Find("WorkbenchReplyCard"), Is.Null, "The written card belongs inside the packed envelope.");
+            Assert.That(GameObject.Find("WorkbenchReplyEnvelope"), Is.Not.Null);
+            Assert.That(GameObject.Find("WorkbenchEnvelopeSealed"), Is.Not.Null);
+            Assert.That(_app.ActiveWorkbench.IsComplete, Is.True);
+        }
+
+        private static void AssertReadableCreamText(string name)
+        {
+            var text = GameObject.Find(name).GetComponent<TMP_Text>();
+            Assert.That(text.color.a, Is.EqualTo(1).Within(.001f), name + " must use opaque ink.");
+            Assert.That(text.color.grayscale, Is.LessThan(.25f), name + " must use dark ink on cream.");
+            var effectiveWeight = (text.fontStyle & FontStyles.Bold) != 0 ? FontWeight.Bold : text.fontWeight;
+            Assert.That((int)effectiveWeight, Is.GreaterThanOrEqualTo((int)FontWeight.Bold),
+                name + " must not use the thin regular strokes that look pale beside the objective on native Android.");
+        }
+
         private IEnumerator AdvanceIntro()
         {
             for (var safety = 0; safety < 4 && _app.ActiveScreen == AppScreen.Narrative; safety++)

@@ -67,6 +67,7 @@ namespace CurioClerk.Editor
             EnsureFolders();
             ConfigureBrandAssets();
             ConfigureNarrativeArtAssets();
+            ConfigureWorkbenchArt();
             ConfigureFontAssets();
             CreateContentAssets();
             CreateLocalizationAssets();
@@ -1045,6 +1046,19 @@ namespace CurioClerk.Editor
             }
 
             ConfigureNarrativeArtAsset(FrostOverlayPath, 2048);
+        }
+
+        private static void ConfigureWorkbenchArt()
+        {
+            const string path = "Assets/Resources/Art/Workbench/workbench-states.png";
+            ConfigureNarrativeArtAsset(path, 2048);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            importer.npotScale = TextureImporterNPOTScale.None;
+            var settings = new TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+            settings.spriteMeshType = SpriteMeshType.FullRect;
+            importer.SetTextureSettings(settings);
+            importer.SaveAndReimport();
         }
 
         private static void ConfigureNarrativeArtAsset(string path, int maxTextureSize)

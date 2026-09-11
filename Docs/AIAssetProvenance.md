@@ -419,6 +419,69 @@ Describe visual characteristics in generic production terms instead: palette, ma
 | Preservation | Initial dirty assets and settings were copied with SHA-256 to ignored local validation evidence before Unity execution. Art metadata whitespace and the existing generated Korean font atlas are excluded from the integration commit. Remembering Rain source and approved narrative remain preserved. |
 | Release decision | Development APK validation only, using Google sample app/rewarded IDs and debug signing. No release AAB, real identifiers, signing secrets or store deployment are authorized by this entry. |
 
+## TEXT-WORKBENCH-20260911 — Hands-on case rewrite
+
+Recorded before authoring: original AI-assisted English/Korean scene objectives, observations, tool labels, NPC dialogue and menu copy for the two existing cases, authored by Codex on 2026-09-11 under the developer's direction to make play understandable and engaging. Inputs are this repository's existing Ice/Rain story catalogs and the developer's first-play feedback. Reuses existing project artwork, portraits, fonts and audio; no new third-party source, image, voice, likeness or audio is introduced. Procedural uGUI highlights/interaction feedback visualize object changes. Human review of fun and final prose remains pending. See the dated hands-on investigations spec and QA evidence for implementation and screenshots. Not a store submission.
+
+## ART-WORKBENCH-20260911 — physical object state atlas
+
+Recorded before image generation on 2026-09-11: the developer's hands-on investigation direction authorizes original AI-assisted object-state artwork so that performed actions have visible consequences. Codex will use the built-in ImageGen tool, without an API/CLI fallback, to generate one six-panel atlas for internal prototype play. No external reference, likeness, logo, additional package, voice, or audio is supplied. Inputs are these existing project-owned generated sprites; their original provenance and release limitations continue to apply:
+
+| Reference | SHA-256 |
+| --- | --- |
+| `Assets/Resources/Art/Artifacts/unmelting-ice.png` | `7C9FA4CEA21C5B0C6750355136E822F3A468D428BBF27C7CD6DFAA870DE648DD` |
+| `Assets/Resources/Art/Artifacts/mossy-watch.png` | `816819806FE16A6BBF3DB21C4A5ED36C97CF0B18BD6332ED076E48E0A9575A50` |
+| `Assets/Resources/Art/Artifacts/paper-fish.png` | `29CD1292E2F02E54033350DB3C9A840A63E920B2E70B3A07941F68FC5A033D29` |
+| `Assets/Resources/Art/Artifacts/moon-umbrella.png` | `3FFD4A6B696EDA32124AB9193ED6E286AA555B112F3CCA4921FBE07BEB44F454` |
+
+Intended output: `Assets/Resources/Art/Workbench/workbench-states.png`, exact three-column/two-row grid with six equal square cells, alpha preserved, no captions or readable text. Intended states, in top-row then bottom-row order: repaired ice crack with leaf retained; leafless ice with open empty brass base; open watch glass after leaf extraction; opened watch back revealing crescent key; paper fish unfolded into a letter; repaired umbrella with a dry reply pocket. The atlas will be sliced in Unity at runtime without resampling or external image processing. Generation result, dimensions, hash, exact prompt and inspection outcome will be recorded below after selection. This is internal prototype art, not a store asset approval or a human fun assessment.
+
+Exact built-in ImageGen prompt:
+
+```text
+Use case: precise-object-edit.
+Asset type: ONE production game sprite atlas for Curio Clerk, a night lost-property repair game. Use the four supplied project-owned sprites as edit targets and identity/style references: image 1 = unmelting ice, image 2 = mossy pocket watch, image 3 = paper fish, image 4 = crescent-patched purple umbrella. Preserve their distinctive shapes, rich hand-painted faceted surfaces, dark plum outlines, warm brass, jewel blue ice, parchment and plum fabric. No outside style reference.
+
+Canvas/layout: landscape 3:2, preferably 3072 x 2048 pixels. An EXACT uniform 3 columns by 2 rows atlas. Six SQUARE cells, each exactly one third of the width and one half of the height. Read order is top-left, top-middle, top-right, bottom-left, bottom-middle, bottom-right. Every cell contains one centered isolated complete object with a small transparent safety margin. All cells meet directly: NO drawn grid, NO panel borders, NO captions, NO numbering, NO gutters, NO extra page margin. Real transparent background (alpha) behind each object, NOT a black/white rectangle or a checkerboard drawn into the image. Nothing crosses cell boundaries.
+
+Panel top-left: edit image 1. Same upright jewel-blue ice on ornate brass base with the red-purple maple leaf still clearly trapped inside. The leaking crack along the left front edge is now sealed by one restrained visible ivory repair seam. No leaking frost. Keep the ice identity and framing.
+Panel top-middle: edit image 1. Same upright blue ice and brass base, but the ice interior is EMPTY and transparent blue: absolutely NO leaf, NO plant shape, NO leaf silhouette or residue anywhere. The brass base's small front lid is open and reveals an EMPTY dark compartment. Keep the ice silhouette.
+Panel top-right: edit image 2. The same golden mossy pocket watch facing us at the reference angle, winding crown upper left. Its round glass cover is hinged visibly OPEN to the side, exposing the dial and free hands. Most moss has been brushed away from the hinge, but a little remains at the outer edge. There is NO leaf caught inside.
+Panel bottom-left: edit image 2. The same golden mossy pocket watch is turned to show its BACK, with the round back cover visibly hinged OPEN. Inside the back compartment, a small brass key with a clear crescent-shaped bow is visibly revealed beside the gears. The key is resting inside the open watch, not floating outside. Recognizably the same pocket watch.
+Panel bottom-middle: edit image 3. The paper fish is now COMPLETELY UNFOLDED into a single broad warm parchment letter, with clear old diagonal fish-fold crease lines still visible. Flat open letter, not a fish silhouette, no fins, no fish eye. Only a few non-readable ink strokes suggesting handwriting; absolutely no legible letters, words or numbers. Preserve the reference's textured parchment and plum edge shading.
+Panel bottom-right: edit image 4. Same closed purple crescent-patched umbrella at its diagonal reference angle, brass curved handle upper-right and point lower-left. Neat clearly visible pale repair stitches now close the loose inner pocket seam. A small DRY CREAM ENVELOPE peeks out of this repaired fabric pocket, with a soft ribbon securing the umbrella. Retain the recognizable crescent patches and the whole umbrella silhouette. No dripping water.
+
+Art direction: match the four source sprites, polish for in-game use at small size, clear silhouettes and visibly different physical states. Maintain full objects without clipping. No UI, no people, no tools outside objects, no added room or scenery, no text or logo or watermark. Generate exactly this single six-cell atlas.
+```
+
+First generation inspection: 1536 x 1024 pixels, PNG RGB24. The six subjects and style were usable, but the background was a baked checkerboard rather than alpha and the top-middle base ornament crossed the intended row boundary. This candidate is not selected for integration. The integration owner authorized a flat workbench-color background and a two-candidate limit, so the actual second generation uses the solid-background prompt recorded below.
+
+Actual second-generation prompt (built-in ImageGen edit, first candidate as the sole input):
+
+```text
+Use case: precise-object-edit.
+Edit the supplied six-panel sprite atlas. Keep the same six subjects, painting style, state details, row order and column order. Make ONLY these technical corrections:
+1. REPLACE every grey/white checkerboard pixel with a perfectly flat solid dark plum background color #1F141F (RGB 31,20,31). One uniform background across the whole atlas; no texture, grain, glow, lighting gradient, checkerboard, grid lines, shadows, borders or panel rectangles behind the objects. This background is intentionally opaque; DO NOT use transparency or a checkerboard.
+2. Exact output canvas 1536 x 1024 pixels, with 3 columns × 2 rows of exactly 512 × 512 square cells. Fit each complete subject inside its own cell with at least 20 pixels of that flat dark plum background clear on all four edges. The TOP MIDDLE ice base ornament must end above y=492, never crossing the row boundary at y=512. No object, open lid, ornament or shadow crosses x=512, x=1024 or y=512. Keep all six objects complete, shrinking each minimally inside its own square if required.
+State order: top-left sealed blue ice with trapped red-purple leaf; top-middle EMPTY leafless blue ice and OPEN EMPTY brass base; top-right golden mossy watch with glass cover OPEN, NO leaf; bottom-left golden watch BACK OPEN and crescent-bow key INSIDE; bottom-middle fully unfolded parchment letter, no fish shape, only non-readable scribbles; bottom-right repaired purple crescent umbrella with dry envelope pocket and soft ribbon.
+No labels, readable writing, numbers, panel outlines or gutters. Keep the ornate warm brass, faceted hand-painted jewel surfaces, dark plum object outlines and existing object identities. Deliver exactly one six-cell atlas.
+```
+
+Selected result: built-in ImageGen second candidate `exec-04b2002c-d8ec-4952-805d-157d71bbe522.png`, copied byte-for-byte to `Assets/Resources/Art/Workbench/workbench-states.png`. Size: 1536 x 1024, RGB24, 2,169,406 bytes. SHA-256: `8F9C39B6DDF45D55BBA74CF7B809B5327916EF098CA914208BF167A45D5F918F`. The first and second tool outputs remain in the local generated-images directory; no CLI, manual pixel editing, resampling, or other image-transformation tool was used. Metadata and sample pixels were read with System.Drawing only.
+
+Inspection: all six requested states are recognizable, with no readable writing, labels, branding or depicted people. The second candidate has an opaque dark plum background, not alpha; sampled background pixels are approximately RGB(33,20,30), with slight variation rather than the requested exact flat color. The 3x2 subject order is correct, but the top-middle base ornament extends to source y=521 and violates the intended uniform row boundary at y=512. Preserve the PNG and use these runtime source rectangles to retain complete objects and exclude the ornament from the letter sprite. Coordinates use Unity's lower-left origin; runtime slicing requires in-Unity visual validation:
+
+| State | Column / row from top | Unity source rectangle `(x,y,width,height)` |
+| --- | --- | --- |
+| Sealed ice, leaf retained | 1 / 1 | `(0,512,512,512)` |
+| Leafless ice, open empty base | 2 / 1 | `(512,492,512,532)` |
+| Open watch face, leaf removed | 3 / 1 | `(1024,512,512,512)` |
+| Open watch back, crescent key | 1 / 2 | `(0,0,512,512)` |
+| Unfolded letter | 2 / 2 | `(512,0,512,488)` |
+| Repaired umbrella and reply | 3 / 2 | `(1024,0,512,512)` |
+
+This documented crop exception and approximate background supersede the initial alpha/uniform-cell intent. No third-party attribution has been identified. Internal prototype selection only; physical-state comprehension, visual fit on device and final similarity/trademark review remain separate checks.
+
 ## New entry template
 
 Copy this section before adding or materially editing an asset:

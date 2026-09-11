@@ -194,16 +194,16 @@ namespace CurioClerk.Tests.EditMode
 
             var first = presenter.Build(incidents, resolver.Resolve(save, definitions), localizer).Current;
 
-            Assert.That(first.Status, Is.EqualTo("Begin First Investigation"));
+            Assert.That(first.Status, Is.EqualTo("Start your first night"));
             Assert.That(first.Clue, Is.Empty);
-            Assert.That(first.ActionLabel, Is.EqualTo("Begin First Investigation"));
+            Assert.That(first.ActionLabel, Is.EqualTo("Start your first night"));
 
             save.activeIncidentStage = 2;
             var continued = presenter.Build(incidents, resolver.Resolve(save, definitions), localizer).Current;
 
             Assert.That(continued.Status, Is.EqualTo("Investigation in progress"));
             Assert.That(continued.Clue, Is.Empty);
-            Assert.That(continued.ActionLabel, Is.EqualTo("Continue Investigation · 3/5"));
+            Assert.That(continued.ActionLabel, Is.EqualTo("Continue case · 3/5"));
         }
 
         [Test]
@@ -232,26 +232,26 @@ namespace CurioClerk.Tests.EditMode
             }
 
             Assert.That(korean["incident_begin"], Is.EqualTo("사건 시작"));
-            Assert.That(english["incident_continue"], Is.EqualTo("Continue Investigation · {0}/{1}"));
-            Assert.That(korean["incident_continue"], Is.EqualTo("조사 계속 · {0}/{1}"));
-            Assert.That(english["incident_stage"], Is.EqualTo("Investigation {0}/{1}"));
-            Assert.That(korean["incident_stage"], Is.EqualTo("조사 {0}/{1}"));
+            Assert.That(english["incident_continue"], Is.EqualTo("Continue case · {0}/{1}"));
+            Assert.That(korean["incident_continue"], Is.EqualTo("업무 이어하기 · {0}/{1}"));
+            Assert.That(english["incident_stage"], Is.EqualTo("Task {0}/{1}"));
+            Assert.That(korean["incident_stage"], Is.EqualTo("작업 {0}/{1}"));
             Assert.That(korean["incident_complete"], Is.EqualTo("첫 사건 해결"));
             Assert.That(korean["incident_replay"], Is.EqualTo("사건 다시보기"));
             Assert.That(korean["incident_next_teaser"], Is.EqualTo("다음 사건 · 실내에서 비를 맞은 우산"));
-            Assert.That(korean["free_shift"], Is.EqualTo("자유 교대"));
-            Assert.That(korean["senior_clerk"], Is.EqualTo("선임 관리인"));
+            Assert.That(korean["free_shift"], Is.EqualTo("분류 연습"));
+            Assert.That(korean["senior_clerk"], Is.EqualTo("선임"));
             Assert.That(korean["narrative_continue"], Is.EqualTo("계속"));
             Assert.That(korean["retry_stage"], Is.EqualTo("같은 교대 다시 하기"));
-            Assert.That(korean["next_stage"], Is.EqualTo("다음 교대"));
+            Assert.That(korean["next_stage"], Is.EqualTo("다음 작업"));
             Assert.That(korean["quality_stable"], Is.EqualTo("안정"));
             Assert.That(korean["quality_precise"], Is.EqualTo("정교"));
             Assert.That(korean["quality_resonant"], Is.EqualTo("공명"));
             Assert.That(korean["trait_frosted"], Is.EqualTo("서리 묻음"));
             Assert.That(korean["calm_streak"], Is.EqualTo("손길이 안정되었습니다"));
             Assert.That(korean["incident_hold_protect"], Is.EqualTo("보호 보류"));
-            Assert.That(english["incident_first_investigation"], Is.EqualTo("Begin First Investigation"));
-            Assert.That(korean["incident_first_investigation"], Is.EqualTo("첫 조사 시작"));
+            Assert.That(english["incident_first_investigation"], Is.EqualTo("Start your first night"));
+            Assert.That(korean["incident_first_investigation"], Is.EqualTo("첫 출근"));
             Assert.That(english["incident_in_progress"], Is.EqualTo("Investigation in progress"));
             Assert.That(korean["incident_in_progress"], Is.EqualTo("조사 진행 중"));
             Assert.That(english["incident_first_clue"], Is.EqualTo("FIRST CLUE"));
@@ -262,8 +262,8 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(korean["incident_resolved"], Is.EqualTo("사건 해결"));
             Assert.That(english["incident_replay_case"], Is.EqualTo("Replay Case"));
             Assert.That(korean["incident_replay_case"], Is.EqualTo("사건 다시보기"));
-            Assert.That(english["incident_return_board"], Is.EqualTo("Return to Incident Board"));
-            Assert.That(korean["incident_return_board"], Is.EqualTo("사건 보드로 돌아가기"));
+            Assert.That(english["incident_return_board"], Is.EqualTo("Back to the office"));
+            Assert.That(korean["incident_return_board"], Is.EqualTo("보관소로 돌아가기"));
         }
 
         private static Type RequireCatalog()

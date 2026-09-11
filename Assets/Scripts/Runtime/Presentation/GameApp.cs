@@ -235,6 +235,7 @@ namespace CurioClerk.Presentation
                 VisualAssetLibrary.Artifact,
                 StartIncident,
                 id => new UnityEngine.Events.UnityAction(() => ReplayIncident(id)));
+            DecorateWorkbenchMenu(current, boardState.Current);
             var currentGroup = current.GetComponent<CanvasGroup>();
             var resolvedGroup = resolved.Count > 0 ? resolved[0].GetComponent<CanvasGroup>() : null;
             if (resolvedGroup != null && boardState.Current != null)
@@ -250,9 +251,6 @@ namespace CurioClerk.Presentation
             CreateButton(page, "CollectionButton", _localizer.Get("collection"), new Vector2(0.08f, 0.27f), new Vector2(0.46f, 0.35f), Wine, Paper, ShowCollection, 24);
             CreateButton(page, "FreeShiftButton", _localizer.Get("free_shift"), new Vector2(0.54f, 0.27f), new Vector2(0.92f, 0.35f), Wine, Paper, OnStartPressed, 24);
             CreateButton(page, "SettingsButton", _localizer.Get("settings"), new Vector2(0.28f, 0.13f), new Vector2(0.72f, 0.21f), Paper, Ink, ShowSettings, 25);
-#if UNITY_ANDROID && DEVELOPMENT_BUILD && CURIO_NATIVE_ADS_QA && !CURIO_OFFLINE_QA
-            CreateButton(page, "NativeAdsQaButton", _localizer.Locale == "ko" ? "QA · 광고 / 동의" : "QA · Ads / Consent", new Vector2(0.28f, 0.035f), new Vector2(0.72f, 0.095f), Wine, Paper, ShowNativeAdsQa, 22);
-#endif
 
             var equipped = ContentCatalog.CreateCosmetics()
                 .FirstOrDefault(item => item.Id == _save.equippedCosmeticId);
@@ -289,6 +287,7 @@ namespace CurioClerk.Presentation
             var replay = _incidents.FirstOrDefault(value => value.Id == incidentId);
             if (replay == null) return;
             _isIncidentReplay = true;
+            _workbench = null;
             _activeIncident = replay;
             _incidentRunner = new IncidentRunner(
                 _activeIncident.Id,
@@ -300,105 +299,21 @@ namespace CurioClerk.Presentation
 
         public void ShowIncidentIntro()
         {
-            if (!_isIncidentReplay)
-            {
-                RefreshIncidentProgress();
-            }
+            if (!_isIncidentReplay) RefreshIncidentProgress();
             if (_incidentRunner == null || _incidentRunner.IsContentExhausted)
             {
                 ShowMenu();
                 return;
             }
-
             _incidentStage = _activeIncident.Stages[_incidentRunner.CurrentStageIndex];
-            ActiveScreen = AppScreen.Narrative;
-            var page = CreatePage("NarrativeScreen");
-            var cueSurface = CreateArtworkImage(page, "NarrativeCueSurface", Vector2.zero, Vector2.one);
-            cueSurface.raycastTarget = false;
-            cueSurface.color = Color.white;
-
-            var portrait = CreateArtworkImage(
-                page,
-                "SeniorClerkPortrait",
-                new Vector2(0.08f, 0.45f),
-                new Vector2(0.92f, 0.92f));
-            portrait.preserveAspect = true;
-            portrait.raycastTarget = false;
-
-            var dialoguePanel = CreatePanel(
-                page,
-                "NarrativeDialoguePanel",
-                new Color(Paper.r, Paper.g, Paper.b, 0.97f),
-                new Vector2(0.06f, 0.18f),
-                new Vector2(0.94f, 0.47f));
-            AddSurfaceChrome(dialoguePanel, Amber, 3f, 0.28f);
-            var speaker = CreateText(
-                dialoguePanel,
-                "NarrativeSpeaker",
-                string.Empty,
-                30,
-                Wine,
-                TextAlignmentOptions.Left,
-                new Vector2(0.06f, 0.70f),
-                new Vector2(0.94f, 0.92f),
-                true);
-            var body = CreateText(
-                dialoguePanel,
-                "NarrativeBody",
-                string.Empty,
-                40,
-                Ink,
-                TextAlignmentOptions.TopLeft,
-                new Vector2(0.06f, 0.08f),
-                new Vector2(0.94f, 0.70f),
-                true);
-            var continueButton = CreateButton(
-                page,
-                "NarrativeContinueButton",
-                _localizer.Get("narrative_continue"),
-                new Vector2(0.06f, 0.035f),
-                new Vector2(0.94f, 0.155f),
-                Amber,
-                Ink,
-                () => { },
-                32);
-            var narrativeView = page.gameObject.AddComponent<NarrativeSequenceView>();
-            narrativeView.Configure(speaker, body, portrait, cueSurface, continueButton);
-            narrativeView.Play(
-                _incidentStage.IntroBeats,
-                _localizer.Locale,
-                VisualAssetLibrary.SeniorClerk,
-                BeginIncidentStage);
+            ShowWorkbenchIntroduction();
         }
 
         public void BeginIncidentStage()
         {
-            if (_incidentStage == null || _incidentRunner == null || _incidentRunner.IsContentExhausted)
-            {
-                return;
-            }
-
-            _tutorialStage = TutorialStage.None;
-            _isIncidentShift = true;
-            _isDailyShift = false;
-            _dailyDateKey = string.Empty;
-            _activePlan = _incidentStage.CreateShiftPlan(_artifactById);
-            _plannedQueue = _activePlan.Queue;
-            _activeRules = _activePlan.Rules;
-            _session = new ShiftSession(_plannedQueue, _activeRules);
-            _incidentStageRun = new IncidentStageRun(
-                _incidentStage.Id,
-                _incidentStage.ResonanceHoldArtifactId);
-            _seenThisShift.Clear();
-            _resultApplied = false;
-            _appliedResultCoins = 0;
-            _lastCorrectArtifactId = null;
-            _rewardFeedbackKey = null;
-            _incidentConsecutiveCorrect = 0;
-            _docketPresentationDamaged = false;
-            _incidentResultApplied = false;
-            _incidentCompletionWasFinal = false;
-            BuildShiftScreen();
+            if (ActiveScreen != AppScreen.Narrative || _incidentStage == null ||
+                _incidentRunner == null || _incidentRunner.IsContentExhausted) return;
+            BeginWorkbench();
         }
 
         private void RefreshIncidentProgress()
@@ -483,7 +398,7 @@ namespace CurioClerk.Presentation
 
         public void ChooseDestination(Destination destination)
         {
-            if (_inputLocked || _session == null || _session.State != ShiftState.Active)
+            if ((ActiveScreen != AppScreen.Shift && ActiveScreen != AppScreen.Tutorial) || _inputLocked || _session == null || _session.State != ShiftState.Active)
             {
                 return;
             }
@@ -593,7 +508,7 @@ namespace CurioClerk.Presentation
 
         public void HoldCurrent()
         {
-            if (_inputLocked)
+            if ((ActiveScreen != AppScreen.Shift && ActiveScreen != AppScreen.Tutorial) || _inputLocked)
             {
                 return;
             }
@@ -747,6 +662,9 @@ namespace CurioClerk.Presentation
         {
             ActiveScreen = AppScreen.Settings;
             var page = CreatePage("SettingsScreen");
+#if UNITY_ANDROID && DEVELOPMENT_BUILD && CURIO_NATIVE_ADS_QA && !CURIO_OFFLINE_QA
+            CreateButton(page, "NativeAdsQaButton", "QA", new Vector2(0.82f, 0.95f), new Vector2(0.97f, 0.995f), Wine, Paper, ShowNativeAdsQa, 22);
+#endif
             CreateText(page, "SettingsTitle", _localizer.Get("settings"), 54, Amber, TextAlignmentOptions.Center, new Vector2(0.10f, 0.84f), new Vector2(0.90f, 0.94f), true);
             CreateText(page, "LanguageHeader", _localizer.Get("language"), 28, Paper, TextAlignmentOptions.Left, new Vector2(0.14f, 0.72f), new Vector2(0.86f, 0.78f), true);
             CreateButton(page, "EnglishButton", "English", new Vector2(0.14f, 0.62f), new Vector2(0.48f, 0.70f), _localizer.Locale == "en" ? Amber : Wine, _localizer.Locale == "en" ? Ink : Paper, () => SetLocale("en"));
@@ -2562,12 +2480,13 @@ namespace CurioClerk.Presentation
 
         private void RequestReward(bool completed)
         {
-            if (!CanShowRewarded || _session == null || _session.RewardClaimed)
+            if (ActiveScreen != AppScreen.Results || !CanShowRewarded || _session == null || _session.RewardClaimed)
             {
                 return;
             }
 
             var placement = completed ? "shift_complete_double" : "shift_failed_revive";
+            var requestedSession = _session;
             var completionHandled = false;
             _adService.ShowRewarded(placement, result =>
             {
@@ -2577,6 +2496,7 @@ namespace CurioClerk.Presentation
                 }
 
                 completionHandled = true;
+                if (this == null || _session != requestedSession || ActiveScreen != AppScreen.Results) return;
                 if (result != RewardedAdResult.Earned)
                 {
                     _rewardFeedbackKey = RewardFeedbackKey(result);

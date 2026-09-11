@@ -51,6 +51,14 @@ GMA Unity 11.3.0 and EDM4U 1.2.188 are now resolved in Unity's package cache. Th
 - The Unity plugin and EDM4U licenses do not cover all native Google libraries. Native GMA/UMP are subject to the [Google Mobile Ads SDK terms](https://developers.google.com/admob/terms); AndroidX source is governed by its [Android open source licenses](https://source.android.com/docs/setup/about/licenses). Final native/transitive notices and human-readable distribution packaging remain RC work.
 - UMP runtime code is already integrated and is included in the ordinary Android QA player. The dedicated `CURIO_OFFLINE_QA` route excludes the Google runtime service implementations. Sample IDs do not disable SDK networking or replace the consent/privacy review.
 
+## Hands-on investigations — 2026-09-11
+
+TEXT-WORKBENCH-20260911 adds original project English/Korean functional and narrative copy. Existing licensed fonts, project artwork, portraits, sound and pinned SDK notices continue to apply. No new external assets, packages, copied dialogue or third-party content are introduced.
+
+## Workbench object state atlas — 2026-09-11
+
+`ART-WORKBENCH-20260911` records the original ImageGen atlas at `Assets/Resources/Art/Workbench/workbench-states.png`, derived exclusively from four existing project-owned generated curio sprites. It adds visible repaired/opened/unfolded object states for internal play. No external image, copied character, third-party style reference, font, package, or audio is introduced by this atlas. No additional third-party attribution has been identified; the original sprite provenance, existing font/SDK notices, and prototype-only release limitations remain applicable. Exact prompts, selected output hash, reference hashes, opaque-background and runtime-slicing limitations are recorded in `Docs/AIAssetProvenance.md`.
+
 ## Planned but not installed
 
 The following services are planned. They are not yet part of the repository or player, so their notices, versions, data behavior, and licenses are not claimed as complete:

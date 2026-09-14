@@ -483,6 +483,14 @@ namespace CurioClerk.Tests.PlayMode
                             AssertReadable(FindText("WorkbenchObservation"), locale + "/" + scene.StageId + "/" + target.Id);
                         }
                     }
+                    yield return CompleteThroughButtons();
+                    foreach (var height in new[] { 1920f, 2400f })
+                    {
+                        var scale = Mathf.Sqrt(height / 1920f);
+                        root.sizeDelta = new Vector2(1080f / scale, height / scale);
+                        foreach (var name in new[] { "WorkbenchActionResult", "WorkbenchEndingText", "WorkbenchDiscovery" })
+                            AssertReadable(FindText(name), locale + "/" + scene.StageId + "/" + height);
+                    }
                 }
             }
         }
@@ -795,6 +803,69 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(Text("WorkbenchObservation"), Does.Contain(Scene.Actions[0].Hint.English));
             Assert.That(_app.ActiveWorkbench.CompletedSteps, Is.Empty);
             Assert.That(_app.ActiveWorkbench.ObservedTargets, Is.Empty);
+        }
+
+        [UnityTest]
+        public IEnumerator WatchDiscovery_CarriesTheClueAcrossScenesAndChangesAtEachPhysicalAction()
+        {
+            _app = CreateApp(SaveAt("unmelting-ice", 1, "en"));
+            Click("IncidentButton");
+            yield return AdvanceIntro();
+            yield return CompleteThroughButtons();
+            var discovered = GameObject.Find("WorkbenchArtifact").GetComponent<Image>().sprite;
+            Assert.That(discovered, Is.Not.SameAs(Resources.Load<Sprite>("Art/Artifacts/mossy-watch")),
+                "The discovered watch must show the trapped leaf, absent from the collection icon.");
+            Click("WorkbenchContinueButton");
+            yield return AdvanceIntro();
+            var artifact = GameObject.Find("WorkbenchArtifact").GetComponent<Image>();
+            Assert.That(artifact.sprite, Is.SameAs(discovered), "The clue must carry into the next scene.");
+            Inspect("moss");
+            Click("WorkbenchTool_soft-brush");
+            Click("WorkbenchTarget_moss");
+            yield return null;
+            var opened = artifact.sprite;
+            Assert.That(opened, Is.Not.SameAs(discovered), "Brushing the hinge opens the lid now, before removing the leaf.");
+            Assert.That(GameObject.Find("WorkbenchTarget_caught-leaf"), Is.Not.Null);
+            Inspect("caught-leaf");
+            Click("WorkbenchTool_fine-tweezers");
+            Click("WorkbenchTarget_caught-leaf");
+            yield return null;
+            Assert.That(artifact.sprite, Is.Not.SameAs(opened), "Removing the leaf must visibly clear the watch face.");
+            Click("WorkbenchRestartButton");
+            yield return null;
+            Assert.That(GameObject.Find("WorkbenchArtifact").GetComponent<Image>().sprite, Is.SameAs(discovered));
+            Assert.That(GameObject.Find("WorkbenchTarget_caught-leaf"), Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator KoreanDiscovery_WrapsAtWordBoundariesWithoutOverflowAtBothPortraitShapes()
+        {
+            _app = CreateApp(SaveAt("unmelting-ice", 1, "ko"));
+            Click("IncidentButton");
+            yield return AdvanceIntro();
+            yield return CompleteThroughButtons();
+            var root = GameObject.Find("ScreenRoot").GetComponent<RectTransform>();
+            root.anchorMin = root.anchorMax = new Vector2(.5f, .5f);
+            foreach (var height in new[] { 1920f, 2400f })
+            {
+                var scale = Mathf.Sqrt(height / 1920f);
+                root.sizeDelta = new Vector2(1080f / scale, height / scale);
+                foreach (var name in new[] { "WorkbenchActionResult", "WorkbenchEndingText", "WorkbenchDiscovery" })
+                {
+                    var text = FindText(name);
+                    AssertReadable(text, height + "/" + name);
+                    var info = text.textInfo;
+                    for (var i = 1; i < info.characterCount; i++)
+                    {
+                        var previous = info.characterInfo[i - 1];
+                        var current = info.characterInfo[i];
+                        if (previous.character >= '\uAC00' && previous.character <= '\uD7A3' &&
+                            current.character >= '\uAC00' && current.character <= '\uD7A3')
+                            Assert.That(current.lineNumber, Is.EqualTo(previous.lineNumber),
+                                name + " splits a Korean word between " + previous.character + " and " + current.character);
+                    }
+                }
+            }
         }
 
         private static void AssertReadableCreamText(string name)

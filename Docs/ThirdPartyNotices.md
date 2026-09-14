@@ -112,3 +112,6 @@ The Candidate 2 correction entry under `TEXT-WORKBENCH-20260911` covers original
 ## Optional workbench hints — 2026-09-11
 
 Recorded before authoring: `TEXT-WORKBENCH-HINT-20260911` covers the original English/Korean hint button labels and formatted contextual help requested after the user became stuck in the second ice scene. It reuses the project's existing action hints and tool/target labels, fonts and UI shapes. No new artwork, audio, third-party prose, package, dependency or attribution requirement is introduced. Existing project asset and font notices remain applicable.
+# Fun and polish cycle — 2026-09-11
+
+Recorded before authoring: `ART-WATCH-DISCOVERY-20260911` uses only the project's generated watch and frozen-leaf reference sprites to produce visible watch repair states with built-in ImageGen. `TEXT-FUN-POLISH-20260911` covers original English/Korean investigation feedback. No new third-party art, prose, font, audio, package or attribution obligation is introduced. Existing reference-art provenance, font and SDK notices remain applicable. This is internal playtest work; no release-rights signoff is claimed.

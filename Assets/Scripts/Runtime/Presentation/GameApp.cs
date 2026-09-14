@@ -161,6 +161,8 @@ namespace CurioClerk.Presentation
 
         private void Awake()
         {
+            // Korean dialogue should wrap at spaces, keeping syllables within a word together.
+            TMP_Settings.useModernHangulLineBreakingRules = true;
             Application.targetFrameRate = 60;
             Screen.orientation = ScreenOrientation.Portrait;
             _artifactContent = ContentCatalog.CreateArtifacts();

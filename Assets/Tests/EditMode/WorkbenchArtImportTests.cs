@@ -8,12 +8,13 @@ namespace CurioClerk.Tests.EditMode
 {
     public sealed class WorkbenchArtImportTests
     {
-        private const string AtlasPath = "Assets/Resources/Art/Workbench/workbench-states.png";
-
-        [Test]
-        public void ConfigureWorkbenchArt_RestoresNativeResolutionFromInheritedLowPlatformLimit()
+        [TestCase("workbench-states", 1536, 1024, 2048)]
+        [TestCase("watch-discovery-states", 2172, 724, 4096)]
+        public void ConfigureWorkbenchArt_RestoresNativeResolutionFromInheritedLowPlatformLimit(
+            string name, int width, int height, int maximumSize)
         {
-            var importer = AssetImporter.GetAtPath(AtlasPath) as TextureImporter;
+            var atlasPath = "Assets/Resources/Art/Workbench/" + name + ".png";
+            var importer = AssetImporter.GetAtPath(atlasPath) as TextureImporter;
             Assert.That(importer, Is.Not.Null);
             var originalDefault = importer.GetDefaultPlatformTextureSettings();
             var originalAndroid = importer.GetPlatformTextureSettings("Android");
@@ -35,19 +36,19 @@ namespace CurioClerk.Tests.EditMode
                 Assert.That(configure, Is.Not.Null);
                 configure.Invoke(null, null);
 
-                importer = (TextureImporter)AssetImporter.GetAtPath(AtlasPath);
+                importer = (TextureImporter)AssetImporter.GetAtPath(atlasPath);
                 var defaults = importer.GetDefaultPlatformTextureSettings();
                 var android = importer.GetPlatformTextureSettings("Android");
                 var effectiveAndroidLimit = android.overridden ? android.maxTextureSize : defaults.maxTextureSize;
-                var atlas = AssetDatabase.LoadAssetAtPath<Texture2D>(AtlasPath);
+                var atlas = AssetDatabase.LoadAssetAtPath<Texture2D>(atlasPath);
                 Assert.That(atlas, Is.Not.Null);
                 Assert.That(new[] { atlas.width, atlas.height, defaults.maxTextureSize, effectiveAndroidLimit },
-                    Is.EqualTo(new[] { 1536, 1024, 2048, 2048 }),
-                    "The 3-by-2 workbench atlas must retain its native pixels; Android must inherit the full-size import limit.");
+                    Is.EqualTo(new[] { width, height, maximumSize, maximumSize }),
+                    "Each workbench atlas must retain its native pixels; Android must inherit the full-size import limit.");
             }
             finally
             {
-                importer = (TextureImporter)AssetImporter.GetAtPath(AtlasPath);
+                importer = (TextureImporter)AssetImporter.GetAtPath(atlasPath);
                 importer.SetPlatformTextureSettings(originalDefault);
                 importer.SetPlatformTextureSettings(originalAndroid);
                 importer.SaveAndReimport();

@@ -1,5 +1,26 @@
 # Curio Clerk 직접 조사 플레이테스트 / Hands-on case playtest
 
+## 최신 재미·완성도 수정판 / Latest Fun/Polish revision
+
+**Fun/Polish candidate-01**은 시계의 상태 변화와 작업 결과의 연결, 사건 후반의 인물 반응과 문구의 읽기 편의성을 다듬은 후속 수정판입니다. 전용 QA 환경에서 한국어 Ice01–03과 한영 Rain01–05 전체를 소스를 아는 에이전트가 다시보기로 확인했습니다. 재시작·탭·드래그, 바뀐 문구·가독성과 최종 저장 유지도 확인했습니다. 실행 검증은 9월 11일, 최종 소스 연결과 기록 정리는 9월 14일에 마쳤습니다. 이 기록은 사람의 자연 플레이나 재미 검증을 뜻하지 않습니다.
+
+**Fun/Polish candidate-01** refines watch-state feedback, later character reactions and readable copy. A source-aware agent verified Korean Ice01–03 and all five Rain scenes in both languages on the dedicated QA environment, including restart, tap/drag controls, revised copy, readability and unchanged final save data. Execution checks occurred on September11; source verification and final records were completed on September14. These checks do not establish natural human play or enjoyment.
+
+| 최신 수정판 / Latest revision | 확인 상태 / Verification |
+|---|---|
+| APK | `Builds/Android/FunPolish-20260911/candidate-01/player/CurioClerk-qa.apk` · **105,252,549 bytes** |
+| SHA-256 | `B7CA9FB7D0136CB5247926FD44C83C344F31FBF36D0C3205AC31CB8470C2CC79` |
+| 빌드 / Build | 2026-09-11 **08:54:23–09:13:23 UTC**, 성공 / Succeeded |
+| 기술 검사 / Technical checks | EditMode **230/230**, PlayMode **132/132**, 조건별 C# 컴파일 **15/15** 통과. 컴파일 검사는 네이티브 실행과 구분 / Passed; conditional compilation is separate from native execution |
+| 소스 / Source | **`e0e92781e1a214d2bd0ff53b098976a290dfc7a5`** — C#124개와 작성 입력71개의 경로·해시가 실제 빌드 입력과 일치 / All124 C# files and71 authored inputs match the recorded build paths/hashes. Build began at `b5444412a8ddf00aa59d0f27a19a42d17bcfdf55` plus those dirty inputs |
+| 전용 QA 설치 / Dedicated QA installation | **09:14:43 UTC**, 기존 저장 유지 확인 / Existing save preserved |
+| 개인 플레이 환경 / Personal play environment | 이번 수정판은 **미설치**. `5599` 환경을 재시작하거나 조작하지 않았으며 기존 Candidate 2 유지 / This revision was **not installed**; environment `5599` was not restarted or controlled, and its existing Candidate 2 was retained |
+| 상세 기록 / Details | [재미·완성도 수정판 QA / Fun/Polish QA](../QA/FunPolish-20260911.md) |
+
+아래 Candidate 2와 힌트 수정판 기록은 각 시점의 결과로 보존합니다. / The Candidate 2 and Hint revision records below remain historical results for their respective versions.
+
+## 이전 Candidate 2 인계 기록 / Historical Candidate 2 handoff
+
 **이전 인계 기록: Candidate 2 기술 QA와 사용자용 설치·한국어 시작 화면 확인 완료.** EditMode 226/226, PlayMode 127/127, 조건별 컴파일 15/15를 통과했습니다. 당시 APK에서 영어 열 장면·28개 행동과 한국어 첫 장면, 저장·다시보기를 확인했습니다. 별도 사용자 환경에 설치하고 한국어 **첫 출근** 화면에서 게임 입력을 멈췄습니다. 이는 2026-09-11 05:59:52 UTC 인계 시점의 에이전트 검증이며, 그때까지 사람의 재미 평가는 수집하지 않았습니다.
 
 **Historical handoff record: Candidate 2 technical QA, personal installation and Korean starting-screen checks were completed.** EditMode passed 226/226, PlayMode 127/127 and the compile matrix 15/15. That APK was exercised through all ten English scenes and 28 actions, the first Korean scene, saves and replay. It was installed in a separate player environment and left at **첫 출근 / Start your first night** with no case started. These agent checks describe the handoff at 2026-09-11 05:59:52 UTC; no human enjoyment assessment had been collected at that time.

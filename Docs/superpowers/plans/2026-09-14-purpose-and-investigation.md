@@ -44,4 +44,6 @@ Files: `WorkbenchCatalog.cs`, new `WorkbenchCaseContext.cs`, `GameApp.Workbench.
 - [x] Verify package settings and APK hash. Back up dedicated QA save, update that profile, compare save bytes.
 - [x] Exercise the first introduction through existing-save replay, readable targets, tool selection, deliberate action, wrong experiment, hint, menu detour/restart and both case transitions with actual UI inputs. Inspect EN/KO screens; distinguish source-aware QA from natural human play.
 - [x] Resolve important defects, record remaining limitations in QualityReview and candidate QA, remove temporary validation guards/noise, and review the diff.
-- [ ] Commit/push this cycle and update the existing improvement PR with source/APK/validation evidence. No personal environment update during QA; a subsequent save-preserving personal handoff is separate.
+- [x] Commit/push this cycle and update the existing improvement PR with source/APK/validation evidence. No personal environment update during QA; a subsequent save-preserving personal handoff is separate.
+
+Completed September16. [QA and exact limits](../../QA/PlayerIntent-20260914.md) record the final candidate, source identity, native replay and separate personal handoff. PR #6 was updated and remains open/unmerged. Human enjoyment and existing object-state art inconsistencies remain open in QualityReview.

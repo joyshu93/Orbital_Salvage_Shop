@@ -1,5 +1,9 @@
 # AI asset provenance and release policy
 
+## Purpose and investigation — 2026-09-14
+
+Recorded before authoring: `TEXT-PURPOSE-20260914` covers original English/Korean case motivation, causal recaps, investigation questions, tool/target selection and experiment feedback. Existing characters, cases and art are retained. UI shapes and labels are authored in project code; no new image, audio or external prose is introduced. Technical and source-aware validation are distinct from human enjoyment assessment.
+
 Last reviewed: 2026-09-08 (KST)
 
 This document is the release evidence ledger for AI-assisted work in **Curio Clerk: Night Shift**. It is an internal risk-control record, not legal advice. Update it whenever an AI tool creates or edits source code, art, audio, text, video, localization, or store material.

@@ -85,7 +85,7 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator ToolThenTargetTap_AppliesTheRepairAndVisiblyChangesTheObject()
+        public IEnumerator ToolTargetAndUse_AppliesTheRepairAndVisiblyChangesTheObject()
         {
             yield return BeginFirst();
             Inspect("crack");
@@ -94,6 +94,7 @@ namespace CurioClerk.Tests.PlayMode
             var beforeFrost = frost.color.a;
             Click("WorkbenchTool_dry-cloth");
             Click("WorkbenchTarget_crack");
+            Click("WorkbenchUseButton");
             yield return null;
             Assert.That(_app.ActiveWorkbench.HasCompleted("dry-crack"), Is.True);
             Assert.That(_app.ActiveWorkbench.IsComplete, Is.False);
@@ -132,6 +133,7 @@ namespace CurioClerk.Tests.PlayMode
             {
                 Click("WorkbenchTool_dry-cloth");
                 Click("WorkbenchTarget_base");
+                Click("WorkbenchUseButton");
             }
             yield return null;
             Assert.That(_app.ActiveWorkbench.CompletedSteps, Is.Empty);
@@ -148,7 +150,7 @@ namespace CurioClerk.Tests.PlayMode
             yield return BeginFirst();
             Inspect("crack");
             var tool = GameObject.Find("WorkbenchTool_dry-cloth");
-            var target = GameObject.Find("WorkbenchTarget_crack").GetComponent<RectTransform>();
+            var target = GameObject.Find("WorkbenchMarker_crack").GetComponent<RectTransform>();
             Canvas.ForceUpdateCanvases();
             var pointer = DragPointer(tool, RectTransformUtility.WorldToScreenPoint(null, target.TransformPoint(target.rect.center)));
             Assert.That(ExecuteEvents.Execute(tool, pointer, ExecuteEvents.beginDragHandler), Is.True);
@@ -175,6 +177,7 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(_app.ActiveWorkbench.CompletedSteps, Is.Empty);
             Click("WorkbenchTool_dry-cloth");
             Click("WorkbenchTarget_crack");
+            Click("WorkbenchUseButton");
             Assert.That(_app.ActiveWorkbench.HasCompleted("dry-crack"), Is.True);
         }
 
@@ -225,6 +228,7 @@ namespace CurioClerk.Tests.PlayMode
             Inspect("crack");
             Click("WorkbenchTool_dry-cloth");
             Click("WorkbenchTarget_crack");
+            Click("WorkbenchUseButton");
             var previous = _app.ActiveWorkbench;
             var saved = JsonUtility.ToJson(_app.SaveData);
             Click("WorkbenchRestartButton");
@@ -302,6 +306,7 @@ namespace CurioClerk.Tests.PlayMode
             Inspect("crack");
             Click("WorkbenchTool_dry-cloth");
             Click("WorkbenchTarget_crack");
+            Click("WorkbenchUseButton");
             var session = _app.ActiveWorkbench;
             _app.gameObject.SetActive(false);
             yield return null;
@@ -312,6 +317,7 @@ namespace CurioClerk.Tests.PlayMode
             Inspect("leaf");
             Click("WorkbenchTool_insulating-putty");
             Click("WorkbenchTarget_crack");
+            Click("WorkbenchUseButton");
             Assert.That(session.IsComplete, Is.True);
             var before = JsonUtility.ToJson(_app.SaveData);
             _app.gameObject.SetActive(false);
@@ -475,11 +481,18 @@ namespace CurioClerk.Tests.PlayMode
                         root.sizeDelta = new Vector2(1080f / scale, height / scale);
                         Canvas.ForceUpdateCanvases();
                         AssertReadable(FindText("WorkbenchObjective"), locale + "/" + scene.StageId);
+                        AssertReadable(FindText("WorkbenchCasePurpose"), locale + "/" + scene.StageId);
                         foreach (var tool in scene.Tools)
+                        {
                             AssertReadable(FindText("WorkbenchTool_" + tool.Id), locale + "/" + scene.StageId);
+                            Click("WorkbenchTool_" + tool.Id);
+                            AssertReadable(FindText("WorkbenchInstruction"), locale + "/" + scene.StageId);
+                            AssertReadable(FindText("WorkbenchSelected_" + tool.Id), locale + "/" + scene.StageId);
+                        }
                         foreach (var target in scene.Targets.Where(t => t.RevealAfterStep == null))
                         {
                             Inspect(target.Id);
+                            AssertReadable(FindText("WorkbenchTarget_" + target.Id), locale + "/" + scene.StageId);
                             AssertReadable(FindText("WorkbenchObservation"), locale + "/" + scene.StageId + "/" + target.Id);
                         }
                     }
@@ -576,6 +589,170 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(Text("WorkbenchObservation"), Does.Not.Contain(clue.Observation.Korean));
         }
 
+
+        [UnityTest]
+        public IEnumerator InvestigationIntent_ShowsPurposeAndNamedTargetsThatRemainReadableAfterInspection()
+        {
+            yield return BeginFirst("ko");
+            var root = GameObject.Find("ScreenRoot").GetComponent<RectTransform>();
+            root.anchorMin = root.anchorMax = new Vector2(.5f, .5f);
+            root.sizeDelta = new Vector2(1080, 1920);
+            Assert.That(GameObject.Find("WorkbenchCasePurpose"), Is.Not.Null,
+                "The reason for this work must remain on screen after the introduction.");
+            Assert.That(Text("WorkbenchCasePurpose"), Does.Contain("분실물"));
+            foreach (var target in Scene.Targets)
+            {
+                var button = GameObject.Find("WorkbenchTarget_" + target.Id);
+                Assert.That(Text(button.name), Does.Contain(target.Label.Korean));
+                Canvas.ForceUpdateCanvases();
+                Assert.That(button.GetComponent<RectTransform>().rect.height, Is.GreaterThanOrEqualTo(96));
+                Click(button.name);
+                Assert.That(Text(button.name), Does.Contain(target.Label.Korean), "Observed targets must retain their names.");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator InvestigationIntent_ToolSelectionKeepsEvidenceAndRequiresAnExplicitUseAction()
+        {
+            yield return BeginFirst("ko");
+            Click("WorkbenchTarget_crack");
+            var evidence = Text("WorkbenchObservation");
+            Click("WorkbenchTool_dry-cloth");
+            Assert.That(Text("WorkbenchObservation"), Is.EqualTo(evidence), "Choosing a tool must not erase the clue.");
+            Assert.That(Text("WorkbenchInstruction"), Does.Contain("마른 천"));
+            Assert.That(Text("WorkbenchSelected_dry-cloth"), Does.Contain("선택"));
+            Click("WorkbenchTarget_crack");
+            Assert.That(_app.ActiveWorkbench.CompletedSteps, Is.Empty, "A target tap always examines, even with a tool selected.");
+            Click("WorkbenchUseButton");
+            Assert.That(_app.ActiveWorkbench.HasCompleted("dry-crack"), Is.True);
+            Assert.That(GameObject.Find("WorkbenchSelected_dry-cloth"), Is.Null, "A used tool returns to the tray.");
+            Click("WorkbenchTarget_crack");
+            Assert.That(Text("WorkbenchObservation"), Does.Contain(Scene.Actions[0].Result.Korean), "Changed objects must not repeat stale wet-state clues.");
+        }
+
+        [UnityTest]
+        public IEnumerator InvestigationIntent_NotebookKeepsKnownEvidenceWithoutSpoilersOrProgressChanges()
+        {
+            yield return BeginFirst("ko");
+            Click("WorkbenchTarget_crack");
+            Click("WorkbenchTool_dry-cloth");
+            var before = JsonUtility.ToJson(_app.SaveData);
+            Click("WorkbenchCaseNotesButton");
+            var notes = Text("WorkbenchCaseNotesBody");
+            Assert.That(notes, Does.Contain("분실물"));
+            Assert.That(notes, Does.Contain(Scene.Targets.Single(t => t.Id == "crack").Observation.Korean));
+            Assert.That(notes, Does.Not.Contain("소연"));
+            Assert.That(notes, Does.Not.Contain("초승달 열쇠"));
+            Click("WorkbenchCaseNotesClose");
+            Assert.That(Text("WorkbenchInstruction"), Does.Contain("마른 천"));
+            Assert.That(JsonUtility.ToJson(_app.SaveData), Is.EqualTo(before));
+            Click("WorkbenchRestartButton");
+            Assert.That(GameObject.Find("WorkbenchSelected_dry-cloth"), Is.Null);
+            Assert.That(GameObject.Find("WorkbenchUseButton").GetComponent<Button>().interactable, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator InvestigationIntent_DragFocusFollowsTheActualDropForTheNextTool()
+        {
+            yield return BeginFirst();
+            Inspect("crack");
+            Inspect("leaf");
+            Canvas.ForceUpdateCanvases();
+            var tool = GameObject.Find("WorkbenchTool_dry-cloth");
+            var target = GameObject.Find("WorkbenchMarker_crack").GetComponent<RectTransform>();
+            var pointer = DragPointer(tool, RectTransformUtility.WorldToScreenPoint(null, target.TransformPoint(target.rect.center)));
+            ExecuteEvents.Execute(tool, pointer, ExecuteEvents.beginDragHandler);
+            ExecuteEvents.Execute(tool, pointer, ExecuteEvents.endDragHandler);
+            Assert.That(_app.ActiveWorkbench.HasCompleted("dry-crack"), Is.True);
+            Click("WorkbenchTool_insulating-putty");
+            Click("WorkbenchUseButton");
+            Assert.That(_app.ActiveWorkbench.IsComplete, Is.True, "Use here must refer to the displayed drop result, not an older examined leaf.");
+        }
+
+        [UnityTest]
+        public IEnumerator InvestigationIntent_FreeingTheLeafUpdatesTheRelatedCrownClue()
+        {
+            _app = CreateApp(SaveAt("unmelting-ice", 2, "ko"));
+            Click("IncidentButton");
+            yield return AdvanceIntro();
+            Inspect("moss");
+            _app.UseWorkbenchTool("soft-brush", "moss");
+            Inspect("caught-leaf");
+            _app.UseWorkbenchTool("fine-tweezers", "caught-leaf");
+            Inspect("crown");
+            Assert.That(Text("WorkbenchObservation"), Does.Not.Contain("뻑뻑"), "A released mechanism must not report the old obstruction.");
+            Click("WorkbenchCaseNotesButton");
+            Assert.That(Text("WorkbenchCaseNotesBody"), Does.Not.Contain("뻑뻑"));
+        }
+
+        [UnityTest]
+        public IEnumerator InvestigationIntent_ActualPointerSelectionKeepsTheSelectedToolBright()
+        {
+            yield return BeginFirst();
+            var button = GameObject.Find("WorkbenchTool_dry-cloth").GetComponent<Button>();
+            var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
+            ExecuteEvents.Execute(button.gameObject, pointer, ExecuteEvents.pointerEnterHandler);
+            ExecuteEvents.Execute(button.gameObject, pointer, ExecuteEvents.pointerDownHandler);
+            ExecuteEvents.Execute(button.gameObject, pointer, ExecuteEvents.pointerUpHandler);
+            ExecuteEvents.Execute(button.gameObject, pointer, ExecuteEvents.pointerClickHandler);
+            yield return new WaitForSecondsRealtime(.25f);
+            var shown = button.GetComponent<Image>().color * button.GetComponent<CanvasRenderer>().GetColor();
+            Assert.That(shown.grayscale, Is.GreaterThan(.5f), "Pointer selection must not multiply the gold selection background by a dark wine tint.");
+            Assert.That(GameObject.Find("WorkbenchSelected_dry-cloth"), Is.Not.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator InvestigationIntent_NotebookBlocksUnderlyingControlsAndKeepsTheirPreviousState()
+        {
+            yield return BeginFirst();
+            Inspect("crack");
+            var session = _app.ActiveWorkbench;
+            var use = GameObject.Find("WorkbenchUseButton").GetComponent<Button>();
+            var restart = GameObject.Find("WorkbenchRestartButton").GetComponent<Button>();
+            Click("WorkbenchCaseNotesButton");
+            Assert.That(restart.IsInteractable(), Is.False, "A modal notebook must block keyboard navigation into underlying controls.");
+            _app.RestartWorkbench();
+            Assert.That(_app.ActiveWorkbench, Is.SameAs(session));
+            Click("WorkbenchCaseNotesClose");
+            Assert.That(restart.IsInteractable(), Is.True);
+            Assert.That(use.IsInteractable(), Is.False, "Closing notes must not enable an incomplete tool selection.");
+            Assert.That(_app.ActiveWorkbench.HasObserved("crack"), Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator InvestigationIntent_DryCrackCanBeSealedWithoutAnUnrelatedInspectionGate()
+        {
+            yield return BeginFirst();
+            Inspect("crack");
+            _app.UseWorkbenchTool("dry-cloth", "crack");
+            _app.UseWorkbenchTool("insulating-putty", "crack");
+            Assert.That(_app.ActiveWorkbench.IsComplete, Is.True, "A justified repair must not require unrelated reading after its physical conditions are satisfied.");
+            Assert.That(_app.ActiveWorkbench.HasObserved("leaf"), Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator InvestigationIntent_NumberedMarkersDoNotOverlapAtPortraitSizes()
+        {
+            yield return BeginFirst();
+            var root = GameObject.Find("ScreenRoot").GetComponent<RectTransform>();
+            root.anchorMin = root.anchorMax = new Vector2(.5f, .5f);
+            foreach (var height in new[] { 1920f, 2400f })
+            {
+                var scale = Mathf.Sqrt(height / 1920f);
+                root.sizeDelta = new Vector2(1080f / scale, height / scale);
+                Canvas.ForceUpdateCanvases();
+                var markers = Scene.Targets.Select(target => GameObject.Find("WorkbenchMarker_" + target.Id).GetComponent<RectTransform>()).ToArray();
+                for (var a = 0; a < markers.Length; a++)
+                for (var b = a + 1; b < markers.Length; b++)
+                {
+                    var left = new Vector3[4]; var right = new Vector3[4];
+                    markers[a].GetWorldCorners(left); markers[b].GetWorldCorners(right);
+                    var first = new Rect(left[0].x, left[0].y, left[2].x-left[0].x, left[2].y-left[0].y);
+                    var second = new Rect(right[0].x, right[0].y, right[2].x-right[0].x, right[2].y-right[0].y);
+                    Assert.That(first.Overlaps(second), Is.False, "Object markers must not cover each other's number or accept ambiguous taps.");
+                }
+            }
+        }
 
         private IEnumerator BeginFirst(string locale = "en")
         {
@@ -694,24 +871,27 @@ namespace CurioClerk.Tests.PlayMode
             Inspect("letter-lock");
             Click("WorkbenchTool_crescent-key");
             Click("WorkbenchTarget_letter-lock");
+            Click("WorkbenchUseButton");
             yield return null;
             var card = GameObject.Find("WorkbenchReplyCard");
             var envelope = GameObject.Find("WorkbenchReplyEnvelope");
             Assert.That(card, Is.Not.Null, "Opening the compartment must reveal a card the pencil can visibly write on.");
             Assert.That(envelope, Is.Not.Null, "The paper must have a visible envelope to go into.");
-            Assert.That(Vector3.Distance(card.transform.position, GameObject.Find("WorkbenchTarget_reply-sheet").transform.position), Is.LessThan(1));
-            Assert.That(Vector3.Distance(envelope.transform.position, GameObject.Find("WorkbenchTarget_envelope").transform.position), Is.LessThan(1));
+            Assert.That(Vector3.Distance(card.transform.position, GameObject.Find("WorkbenchMarker_reply-sheet").transform.position), Is.LessThan(1));
+            Assert.That(Vector3.Distance(envelope.transform.position, GameObject.Find("WorkbenchMarker_envelope").transform.position), Is.LessThan(1));
             foreach (var image in card.GetComponentsInChildren<Image>(true).Concat(envelope.GetComponentsInChildren<Image>(true)))
                 Assert.That(image.raycastTarget, Is.False, "Object drawing must leave its real hotspot usable.");
             Assert.That(GameObject.Find("WorkbenchReplyWriting"), Is.Null);
             Inspect("reply-sheet");
             Click("WorkbenchTool_soft-pencil");
             Click("WorkbenchTarget_reply-sheet");
+            Click("WorkbenchUseButton");
             yield return null;
             Assert.That(GameObject.Find("WorkbenchReplyWriting"), Is.Not.Null, "Writing must visibly mark the card.");
             Inspect("envelope");
             Click("WorkbenchTool_reply-card");
             Click("WorkbenchTarget_envelope");
+            Click("WorkbenchUseButton");
             yield return null;
             Assert.That(GameObject.Find("WorkbenchReplyCard"), Is.Null, "The written card belongs inside the packed envelope.");
             Assert.That(GameObject.Find("WorkbenchReplyEnvelope"), Is.Not.Null);
@@ -776,6 +956,7 @@ namespace CurioClerk.Tests.PlayMode
                 AssertReadable(FindText("WorkbenchObservation"), action.Step.Id + " explicit hint");
                 Click("WorkbenchTool_" + action.Step.ToolId);
                 Click("WorkbenchTarget_" + action.Step.TargetId);
+                Click("WorkbenchUseButton");
                 yield return null;
                 Assert.That(_app.ActiveWorkbench.HasCompleted(action.Step.Id), Is.True);
                 if (!_app.ActiveWorkbench.IsComplete)
@@ -785,16 +966,17 @@ namespace CurioClerk.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator Hint_HandlesTheOtherRequiredObservationAndResetsOnRestart()
+        public IEnumerator Hint_AfterDryingPointsToSealingWithoutExtraReadingAndResetsOnRestart()
         {
             yield return BeginFirst();
             Inspect("crack");
             Click("WorkbenchTool_dry-cloth");
             Click("WorkbenchTarget_crack");
+            Click("WorkbenchUseButton");
             Click("WorkbenchHintButton");
             Click("WorkbenchHintButton");
-            Assert.That(Text("WorkbenchObservation"), Does.Contain(Scene.Targets.Single(t => t.Id == "leaf").Label.English));
-            Assert.That(GameObject.Find("WorkbenchTarget_leaf").GetComponent<Image>().color.a, Is.GreaterThan(.5f));
+            Assert.That(Text("WorkbenchObservation"), Does.Contain(Scene.Tools.Single(t => t.Id == "insulating-putty").Label.English));
+            Assert.That(Text("WorkbenchObservation"), Does.Contain(Scene.Targets.Single(t => t.Id == "crack").Label.English));
             Assert.That(_app.ActiveWorkbench.HasObserved("leaf"), Is.False);
             Click("WorkbenchRestartButton");
             yield return null;
@@ -822,6 +1004,7 @@ namespace CurioClerk.Tests.PlayMode
             Inspect("moss");
             Click("WorkbenchTool_soft-brush");
             Click("WorkbenchTarget_moss");
+            Click("WorkbenchUseButton");
             yield return null;
             var opened = artifact.sprite;
             Assert.That(opened, Is.Not.SameAs(discovered), "Brushing the hinge opens the lid now, before removing the leaf.");
@@ -829,6 +1012,7 @@ namespace CurioClerk.Tests.PlayMode
             Inspect("caught-leaf");
             Click("WorkbenchTool_fine-tweezers");
             Click("WorkbenchTarget_caught-leaf");
+            Click("WorkbenchUseButton");
             yield return null;
             Assert.That(artifact.sprite, Is.Not.SameAs(opened), "Removing the leaf must visibly clear the watch face.");
             Click("WorkbenchRestartButton");
@@ -896,6 +1080,7 @@ namespace CurioClerk.Tests.PlayMode
                 foreach (var targetId in action.Step.RequiredObservations) Inspect(targetId);
                 Click("WorkbenchTool_" + action.Step.ToolId);
                 Click("WorkbenchTarget_" + action.Step.TargetId);
+                Click("WorkbenchUseButton");
                 yield return null;
                 Assert.That(_app.ActiveWorkbench.HasCompleted(action.Step.Id), Is.True,
                     scene.StageId + "/" + action.Step.Id + " must complete through actual buttons.");

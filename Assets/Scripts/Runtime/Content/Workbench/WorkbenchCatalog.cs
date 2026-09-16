@@ -22,11 +22,11 @@ namespace CurioClerk.Content.Workbench
             => new WorkbenchSceneDefinition(
                 "ice-01-crack", "unmelting-ice",
                 C("Cold on the desk", "책상이 얼고 있어요"),
-                C("Stop the cold leaking from the crack.", "얼음 틈에서 새는 냉기를 막으세요."),
-                C("We keep lost things safe until their owners return. I'll check the records; could you stop that ice freezing our desk?",
-                    "여긴 주인이 올 때까지 분실물을 돌보는 곳이에요. 전 주인을 찾아볼 테니, 책상을 얼리는 저 얼음부터 좀 봐주세요."),
-                C("That's better. The frost has stopped spreading. But look at the leaf inside...",
-                    "이제 서리가 더 번지진 않네요. 그런데 안쪽 낙엽 좀 보세요..."),
+                C("Stop the escaping cold before it reaches the other lost things.", "다른 분실물까지 얼지 않도록 새어 나오는 냉기를 막으세요."),
+                C("Your first night, and already a mystery. We keep lost things safe until their owners return. Frost from that ice is reaching the shelves. Help me find where it began.",
+                    "첫 출근부터 수수께끼네요. 여긴 주인이 올 때까지 분실물을 돌보는 곳이에요. 저 얼음의 냉기가 선반까지 번져요. 어디서 시작된 건지 같이 찾아봐요."),
+                C("The crack is sealed. But the leaf and the base are making the same sound. Whatever started this may still be inside.",
+                    "틈은 막았어요. 그런데 낙엽과 받침에서 같은 소리가 나네요. 냉기의 근원은 아직 안쪽에 있나 봐요."),
                 C("The leaf taps against the ice. The brass base taps back.", "낙엽이 얼음을 두드립니다. 황동 받침에서도 같은 소리가 납니다."),
                 new[]
                 {
@@ -52,15 +52,15 @@ namespace CurioClerk.Content.Workbench
                         "Inspect the leaking crack, then dry its wet edges.", "냉기가 새는 틈을 살펴보고 가장자리의 물기를 닦으세요.", "repair", new[] { "crack" }),
                     A("seal-crack", "insulating-putty", "crack", "You press putty into the dry crack. Frost pulls back from the desk.",
                         "마른 틈에 메움제를 누르자 책상 위 서리가 걷힙니다.",
-                        "Check the leaf before using heat. Dry the crack, then seal only that gap.",
-                        "낙엽부터 살펴보세요. 얼음을 달구지 말고, 물기를 닦은 틈만 메우면 됩니다.", "frost", new[] { "crack", "leaf" }, new[] { "dry-crack" })
+                        "The putty needs a dry edge. Once the crack is dry, seal only that gap.",
+                        "메움제는 마른 곳에 붙습니다. 물기를 닦은 틈에만 눌러 붙이세요.", "frost", new[] { "crack" }, new[] { "dry-crack" })
                 });
 
         private static WorkbenchSceneDefinition MissingLeaf()
             => new WorkbenchSceneDefinition(
                 "ice-02-spread", "unmelting-ice",
                 C("Ticking in the base", "받침 안에서 나는 소리"),
-                C("Open the frozen base and follow the ticking.", "얼어붙은 받침을 열어 소리의 정체를 찾으세요."),
+                C("Find out why the sound inside the base answers the leaf.", "받침 속 소리가 얼음 안의 낙엽과 어떻게 이어지는지 알아내세요."),
                 C("Every time the leaf taps, something answers inside the base. Let's open it gently and find out what's ticking.",
                     "낙엽이 두드릴 때마다 받침 안에서도 소리가 나요. 조심히 열어서 뭐가 들어 있는지 봐요."),
                 C("A watch! And there's our leaf, caught behind the glass. How did it get down there?",
@@ -101,9 +101,9 @@ namespace CurioClerk.Content.Workbench
             => new WorkbenchSceneDefinition(
                 "ice-03-tomorrow", "mossy-watch",
                 C("A leaf between the hands", "바늘에 걸린 낙엽"),
-                C("Free the leaf and get the watch ticking again.", "낙엽을 빼내 시계가 다시 움직이게 하세요."),
-                C("Don't wind it yet. The hand is catching on that leaf. We need to clear the little glass cover first.",
-                    "아직 태엽은 감지 마세요. 바늘이 낙엽에 걸려 있어요. 작은 유리 덮개부터 열어야겠네요."),
+                C("Free the leaf safely, then see what changes when the watch runs.", "낙엽을 다치지 않게 꺼내고, 시계가 움직이면 무엇이 달라지는지 보세요."),
+                C("How did the leaf get from the ice into this watch? Its stem is blocking a hand. Let's see what changes when the watch runs again.",
+                    "얼음 속 낙엽이 왜 시계에 들어왔을까요? 바늘이 줄기에 걸려 있어요. 시계가 다시 움직이면 무엇이 달라지는지 봐요."),
                 C("There it goes. But the back is freezing over now. Something inside really doesn't want us to open it.",
                     "이제 움직이네요. 그런데 이번엔 뒷면이 얼고 있어요. 안에 뭐가 더 들어 있나 봐요."),
                 C("A crescent is engraved on the back seal. The same mark is sewn onto an umbrella nearby.",
@@ -143,9 +143,9 @@ namespace CurioClerk.Content.Workbench
             => new WorkbenchSceneDefinition(
                 "ice-04-frozen-seal", "mossy-watch",
                 C("Under the frozen seal", "얼어붙은 봉인 아래"),
-                C("Open the watch's back without damaging the object inside.", "안에 든 물건을 망가뜨리지 않고 시계 뒷면을 여세요."),
-                C("The crescent seal is holding the back shut. Warm the seal gently; I'll keep the watch steady.",
-                    "초승달 봉인이 뒷뚜껑을 붙잡고 있어요. 봉인만 살짝 데워 주세요. 시계는 제가 잡고 있을게요."),
+                C("Investigate the frozen watch back for a link to the umbrella.", "얼어붙은 시계 뒷면을 조사해 우산과의 연결을 찾으세요."),
+                C("When the watch started, only its crescent seal froze. That umbrella has the same mark. Could something inside connect them?",
+                    "시계가 돌자 뒷면 초승달만 얼었어요. 옆 우산에도 같은 무늬가 있네요. 둘을 잇는 단서가 안에 있을까요?"),
                 C("This key has the same crescent. It must belong to that locked umbrella strap.",
                     "열쇠에도 초승달이 있네요. 저 우산의 잠긴 끈에 맞을 것 같아요."),
                 C("The key grows cold when pointed at the umbrella. The ice, watch and umbrella are connected.",
@@ -153,11 +153,11 @@ namespace CurioClerk.Content.Workbench
                 new[]
                 {
                     T("back-seal", .34f, .51f, "Frozen seal", "얼어붙은 봉인",
-                        "Ice covers only the crescent seal. The delicate gears underneath must not get too hot.",
-                        "초승달 봉인에만 얼음이 맺혔습니다. 안쪽의 섬세한 톱니는 너무 달구면 안 되겠습니다."),
+                        "A spring pushes the lid out, but ice holds the crescent seal shut. Only that thin frozen layer is keeping it closed.",
+                        "용수철이 뚜껑을 밀어내지만 초승달 봉인의 얼음이 붙잡고 있습니다. 얇은 얼음 한 겹만 사라지면 열리겠습니다."),
                     T("back-notch", .20f, .38f, "Lid notch", "뒷뚜껑 홈",
-                        "The lid has a thin lip beside this notch. It strains against the frozen seal when lifted.",
-                        "홈 옆에 뚜껑의 얇은 가장자리가 있습니다. 들어 올리면 얼어붙은 봉인이 버팁니다."),
+                        "A spring is already lifting this edge. Prying would strain the hinge; the frozen seal is what still holds it shut.",
+                        "용수철이 이미 가장자리를 들어 올리고 있습니다. 억지로 벌리면 경첩이 상하겠습니다. 붙잡고 있는 것은 얼어붙은 봉인입니다."),
                     T("hidden-key", .55f, .43f, "Crescent key", "초승달 열쇠",
                         "A small key rests beside the moving gears. Its crescent loop is the only part that is clear.",
                         "움직이는 톱니 옆에 작은 열쇠가 놓여 있습니다. 초승달 고리만 다른 부품에 닿지 않습니다.", "lift-back")
@@ -165,17 +165,13 @@ namespace CurioClerk.Content.Workbench
                 new[]
                 {
                     U("warm-pad", "Warm pad", "따뜻한 찜질팩", "Thaws a frozen seal a little at a time.", "얼어붙은 봉인을 조금씩 녹입니다."),
-                    U("thin-lever", "Thin lever", "얇은 주걱", "Gently lifts a loosened metal cover.", "느슨해진 금속 덮개를 살며시 들어 올립니다."),
                     U("fine-tweezers", "Fine tweezers", "가는 핀셋", "Reaches small objects beside the gears.", "톱니 옆의 작은 물건을 꺼냅니다.")
                 },
                 new[]
                 {
-                    A("thaw-seal", "warm-pad", "back-seal", "The seal sheds its ice. A thin gap appears around the back cover.",
-                        "봉인 위 얼음이 녹습니다. 뒷뚜껑 둘레에 가느다란 틈이 생겼습니다.",
-                        "Inspect the crescent seal and warm it before lifting the cover.", "초승달 봉인을 살펴보고 먼저 데운 뒤 뚜껑을 여세요.", "warmth", new[] { "back-seal" }),
-                    A("lift-back", "thin-lever", "back-notch", "The back opens. A key trembles beside the ticking gears.",
-                        "뒷뚜껑이 열립니다. 움직이는 톱니 옆에서 열쇠 하나가 떨고 있습니다.",
-                        "Thaw the seal, then use the lever in the lid's notch.", "봉인을 녹인 다음 뒷뚜껑 홈에 주걱을 넣으세요.", "reveal", new[] { "back-notch" }, new[] { "thaw-seal" }),
+                    A("lift-back", "warm-pad", "back-seal", "The seal thaws. The spring lifts the back cover, revealing a key beside the moving gears.",
+                        "봉인의 얼음이 녹자 용수철이 뒷뚜껑을 엽니다. 움직이는 톱니 옆에 열쇠가 드러났습니다.",
+                        "Examine the frozen seal. Warm only that thin layer so the spring can open the lid.", "얼어붙은 봉인을 살펴보세요. 얇은 얼음만 데우면 용수철이 뚜껑을 열어 줍니다.", "reveal", new[] { "back-seal" }),
                     A("take-key", "fine-tweezers", "hidden-key", "You lift the key safely out. Its crescent turns toward the umbrella.",
                         "열쇠를 무사히 꺼냅니다. 열쇠의 초승달이 우산 쪽을 향합니다.",
                         "Open the back, inspect the key, and pick it up by its loop.", "뒷뚜껑을 열고 열쇠를 살펴본 뒤 고리를 집으세요.", "reveal", new[] { "hidden-key" }, new[] { "lift-back" }, "whispering-key")
@@ -185,9 +181,9 @@ namespace CurioClerk.Content.Workbench
             => new WorkbenchSceneDefinition(
                 "ice-05-thaw", "moon-umbrella",
                 C("The cold has a source", "냉기가 시작된 곳"),
-                C("Release the bent rib and close the umbrella's cold leak.", "휘어진 우산살을 펴고 냉기가 새는 곳을 꿰매세요."),
-                C("The cold is coming through this torn patch. The bent rib keeps pulling it open. Let's fix both.",
-                    "찢어진 덧댐에서 냉기가 새요. 휘어진 우산살이 계속 천을 벌리고 있네요. 둘 다 고쳐야겠어요."),
+                C("Stop the umbrella's cold leak and warm the office again.", "우산의 냉기를 멎게 해 보관소를 다시 따뜻하게 만드세요."),
+                C("The key from the watch grows cold near that umbrella. The same cold is escaping through its torn patch. This is where it began.",
+                    "시계에서 찾은 열쇠가 저 우산 쪽에서 차가워져요. 찢어진 곳에서 같은 냉기가 새네요. 여기서 시작된 거였어요."),
                 C("The room's warming up. You've saved the other things on the shelves. Wait... is that someone speaking inside the umbrella?",
                     "방이 따뜻해지고 있어요. 선반의 물건들도 이제 괜찮겠네요. 잠깐... 우산 안에서 누가 말하지 않았어요?"),
                 C("The cold stops. A single raindrop repeats: 'You said you'd keep a place for me.'",
@@ -227,9 +223,9 @@ namespace CurioClerk.Content.Workbench
             => new WorkbenchSceneDefinition(
                 "rain-01-voices", "moon-umbrella",
                 C("A voice in one drop", "빗방울 속 목소리"),
-                C("Catch the speaking drop without spilling it.", "말하는 빗방울을 흘리지 않고 병에 담으세요."),
-                C("That voice sounds familiar. The drops keep talking over each other. Can we catch just the one by the seam?",
-                    "어디서 들어 본 목소리예요. 빗방울들이 한꺼번에 말해서 잘 안 들리네요. 솔기 쪽 한 방울만 담아 볼까요?"),
+                C("Hear one voice clearly and find out who it is speaking to.", "빗방울의 목소리를 따로 들어, 누구에게 하는 말인지 알아내세요."),
+                C("The cold has stopped, but the umbrella is still speaking. 'A place for me'... I think it's talking to me. I want to hear it clearly.",
+                    "냉기는 멎었는데 우산이 아직 말을 해요. '내 자리'라니… 제게 하는 말 같아요. 무슨 말인지 제대로 듣고 싶어요."),
                 C("'Tuesday, at the window.' I know that voice. Let's look at the name floating in the jar.",
                     "'화요일, 창가에서.' 아는 목소리가 맞아요. 병에 이름표 같은 게 떠 있네요. 한번 봐요."),
                 C("A waterlogged name label appears beneath the captured drop.", "담아 둔 빗방울 밑으로 젖은 이름표가 떠오릅니다."),
@@ -264,9 +260,9 @@ namespace CurioClerk.Content.Workbench
             => new WorkbenchSceneDefinition(
                 "rain-02-names-under-water", "rain-jar",
                 C("A name under the water", "물에 잠긴 이름"),
-                C("Lower the water and save the name on the label.", "물을 덜어 내고 이름표의 글씨를 살리세요."),
-                C("Don't tip the jar; the ink will wash off. Take the cloudy water out a little at a time.",
-                    "병을 쏟으면 글씨도 씻겨 나가겠어요. 탁한 물만 조금씩 덜어 내 주세요."),
+                C("Read the name label to identify the voice inside the umbrella.", "이름표를 읽어 우산 속 목소리의 주인을 찾으세요."),
+                C("The label may tell us whose voice this is. The ink is spreading in the water. Please help me save the name.",
+                    "이름표를 읽으면 목소리의 주인을 알 수 있겠어요. 글씨가 물에 번지고 있어요. 이름만은 지켜 주세요."),
                 C("Soyeon... She taught me this job. She lent me that umbrella on my first night, and I never gave it back.",
                     "소연 선배... 제게 일을 가르쳐 준 분이에요. 첫날 저 우산을 빌려주셨는데, 결국 못 돌려드렸어요."),
                 C("The name label lifts away to reveal a small fish folded from a letter.",
@@ -306,9 +302,9 @@ namespace CurioClerk.Content.Workbench
             => new WorkbenchSceneDefinition(
                 "rain-03-unsent-letter", "paper-fish",
                 C("A letter with fins", "지느러미 달린 편지"),
-                C("Unfold the paper fish without tearing the letter.", "편지가 찢어지지 않게 종이 물고기를 펼치세요."),
-                C("That's Soyeon's handwriting between the folds. The paper has gone stiff. Let's soften the crease before we open it.",
-                    "접힌 틈에 소연 선배의 글씨가 보여요. 종이가 뻣뻣해졌네요. 접힌 자국부터 부드럽게 풀어 줘요."),
+                C("Read the letter inside the paper fish to learn what Soyeon wanted.", "종이 물고기 속 편지를 읽어 소연의 부탁을 알아내세요."),
+                C("This letter may explain why Soyeon left the umbrella. The paper has gone stiff. Let's unfold it without damaging her words.",
+                    "소연 선배가 왜 우산을 남겼는지, 이 편지에 적혀 있을지도 몰라요. 종이가 굳어 있네요. 글씨를 상하지 않게 펼쳐 봐요."),
                 C("'Lend the umbrella to whoever needs it next. Leave them a dry place, too.' She wanted us to keep it in use.",
                     "'우산은 다음에 필요한 사람에게 빌려 주세요. 비를 피할 자리도 남겨 주고요.' 계속 쓰이길 바라셨던 거네요."),
                 C("The last line reads: 'Leave your reply in the umbrella's pocket. I'd like to know someone is still keeping the office open.'",
@@ -348,9 +344,9 @@ namespace CurioClerk.Content.Workbench
             => new WorkbenchSceneDefinition(
                 "rain-04-dry-order", "murmur-box",
                 C("A reply at last", "이제 보내는 답장"),
-                C("Open the letter compartment and prepare a reply.", "상자의 편지 칸을 열고 답장을 준비하세요."),
-                C("I was waiting to return it. She wanted me to pass it on. Could you open the letter compartment? I'll write back.",
-                    "돌려드릴 날만 기다렸는데, 계속 빌려주면 되는 거였네요. 편지 칸 좀 열어 주실래요? 답장을 쓰고 싶어요."),
+                C("Write the senior's reply and protect it from the rain in an envelope.", "선임의 답장을 써서 비에 젖지 않게 봉투에 넣으세요."),
+                C("Now I understand what Soyeon wanted. There's a reply card in this box's letter compartment. Would you write down what I say?",
+                    "이제야 소연 선배의 부탁을 알겠어요. 답장지는 이 상자의 편지 칸에 있어요. 제가 하는 말을 적어 주실래요?"),
                 C("'The umbrella is safe. We'll keep a place by the window.' Let's leave the reply where the rain can find it.",
                     "'우산은 잘 있어요. 창가의 자리도 남겨 둘게요.' 비가 찾을 수 있게 우산에 답장을 넣어 둬요."),
                 C("The finished reply needs a dry pocket. The umbrella has one, but its stitching has come loose.",
@@ -390,9 +386,9 @@ namespace CurioClerk.Content.Workbench
             => new WorkbenchSceneDefinition(
                 "rain-05-testimony", "moon-umbrella",
                 C("A place out of the rain", "비를 피할 자리"),
-                C("Make the pocket watertight and tuck the reply inside.", "주머니에 물이 새지 않게 고쳐 답장을 넣으세요."),
-                C("One last repair. Keep the reply dry, then we can hang this umbrella by the door for whoever needs it next.",
-                    "마지막으로 한 군데만 고쳐요. 답장이 젖지 않게 넣고 나면, 다음에 필요한 사람이 쓰도록 문가에 걸어 둡시다."),
+                C("Leave the reply in the umbrella and make it ready for the next visitor.", "답장을 우산에 남기고, 다음 손님을 맞을 준비를 하세요."),
+                C("She asked us to leave our reply in the umbrella's pocket. Let's keep it dry, then hang the umbrella by the door for the next person.",
+                    "답장은 우산 주머니에 넣어 달라고 하셨죠. 젖지 않게 주머니를 고친 뒤, 다음 사람이 빌릴 수 있게 문가에 걸어 둬요."),
                 C("Soyeon handed me that umbrella on my first night. Next time someone knocks, it'll be our turn.",
                     "제 첫날엔 소연 선배가 저 우산을 내밀어 줬어요. 다음에 누가 문을 두드리면, 우리 차례겠네요."),
                 C("The repaired umbrella waits by the door. A note on its handle reads: 'Borrow it. There's always someone here at night.'",

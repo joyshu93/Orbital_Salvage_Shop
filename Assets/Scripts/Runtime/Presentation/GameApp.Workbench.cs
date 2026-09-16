@@ -82,7 +82,12 @@ namespace CurioClerk.Presentation
             CreateText(page, "NarrativeTitle", WorkbenchCopy(scene.Title), 48, Paper,
                 TextAlignmentOptions.Center, new Vector2(.08f, .87f), new Vector2(.92f, .96f), true, TextRole.Display);
             var portrait = CreateArtworkImage(page, "SeniorClerkPortrait", new Vector2(.18f, .43f), new Vector2(.82f, .86f));
+            SetAnchors(portrait.rectTransform, new Vector2(.22f, .43f), new Vector2(.78f, .76f));
             portrait.sprite = VisualAssetLibrary.SeniorClerk(_incidentRunner.CurrentStageIndex == 0 ? SeniorClerkMood.Concerned : SeniorClerkMood.Neutral);
+            var request = CreatePanel(page, "NarrativeRequestPanel", Wine, new Vector2(.06f, .77f), new Vector2(.94f, .875f));
+            FitWorkbenchText(CreateText(request, "NarrativeRequest", WorkbenchCopy("Our request\n", "우리가 맡은 일\n") +
+                WorkbenchCopy(WorkbenchCaseContext.Find(scene.StageId).Purpose), 30, Paper,
+                TextAlignmentOptions.MidlineLeft, new Vector2(.04f, .06f), new Vector2(.96f, .94f), true), 25, 30);
             var panel = CreatePanel(page, "NarrativeDialoguePanel", Paper, new Vector2(.06f, .18f), new Vector2(.94f, .47f));
             AddSurfaceChrome(panel, Amber, 3, .25f);
             CreateText(panel, "NarrativeSpeaker", WorkbenchCopy("Senior", "선임"), 30, Wine,
@@ -105,8 +110,9 @@ namespace CurioClerk.Presentation
                 _workbench = new WorkbenchSession(scene.Puzzle);
                 _workbenchReplay = _isIncidentReplay;
                 _workbenchCompletionApplied = false;
+                _selectedWorkbenchTarget = null;
                 ResetWorkbenchHint();
-                SetWorkbenchMessage(new LocalizedCopy("Touch a marked part of the object to examine it.", "물건에 표시된 부분을 눌러 살펴보세요."));
+                SetWorkbenchMessage(new LocalizedCopy("Which part might explain this? Tap a name below the object to take a closer look.", "어느 부분에서 실마리를 찾을 수 있을까요? 물건 아래의 이름을 눌러 자세히 살펴보세요."));
             }
             _selectedWorkbenchTool = null;
             _tutorialStage = TutorialStage.None;
@@ -127,17 +133,23 @@ namespace CurioClerk.Presentation
             _workbenchTargets.Clear();
             _workbenchTools.Clear();
             _workbenchEffects.Clear();
+            _workbenchSelectedLabels.Clear();
+            _workbenchNotes = null;
             CreateButton(page, "WorkbenchMenuButton", WorkbenchCopy("Office", "보관소"), new Vector2(.05f, .95f), new Vector2(.27f, .995f), Wine, Paper, ShowMenu, 27);
             _workbenchRestart = CreateButton(page, "WorkbenchRestartButton", WorkbenchCopy("Start over", "처음부터"), new Vector2(.73f, .95f), new Vector2(.95f, .995f), Wine, Paper, RestartWorkbench, 26);
             CreateText(page, "WorkbenchChapter", WorkbenchCopy("CASE ", "사건 ") + (_activeIncident.Id == "unmelting-ice" ? "1" : "2") + " · " + (_incidentRunner.CurrentStageIndex + 1) + "/" + _activeIncident.Stages.Count,
-                24, Amber, TextAlignmentOptions.Center, new Vector2(.28f, .953f), new Vector2(.72f, .992f), true);
+                24, Amber, TextAlignmentOptions.Center, new Vector2(.28f, .926f), new Vector2(.72f, .95f), true);
+            CreateButton(page, "WorkbenchCaseNotesButton", WorkbenchCopy("Case notebook", "사건 수첩"),
+                new Vector2(.30f, .954f), new Vector2(.70f, .995f), Wine, Paper, ShowWorkbenchCaseNotes, 26);
             FitWorkbenchText(CreateText(page, "WorkbenchTitle", WorkbenchCopy(_workbenchScene.Title), 42, Paper,
-                TextAlignmentOptions.Center, new Vector2(.05f, .89f), new Vector2(.95f, .945f), true, TextRole.Display), 32, 42);
-            var objective = CreatePanel(page, "WorkbenchObjectivePanel", Paper, new Vector2(.05f, .793f), new Vector2(.95f, .883f));
+                TextAlignmentOptions.Center, new Vector2(.05f, .877f), new Vector2(.95f, .924f), true, TextRole.Display), 32, 42);
+            var objective = CreatePanel(page, "WorkbenchObjectivePanel", Paper, new Vector2(.05f, .753f), new Vector2(.95f, .871f));
+            FitWorkbenchText(CreateText(objective, "WorkbenchCasePurpose", WorkbenchCopy(WorkbenchCaseContext.Find(_workbenchScene.StageId).Purpose),
+                25, Wine, TextAlignmentOptions.MidlineLeft, new Vector2(.045f, .61f), new Vector2(.955f, .95f), true), 23, 25);
             FitWorkbenchText(CreateText(objective, "WorkbenchObjective", WorkbenchCopy(_workbenchScene.Objective), 34, Ink,
-                TextAlignmentOptions.MidlineLeft, new Vector2(.045f, .10f), new Vector2(.955f, .9f), true), 28, 34);
+                TextAlignmentOptions.MidlineLeft, new Vector2(.045f, .05f), new Vector2(.955f, .59f), true), 28, 34);
 
-            var area = CreatePanel(page, "WorkbenchObjectArea", new Color(33f/255, 20f/255, 30f/255, 1), new Vector2(.05f, .387f), new Vector2(.95f, .782f));
+            var area = CreatePanel(page, "WorkbenchObjectArea", new Color(33f/255, 20f/255, 30f/255, 1), new Vector2(.05f, .447f), new Vector2(.95f, .744f));
             area.GetComponent<Image>().raycastTarget = false;
             _workbenchImageFrame = new GameObject("WorkbenchImageFrame", typeof(RectTransform), typeof(AspectRatioFitter)).GetComponent<RectTransform>();
             _workbenchImageFrame.SetParent(area, false);
@@ -164,29 +176,19 @@ namespace CurioClerk.Presentation
                 mark.rectTransform.localRotation = Quaternion.Euler(0, 0, -18);
                 _workbenchEffects.Add(action.Step.Id, mark);
             }
-            foreach (var target in _workbenchScene.Targets)
-            {
-                var id = target.Id;
-                var button = CreateButton(_workbenchImageFrame, "WorkbenchTarget_" + id, "+",
-                    new Vector2(target.X, target.Y), new Vector2(target.X, target.Y), new Color(.21f, .11f, .17f, .22f), Paper,
-                    () => TapWorkbenchTarget(id), 40);
-                var rect = (RectTransform)button.transform;
-                rect.sizeDelta = new Vector2(96, 96);
-                var outline = button.gameObject.AddComponent<Outline>();
-                outline.effectColor = new Color(1, .8f, .42f, .8f);
-                outline.effectDistance = new Vector2(2, -2);
-                _workbenchTargets.Add(id, button);
-            }
+            BuildWorkbenchTargets(page);
             var note = CreatePanel(page, "WorkbenchObservationPanel", Paper, new Vector2(.05f, .238f), new Vector2(.95f, .373f));
             FitWorkbenchText(_workbenchObservation = CreateText(note, "WorkbenchObservation", WorkbenchMessage, 32, Ink,
                 TextAlignmentOptions.MidlineLeft, new Vector2(.045f, .08f), new Vector2(.955f, .92f), true), 27, 32);
-            _workbenchInspect = CreateButton(page, "WorkbenchInspectButton", WorkbenchCopy("Examine", "살펴보기"), new Vector2(.05f, .191f), new Vector2(.28f, .229f), Sage, Paper,
+            _workbenchInspect = CreateButton(page, "WorkbenchInspectButton", WorkbenchCopy("Put tool down", "도구 내려놓기"), new Vector2(.05f, .014f), new Vector2(.28f, .060f), Wine, Paper,
                 () => { _selectedWorkbenchTool = null; RefreshWorkbenchView(); }, 25);
             _workbenchInstruction = CreateText(page, "WorkbenchInstruction", string.Empty, 24, Paper,
-                TextAlignmentOptions.Center, new Vector2(.30f, .189f), new Vector2(.70f, .233f));
-            FitWorkbenchText(_workbenchInstruction, 21, 24);
+                TextAlignmentOptions.MidlineLeft, new Vector2(.07f, .185f), new Vector2(.93f, .233f), true);
+            FitWorkbenchText(_workbenchInstruction, 23, 26);
             _workbenchHintButton = CreateButton(page, "WorkbenchHintButton", WorkbenchCopy("Hint", "힌트"),
-                new Vector2(.72f, .191f), new Vector2(.95f, .229f), Amber, Ink, ShowWorkbenchHint, 25);
+                new Vector2(.72f, .014f), new Vector2(.95f, .060f), Wine, Paper, ShowWorkbenchHint, 25);
+            _workbenchUse = CreateButton(page, "WorkbenchUseButton", WorkbenchCopy("Use here", "여기에 사용"),
+                new Vector2(.30f, .014f), new Vector2(.70f, .060f), Amber, Ink, UseSelectedWorkbenchTool, 29);
             _workbenchToolTray = CreatePanel(page, "WorkbenchTools", Color.clear, new Vector2(.05f, .069f), new Vector2(.95f, .178f));
             _workbenchToolTray.GetComponent<Image>().raycastTarget = false;
             var width = 1f / _workbenchScene.Tools.Count;
@@ -198,20 +200,25 @@ namespace CurioClerk.Presentation
                     new Vector2(index * width + .009f, 0), new Vector2((index + 1) * width - .009f, 1), Wine, Paper,
                     () => SelectWorkbenchTool(id), 29);
                 var label = button.GetComponentInChildren<TMP_Text>();
-                SetAnchors(label.rectTransform, new Vector2(.05f, .04f), new Vector2(.95f, .55f));
+                SetAnchors(label.rectTransform, new Vector2(.05f, .04f), new Vector2(.95f, .49f));
                 FitWorkbenchText(label, 23, 29);
                 var toolMark = new GameObject("ToolIllustration", typeof(RectTransform), typeof(WorkbenchToolIcon)).GetComponent<WorkbenchToolIcon>();
                 toolMark.rectTransform.SetParent(button.transform, false);
-                SetAnchors(toolMark.rectTransform, new Vector2(.15f, .57f), new Vector2(.85f, .98f));
+                SetAnchors(toolMark.rectTransform, new Vector2(.15f, .51f), new Vector2(.85f, .81f));
                 toolMark.color = Amber;
                 toolMark.Configure(id);
+                var selected = CreateText(button.transform, "WorkbenchSelected_" + id, WorkbenchCopy("SELECTED", "선택됨"),
+                    22, Ink, TextAlignmentOptions.Center, new Vector2(.04f, .82f), new Vector2(.96f, .99f), true);
+                _workbenchSelectedLabels.Add(id, selected);
+                var selectionBorder = button.gameObject.AddComponent<Outline>();
+                selectionBorder.effectDistance = new Vector2(4, -4);
+                selectionBorder.effectColor = Color.clear;
+                UseNeutralWorkbenchTint(button);
                 button.gameObject.AddComponent<WorkbenchToolDrag>().Configure(id,
-                    _workbenchTargets.Values.Select(value => (RectTransform)value.transform).ToArray(),
-                    _workbenchTargets.Keys.ToArray(), UseWorkbenchTool, SelectWorkbenchTool);
+                    _workbenchTargets.Values.Concat(_workbenchMarkers.Values).Select(value => (RectTransform)value.transform).ToArray(),
+                    _workbenchTargets.Keys.Concat(_workbenchMarkers.Keys).ToArray(), UseWorkbenchTool, SelectWorkbenchTool);
                 _workbenchTools.Add(id, button);
             }
-            CreateText(page, "WorkbenchControls", WorkbenchCopy("Drag a tool onto the object, or tap a tool, then a marked part.", "도구를 끌어 쓰거나, 도구를 누른 뒤 사용할 부분을 누르세요."),
-                22, Paper, TextAlignmentOptions.Center, new Vector2(.05f, .014f), new Vector2(.95f, .06f));
             _workbenchEnding = CreatePanel(page, "WorkbenchEnding", Paper, new Vector2(.05f, .12f), new Vector2(.95f, .373f));
             FitWorkbenchText(_workbenchLastResult = CreateText(_workbenchEnding, "WorkbenchActionResult", string.Empty, 29, Ink,
                 TextAlignmentOptions.TopLeft, new Vector2(.045f, .72f), new Vector2(.955f, .96f), true), 25, 29);
@@ -226,11 +233,12 @@ namespace CurioClerk.Presentation
 
         public void InspectWorkbenchTarget(string id)
         {
-            if (!IsWorkbenchActive || _workbench.IsComplete || !IsWorkbenchTargetVisible(id)) return;
+            if (!IsWorkbenchActive || _workbenchNotes != null || _workbench.IsComplete || !IsWorkbenchTargetVisible(id)) return;
             var target = _workbenchScene.Targets.First(value => value.Id == id);
             _workbench.Observe(id);
+            _selectedWorkbenchTarget = id;
             ClearWorkbenchHintFocus();
-            SetWorkbenchMessage(target.Observation, target.Label);
+            SetWorkbenchMessage(CurrentTargetObservation(id), target.Label);
             _feedbackService?.Play(PlayerFeedbackCue.Hold);
             RefreshWorkbenchView();
         }
@@ -243,24 +251,23 @@ namespace CurioClerk.Presentation
 
         private void TapWorkbenchTarget(string id)
         {
-            if (_selectedWorkbenchTool == null) InspectWorkbenchTarget(id);
-            else UseWorkbenchTool(_selectedWorkbenchTool, id);
+            InspectWorkbenchTarget(id);
         }
 
         private void SelectWorkbenchTool(string id)
         {
-            if (!IsWorkbenchActive || _workbench.IsComplete) return;
+            if (!IsWorkbenchActive || _workbenchNotes != null || _workbench.IsComplete) return;
             var tool = _workbenchScene.Tools.FirstOrDefault(value => value.Id == id);
             if (tool == null) return;
             _selectedWorkbenchTool = id;
-            SetWorkbenchMessage(tool.Description, tool.Label);
             RefreshWorkbenchView();
         }
 
         public void UseWorkbenchTool(string toolId, string targetId)
         {
-            if (!IsWorkbenchActive || _workbench.IsComplete || !IsWorkbenchTargetVisible(targetId)) return;
+            if (!IsWorkbenchActive || _workbenchNotes != null || _workbench.IsComplete || !IsWorkbenchTargetVisible(targetId)) return;
             if (!_workbenchScene.Tools.Any(value => value.Id == toolId)) return;
+            _selectedWorkbenchTarget = targetId;
             var outcome = _workbench.Apply(toolId, targetId);
             var action = _workbenchScene.Actions.FirstOrDefault(value => value.Step.Id == outcome.StepId);
             if (outcome.Kind == WorkbenchOutcomeKind.Applied || outcome.Kind == WorkbenchOutcomeKind.Completed)
@@ -279,7 +286,7 @@ namespace CurioClerk.Presentation
                 if (outcome.Kind == WorkbenchOutcomeKind.NeedsObservation) _selectedWorkbenchTool = null;
             }
             else
-                SetWorkbenchMessage(new LocalizedCopy("This tool doesn't help here. Examine the object for a better place to use it.", "여기에는 이 도구가 맞지 않는다. 물건을 살펴보고 쓸 곳을 찾아보자."));
+                SetWorkbenchMessage(WorkbenchExperimentFeedback(toolId, targetId));
             RefreshWorkbenchView();
             if (outcome.Kind == WorkbenchOutcomeKind.Applied || outcome.Kind == WorkbenchOutcomeKind.Completed)
                 _workbenchAtmosphere.Apply(action.Effect, (float)_workbench.CompletedSteps.Count / _workbenchScene.Actions.Count, _workbench.IsComplete);
@@ -305,14 +312,14 @@ namespace CurioClerk.Presentation
 
         public void ContinueWorkbench()
         {
-            if (!IsWorkbenchActive || !_workbench.IsComplete || !_workbenchCompletionApplied) return;
+            if (!IsWorkbenchActive || _workbenchNotes != null || !_workbench.IsComplete || !_workbenchCompletionApplied) return;
             if (_incidentRunner.IsContentExhausted) ShowMenu();
             else ShowIncidentIntro();
         }
 
         public void RestartWorkbench()
         {
-            if (!IsWorkbenchActive || _workbench.IsComplete) return;
+            if (!IsWorkbenchActive || _workbenchNotes != null || _workbench.IsComplete) return;
             _workbench = null;
             BeginWorkbench();
         }
@@ -331,16 +338,6 @@ namespace CurioClerk.Presentation
             _workbenchContinue.gameObject.SetActive(complete);
             _workbenchRestart.interactable = !complete;
             RefreshWorkbenchReplyProps();
-            _workbenchInstruction.text = _selectedWorkbenchTool == null
-                ? WorkbenchCopy("Look closely. Then choose a tool.", "살펴본 뒤, 필요한 도구를 골라보세요.")
-                : WorkbenchCopy("Choose where to use it.", "도구를 사용할 부분을 누르세요.");
-            foreach (var pair in _workbenchTools)
-                pair.Value.GetComponent<Image>().color = pair.Key == _selectedWorkbenchTool ? Sage : Wine;
-            foreach (var pair in _workbenchTargets)
-            {
-                pair.Value.gameObject.SetActive(!complete && IsWorkbenchTargetVisible(pair.Key));
-                pair.Value.GetComponentInChildren<TMP_Text>().text = _workbench.HasObserved(pair.Key) ? "·" : "+";
-            }
             var progress = (float)_workbench.CompletedSteps.Count / _workbenchScene.Actions.Count;
             _workbenchAtmosphere.Apply(null, progress, complete);
             var showTemporaryMarks = !complete && !_workbenchScene.Actions.Any(action =>
@@ -363,6 +360,7 @@ namespace CurioClerk.Presentation
             if (complete && _incidentCompletionWasFinal)
                 _workbenchContinue.GetComponentInChildren<TMP_Text>().text = WorkbenchCopy("Back to the office", "보관소로 돌아가기");
             RefreshWorkbenchHintView(complete);
+            RefreshWorkbenchSelection(complete);
         }
 
         private void BuildWorkbenchReplyProps()

@@ -15,7 +15,7 @@ namespace CurioClerk.Presentation
 
         private void ShowWorkbenchHint()
         {
-            if (!IsWorkbenchActive || _workbench.IsComplete) return;
+            if (!IsWorkbenchActive || _workbenchNotes != null || _workbench.IsComplete) return;
             var step = _workbench.GetNextStep();
             if (step == null) return;
             ClearWorkbenchHintFocus();
@@ -44,8 +44,9 @@ namespace CurioClerk.Presentation
                     _workbenchHintTarget = target.Id;
                     _workbenchHintTool = tool.Id;
                     SetWorkbenchMessage(new LocalizedCopy(
-                        "Tool: " + tool.Label.English + "\nUse it on: " + target.Label.English,
-                        "사용할 도구: " + tool.Label.Korean + "\n사용할 곳: " + target.Label.Korean), label);
+                        "Tool: " + tool.Label.English + "\nTarget: " + target.Label.English,
+                        "사용할 도구: " + tool.Label.Korean + "\n사용할 곳: " + target.Label.Korean),
+                        new LocalizedCopy("Choose both, then 'Use here'", "둘을 고르고 ‘여기에 사용’"));
                 }
             }
             RefreshWorkbenchView();

@@ -1,5 +1,9 @@
 # Third-party notices register
 
+## Purpose and investigation — 2026-09-14
+
+Recorded before authoring: `TEXT-PURPOSE-20260914` is original bilingual project narrative and functional copy. It reuses existing project art, fonts and UI rendering. No third-party prose, art, audio, package or additional license is introduced. Existing notices remain applicable.
+
 Emulator QA note (2026-09-08): validation reports, regression tests, the bilingual fallback-destination label correction, case-specific ending presentation using existing artwork/copy, and local screenshots/logs use the existing project and installed SDKs. No new third-party assets, packages, or licenses are introduced. Local evidence is not store media; existing SDK and art notices continue to apply.
 
 Last reviewed: 2026-09-08 (KST)

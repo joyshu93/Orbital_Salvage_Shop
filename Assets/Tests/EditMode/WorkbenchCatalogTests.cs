@@ -112,6 +112,21 @@ namespace CurioClerk.Tests.EditMode
             Assert.That(session.IsComplete, Is.True, stageId);
         }
 
+        [Test]
+        public void InvestigationIntent_SecondWatchOpeningDoesNotRepeatTheThreeToolLidRoutine()
+        {
+            var scene = WorkbenchCatalog.Find("ice-04-frozen-seal");
+            Assert.That(scene.Actions.Select(action => action.Step.Id), Is.EqualTo(new[] { "lift-back", "take-key" }));
+            Assert.That(scene.Tools.Count, Is.EqualTo(2));
+            var session = new WorkbenchSession(scene.Puzzle);
+            foreach (var action in scene.Actions)
+            {
+                foreach (var id in action.Step.RequiredObservations) session.Observe(id);
+                session.Apply(action.Step.ToolId, action.Step.TargetId);
+            }
+            Assert.That(session.IsComplete, Is.True);
+        }
+
         private static void AssertCopy(LocalizedCopy copy, string context)
         {
             Assert.That(copy, Is.Not.Null, context);

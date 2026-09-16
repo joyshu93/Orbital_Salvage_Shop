@@ -1,12 +1,28 @@
 # Curio Clerk 직접 조사 플레이테스트 / Hands-on case playtest
 
-## 최신 재미·완성도 수정판 / Latest Fun/Polish revision
+## 목적과 조사 수정판 / Purpose and investigation revision
+
+9월 14일 재방문 플레이에서 조사 이유·스토리·작은 표시·도구 선택의 혼란과 재미 부족이 다시 보고됐습니다. 이번 수정은 사건의 부탁과 현재 질문을 작업 중에도 보여주고, 조사 대상의 이름과 선택된 도구를 분명히 표시합니다. 직전 발견과 알려진 단서를 다시 볼 수 있는 **사건 수첩 / Case notebook**을 추가하고, 중복 수리와 불필요한 읽기 조건을 줄였습니다. 새 후보의 소스·APK·실행 검증은 [목적과 조사 QA](../QA/PlayerIntent-20260914.md)를 기준으로 합니다. 아래 이전 인계 표는 당시 기록입니다.
+
+Returning-player feedback on September14 reported unclear motives/story, small markers, ambiguous tool selection and insufficient enjoyment. The revision keeps the request and current question visible, names investigation targets, makes tool selection explicit, adds a notebook of the previous discovery and known clues, and removes duplicated work and an unrelated reading gate. Use the linked QA report for this candidate's artifact and validation. Older handoff tables below remain historical records.
+
+| 현재 후보 / Current candidate | 확인 / Verification |
+|---|---|
+| APK | `Builds/Android/FunPolish-20260911/purpose-20260916-02/player/CurioClerk-qa.apk` · 105,257,071 bytes |
+| SHA-256 | `C70EA549E4184BE2AEDA70D419753C301F6DE62283B225B2B5CEFB0EF2A557E7` |
+| 소스 / Product source | `e9eb4b5b39edf76745b746bfadd5e375ba037acd` |
+| 검증 / Validation | Editor372/372; 한국어 두 사건, 영어 Ice01·Rain01–05 실제 입력 / Both Korean cases and English Ice01/Rain01–05 actual-input replay |
+| 개인 인계 / Personal handoff | 9월16일01:50:16 UTC 기존 저장 유지, 새 APK 실행, 한국어 **기억하는 비 · 업무 이어하기3/5** 화면 확인 / Existing save preserved, new APK launched at the Korean Continue work3/5 menu |
+
+개인 환경은 QA 종료 후 업데이트했습니다. 에뮬레이터 부팅 중 시스템 UI 지연 창을 **기다리기 / Wait**로 해소했으며, 퍼즐을 대신 진행하지 않았습니다. 새 첫 장면부터 보고 싶을 때는 첫 사건의 **사건 다시보기 / Replay Case**를 사용할 수 있습니다. / Personal handoff followed QA. A boot-time System UI delay recovered after choosing Wait; no puzzle inputs were sent. Replay Case revisits the revised first case without deleting progress.
+
+## 이전 재미·완성도 수정판 / Previous Fun/Polish revision
 
 **Fun/Polish candidate-01**은 시계의 상태 변화와 작업 결과의 연결, 사건 후반의 인물 반응과 문구의 읽기 편의성을 다듬은 후속 수정판입니다. 전용 QA 환경에서 한국어 Ice01–03과 한영 Rain01–05 전체를 소스를 아는 에이전트가 다시보기로 확인했습니다. 재시작·탭·드래그, 바뀐 문구·가독성과 최종 저장 유지도 확인했습니다. 실행 검증은 9월 11일, 최종 소스 연결과 기록 정리는 9월 14일에 마쳤습니다. 이 기록은 사람의 자연 플레이나 재미 검증을 뜻하지 않습니다.
 
 **Fun/Polish candidate-01** refines watch-state feedback, later character reactions and readable copy. A source-aware agent verified Korean Ice01–03 and all five Rain scenes in both languages on the dedicated QA environment, including restart, tap/drag controls, revised copy, readability and unchanged final save data. Execution checks occurred on September11; source verification and final records were completed on September14. These checks do not establish natural human play or enjoyment.
 
-| 최신 수정판 / Latest revision | 확인 상태 / Verification |
+| 이전 Fun/Polish 수정판 / Previous Fun/Polish revision | 당시 확인 상태 / Verification at that handoff |
 |---|---|
 | APK | `Builds/Android/FunPolish-20260911/candidate-01/player/CurioClerk-qa.apk` · **105,252,549 bytes** |
 | SHA-256 | `B7CA9FB7D0136CB5247926FD44C83C344F31FBF36D0C3205AC31CB8470C2CC79` |
@@ -92,9 +108,10 @@ Do not explain item solutions, tool order or later story events in advance. Offe
 
 A new game follows **Start your first night → a short request from the senior → Take a look → the workbench**. Examine marked parts of the object and observe what changes when tools are used. Control help must not reveal a specific solution.
 
-- **살펴보기 / Examine:** 물건에 표시된 부분을 누릅니다. 도구를 선택한 상태에서 다시 관찰하려면 **살펴보기**를 누른 뒤 해당 부분을 누릅니다. / Tap a marked part. If a tool is selected, choose **Examine** before inspecting a part again.
+- **살펴보기 / Inspect:** 물건 아래의 이름 버튼이나 물건 위의 번호를 누르면 그 부분을 살펴보고 선택합니다. 도구가 선택되어 있어도 관찰할 수 있습니다. / Tap a named button below the object or a number on it to inspect and focus that part, including while a tool is selected.
 - **도구 드래그:** 도구를 물건의 사용할 부분까지 끌어 놓습니다. 에뮬레이터에서는 마우스 왼쪽 버튼을 누른 채 끕니다. / Drag a tool onto the part where you want to use it; in the emulator, hold the left mouse button while dragging.
-- **탭으로 사용:** 도구를 한 번 누르고 사용할 부분을 누릅니다. / Tap a tool, then the part where you want to use it.
+- **탭으로 사용 / Use by tapping:** 사용할 부분과 도구를 고른 뒤 **여기에 사용 / Use here**을 누릅니다. 도구에는 **선택됨 / SELECTED** 표시가 붙고 기능 설명이 보입니다. 도구 선택만으로 물건이 변하지 않습니다. / Choose a part and a tool, then press **Use here**. The selected tool has a SELECTED badge and a function description. Selecting alone does not change the object.
+- **사건 수첩 / Case notebook:** 맡은 일, 지금까지의 발견, 현재 질문과 살펴본 단서를 다시 읽을 수 있습니다. 닫으면 현재 관찰과 도구 선택으로 돌아옵니다. / Revisit the request, earlier discovery, current question and inspected clues. Closing it retains the current observation and tool selection.
 - **다른 시도:** 맞지 않는 도구나 아직 준비되지 않은 동작을 시도해도 목숨·재화를 잃지 않습니다. 반응을 읽고 다른 시도를 할 수 있습니다. 광고나 대기가 필요하지 않습니다. / An unsuitable or premature action does not cost lives or currency. Read the response and try something else; no ad or wait is required.
 - **힌트 수정판 — 힌트 / Hint revision — Hint:** 막히면 눌러 현재 단계의 도움을 볼 수 있습니다. **더 자세히 / More help**를 누르면 먼저 살펴볼 부분이나 사용할 도구·부분을 표시합니다. 재화·광고·대기는 필요하지 않습니다. / In the Hint revision, choose **Hint** for guidance on the current step. Choose **More help** to mark a part to examine, or a tool and where to use it. No currency, ad or wait is required.
 - **처음부터 / Start over:** 아직 완료하지 않은 현재 작업대의 시도를 다시 시작합니다. 이미 완료한 장면과 사건 기록을 지우는 버튼이 아닙니다. / Restart the current unfinished workbench; completed scenes and case records remain.

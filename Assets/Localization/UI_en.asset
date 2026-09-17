@@ -23,7 +23,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1598009344
-    m_Localized: NIGHT SHIFT
+    m_Localized: NIGHT LOST-PROPERTY OFFICE
     m_Metadata:
       m_Items: []
   - m_Id: 1602203648
@@ -35,7 +35,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1602203650
-    m_Localized: Casebook
+    m_Localized: Object notes
     m_Metadata:
       m_Items: []
   - m_Id: 1602203651
@@ -464,11 +464,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 3903012401557504
-    m_Localized: "Continue Investigation \xB7 {0}/{1}"
+    m_Localized: "Continue case \xB7 {0}/{1}"
     m_Metadata:
       m_Items: []
   - m_Id: 3903012401557505
-    m_Localized: Investigation {0}/{1}
+    m_Localized: Task {0}/{1}
     m_Metadata:
       m_Items: []
   - m_Id: 3903012401557506
@@ -480,11 +480,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 3903012401557508
-    m_Localized: Free Shift
+    m_Localized: Sorting practice
     m_Metadata:
       m_Items: []
   - m_Id: 3903012401557509
-    m_Localized: Senior Clerk
+    m_Localized: Senior
     m_Metadata:
       m_Items: []
   - m_Id: 3903012401557510
@@ -496,7 +496,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 3903012401557512
-    m_Localized: Next Shift
+    m_Localized: Next task
     m_Metadata:
       m_Items: []
   - m_Id: 3903012401557513
@@ -549,7 +549,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 5327270201765888
-    m_Localized: Begin First Investigation
+    m_Localized: Start your first night
     m_Metadata:
       m_Items: []
   - m_Id: 5327270243708928
@@ -573,7 +573,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 5327270243708933
-    m_Localized: Return to Incident Board
+    m_Localized: Back to the office
     m_Metadata:
       m_Items: []
   - m_Id: 7231377317539840

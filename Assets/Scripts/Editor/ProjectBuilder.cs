@@ -67,6 +67,7 @@ namespace CurioClerk.Editor
             EnsureFolders();
             ConfigureBrandAssets();
             ConfigureNarrativeArtAssets();
+            ConfigureWorkbenchArt();
             ConfigureFontAssets();
             CreateContentAssets();
             CreateLocalizationAssets();
@@ -1045,6 +1046,28 @@ namespace CurioClerk.Editor
             }
 
             ConfigureNarrativeArtAsset(FrostOverlayPath, 2048);
+        }
+
+        private static void ConfigureWorkbenchArt()
+        {
+            ConfigureWorkbenchAtlas("Assets/Resources/Art/Workbench/workbench-states.png", 2048);
+            ConfigureWorkbenchAtlas("Assets/Resources/Art/Workbench/watch-discovery-states.png", 4096);
+        }
+
+        private static void ConfigureWorkbenchAtlas(string path, int maximumSize)
+        {
+            ConfigureNarrativeArtAsset(path, maximumSize);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            importer.npotScale = TextureImporterNPOTScale.None;
+            var settings = new TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+            settings.spriteMeshType = SpriteMeshType.FullRect;
+            importer.SetTextureSettings(settings);
+            // Inherited platforms use this limit even when maxTextureSize was set above.
+            var defaults = importer.GetDefaultPlatformTextureSettings();
+            defaults.maxTextureSize = maximumSize;
+            importer.SetPlatformTextureSettings(defaults);
+            importer.SaveAndReimport();
         }
 
         private static void ConfigureNarrativeArtAsset(string path, int maxTextureSize)

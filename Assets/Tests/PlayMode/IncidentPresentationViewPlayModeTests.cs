@@ -59,7 +59,7 @@ namespace CurioClerk.Tests.PlayMode
                 () => { });
             yield return null;
 
-            Assert.That(speaker.text, Is.EqualTo("선임 관리인"));
+            Assert.That(speaker.text, Is.EqualTo("선임"));
             Assert.That(body.text, Is.EqualTo("첫 문장"));
             Assert.That(portrait.sprite, Is.SameAs(neutral));
             Assert.That(portrait.enabled, Is.True);
@@ -89,7 +89,7 @@ namespace CurioClerk.Tests.PlayMode
             view.Play(beats, "en", mood => mood == SeniorClerkMood.Neutral ? neutral : relieved, () => { });
             yield return null;
 
-            Assert.That(speaker.text, Is.EqualTo("Senior Clerk"));
+            Assert.That(speaker.text, Is.EqualTo("Senior"));
             Assert.That(body.text, Is.EqualTo("The ledger is open."));
             Assert.That(portrait.sprite, Is.SameAs(neutral));
 
@@ -159,7 +159,7 @@ namespace CurioClerk.Tests.PlayMode
             Assert.That(portrait.enabled, Is.False);
             Assert.That(speaker.gameObject.activeInHierarchy, Is.True);
             Assert.That(body.gameObject.activeInHierarchy, Is.True);
-            Assert.That(speaker.text, Is.EqualTo("선임 관리인"));
+            Assert.That(speaker.text, Is.EqualTo("선임"));
             Assert.That(body.text, Is.EqualTo("서리를 읽으세요."));
         }
 
